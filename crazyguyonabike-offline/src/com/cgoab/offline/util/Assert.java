@@ -1,0 +1,50 @@
+package com.cgoab.offline.util;
+
+import com.cgoab.offline.model.Journal;
+
+public class Assert {
+	public static void isTrue(boolean condition, String message) {
+		if (!condition) {
+			throw new AssertionError("Assertion Failed: " + (message == null ? "expected true" : message));
+		}
+	}
+
+	public static void isFalse(boolean condition, String message) {
+		if (condition) {
+			throw new AssertionError("Assertion Failed: " + (message == null ? "expected false" : message));
+		}
+	}
+
+	public static void isTrue(boolean condition) {
+		isTrue(condition, null);
+	}
+
+	public static void isNull(Object o) {
+		isNull(o, null);
+	}
+
+	public static void isNull(Object o, String message) {
+		if (o != null) {
+			throw new AssertionError("Assertion Failed: " + (message == null ? "expected null" : message));
+
+		}
+	}
+
+	public static void notNull(Object o, String msg) {
+		if (o == null) {
+			throw new AssertionError(msg);
+		}
+	}
+
+	public static void notEmpty(String name, String msg) {
+		if (StringUtils.isEmpty(name)) {
+			throw new AssertionError(msg);
+		}
+	}
+
+	public static void same(Object o1, Journal o2, String msg) {
+		if (o1 != o2) {
+			throw new AssertionError(msg);
+		}
+	}
+}
