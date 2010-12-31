@@ -1,0 +1,69 @@
+<project name="cgoab-offline" basedir="." default="main">
+
+	<property name="version" value="0.1.0" />
+	<property name="src.dir" value="src" />
+	<property name="boot.dir" value="boot" />
+	<property name="build.dir" value="build" />
+	<property name="classes.dir" value="${build.dir}/classes" />
+	<property name="main.classes.dir" value="${classes.dir}/main" />
+	<property name="boot.classes.dir" value="${classes.dir}/boot" />
+	<property name="jar.dir" value="${build.dir}/jar" />
+	<property name="main-class" value="boot.Bootstrap" />
+	<property name="main.jar.name" value="${ant.project.name}.app.${version}.jar" />
+	<property name="boot.jar.name" value="${ant.project.name}.${version}.jar" />
+	<property name="lib.dir" value="libs" />
+	<property name="swt.dir" value="libsswt" />
+
+	<path id="classpath">
+		<fileset dir="${lib.dir}" includes="*.jar" />
+		<!-- for compiling it doesn't matter which SWT jar we use -->
+		<fileset dir="${swt.dir}" includes="swt-3.6.1-win32.jar" />
+	</path>
+
+	<target name="clean">
+		<delete dir="${build.dir}" />
+	</target>
+
+	<target name="compile-main">
+		<mkdir dir="${main.classes.dir}" />
+		<javac srcdir="${src.dir}" destdir="${main.classes.dir}" debug="yes" classpathref="classpath" />
+	</target>
+
+	<target name="compile-boot">
+		<mkdir dir="${boot.classes.dir}" />
+		<javac srcdir="${boot.dir}" destdir="${boot.classes.dir}" debug="yes" />
+	</target>
+
+	<target name="jar-main" depends="compile-main">
+		<mkdir dir="${jar.dir}" />
+		<jar destfile="${jar.dir}/${main.jar.name}" basedir="${main.classes.dir}">
+			<fileset dir="${src.dir}">
+				<include name="**/*.gif" />
+				<include name="**/*.properties" />
+				<include name="**/*.log" />
+			</fileset>
+		</jar>
+	</target>
+
+	<target name="jar-boot" depends="compile-boot,jar-main">
+		<mkdir dir="${jar.dir}" />
+		<jar destfile="${jar.dir}/${boot.jar.name}" basedir="${boot.classes.dir}">
+			<manifest>
+				<attribute name="Built-By" value="${user.name}" />
+				<attribute name="Specification-Title" value="${name}" />
+				<attribute name="Specification-Version" value="${version}" />
+				<attribute name="Implementation-Title" value="${name}" />
+				<attribute name="Implementation-Version" value="${version} ${TODAY}" />
+				<attribute name="Main-Class" value="${main-class}" />
+			</manifest>
+			<fileset dir=".">
+				<include name="${lib.dir}/*.jar" />
+				<include name="${swt.dir}/*.jar" />
+			</fileset>
+			<zipfileset dir="${jar.dir}" includes="${main.jar.name}" fullpath="libs/${main.jar.name}" />
+		</jar>
+	</target>
+
+	<target name="main" depends="clean,jar-boot" />
+
+</project>

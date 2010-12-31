@@ -1,0 +1,511 @@
+
+<!-- saved from url=(0050)http://www.crazyguyonabike.com/my/account/?o=RpmwT -->
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml"><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+	
+	<meta http-equiv="Pragma" content="no-cache"><title>benrowlands</title>
+<script language="JavaScript" type="text/javascript">
+<!--
+      function el(x)
+      {
+         return (typeof x == "string") ? document.getElementById(x) : x;
+      }
+      
+
+   
+
+   
+
+   var request = null;
+
+      function createRequest()
+      {
+	request = null;
+	try
+	{
+		request = new XMLHttpRequest();
+	}
+	catch (trymicrosoft)
+	{
+		try
+		{
+			request = new ActiveXObject("Msxm12.XMLHTTP");
+		}
+		catch (othermicrosoft)
+		{
+			try
+			{
+				request = new ActiveXObject("Microsoft.XMLHTTP");
+			}
+			catch (failed)
+			{
+				request = null;
+			}
+		}
+	}
+      }
+
+      var context = '';
+   var type = '';
+   var id = 0;
+   var id_field = '';
+   var action = '';
+   var rating = '';
+   var counter = 0;
+
+   function doRatingsCallback()
+   {
+	if (request.readyState == 4)
+	{
+		var result = request.responseText;
+		if (result.substring(0,5) == 'Error')
+		{
+			if (result.indexOf ('logged in') > -1)
+			{
+				window.location = '/login/?referer=' + escape(window.location);
+			}
+			else
+			{
+				alert (result);
+			}
+		}
+		else
+		{
+			document.getElementById ('divRatings_' + type + '_' + id + '_' + counter).innerHTML = result;
+			if (action == 'toggle')
+			{
+				document.getElementById('RatingCollapsedScore_' + type + '_' + id + '_' + counter).innerHTML = 'Score';
+				document.getElementById('divRatings_' + type + '_' + id + '_' + counter).style.display = 'block';
+				document.getElementById('divRatingsContainer_' + type + '_' + id + '_' + counter).style.zIndex = 100;
+				document.getElementById('divRatings_' + type + '_' + id + '_' + counter).style.zIndex = 50;
+			}
+		}
+		action = '';
+	}
+   }
+
+   function closeRatingsMenu ()
+   {
+	if (id > 0 && action == '')
+	{
+		document.getElementById('RatingCollapsedScore_' + type + '_' + id + '_' + counter).innerHTML = 
+		    document.getElementById('RatingScore_' + type + '_' + id + '_' + counter).innerHTML;
+		document.getElementById('divRatings_' + type + '_' + id + '_' + counter).style.display = 'none';
+		document.getElementById('divRatingsContainer_' + type + '_' + id + '_' + counter).style.zIndex = 1;
+		document.getElementById('divRatings_' + type + '_' + id + '_' + counter).style.zIndex = 1;
+		id = 0;
+	}
+	var old_context = context;
+	context = '';
+	return (old_context == '') ? true : false;
+   }
+
+   function toggleRatings (the_type, the_id_field, the_id, version, format, filter, the_counter)
+   {
+	createRequest();
+	if (request == null)
+	{
+		return true;
+	}
+	else
+	{
+		context = 'toggleRatings';
+		action = '';
+		if (the_id == id)
+		{
+			closeRatingsMenu ();
+			context = 'toggleRatings';
+		}
+		else
+		{
+			closeRatingsMenu ();
+			context = 'toggleRatings';
+			type = the_type;
+			id = the_id;
+			id_field = the_id_field;
+			counter = the_counter;
+			action = 'toggle';
+			var url = "/ajax/doRatings.html?id_field=" + the_id_field + "&id=" + the_id + "&counter=" + counter + "&v=" + version + "&format=" + format + "&filter=" + filter;
+			request.open("GET", url, true);
+			request.onreadystatechange = doRatingsCallback;
+			var result = request.send(null);
+		}
+		return false;
+	}
+   }
+
+   function doRating (the_type, the_id_field, the_id, the_counter, the_rating, the_delta, version, format, filter, do_confirm)
+   {
+	context = 'doRating';
+	type = the_type;
+	id = the_id;
+	id_field = the_id_field;
+	rating = the_rating;
+	counter = the_counter;
+	createRequest();
+	if (request == null)
+	{
+		return true;
+	}
+	else
+	{
+		if ((do_confirm == 1 && (( the_rating != 'miscategorized' && the_rating != 'troll' && the_rating != 'abuse' && the_rating != 'spam' && the_rating != 'offtopic' ) || confirm ("Are you sure you want to use this rating? It should not be used lightly. If you click 'Ok' then the webmaster will be notified so further action can be taken.") )) || do_confirm == 0)
+		{
+			action = 'do_rating';
+			var url = "/ajax/doRatings.html?id_field=" + the_id_field + "&id=" + the_id + "&counter=" + counter + "&rating=" + the_rating + "&filter=" + filter + "&delta=" + the_delta + "&v=" + version + "&format=" + format;
+			request.open("GET", url, true);
+			request.onreadystatechange = doRatingsCallback;
+			var result = request.send(null);
+		}
+		return false;
+	}
+   }
+
+
+
+   
+
+   var bookmark_type;
+   var bookmark_id;
+   var bookmark_counter;
+
+   function doBookmark_callback()
+   {
+	if (request.readyState == 4)
+	{
+		var result = request.responseText;
+
+		if (result == 'OK')
+		{
+			var element = document.getElementById ('bookmark_' + bookmark_type + '_' + bookmark_id + '_' + bookmark_counter);
+			//element.innerHTML = 'Bookmark&#10003;';
+			element.innerHTML = 'BOOKMARK';
+		}
+		else
+		{
+			alert(result);
+		}
+	}
+   }
+
+   function doBookmark (type, id, counter)
+   {
+        bookmark_type = type;
+	bookmark_id = id;
+	bookmark_counter = counter;
+	createRequest();
+	if (request == null)
+	{
+		return true;
+	}
+	else
+	{
+		var url = '/ajax/bookmark.html?type=' + type + '&id=' + id;
+		request.open("GET", url, true);
+		request.onreadystatechange = doBookmark_callback;
+		var result = request.send(null);
+		return false;
+	}
+   }
+
+//-->
+</script>
+<style type="text/css">
+	   </style>
+
+</head>
+
+<body bgcolor="beige" onload="do_onload();" onunload="do_onunload();" onclick="javascript:closeRatingsMenu();"><a name="top"></a>
+<a href="http://www.crazyguyonabike.com/email/guestbook/message/?email=445062383" onclick="event.returnValue = false; return false;"></a>
+   <a href="http://www.crazyguyonabike.com/email/guestbook/post/?email=445062383" onclick="event.returnValue = false; return false;"><img src="./UserAccountPage_files/guestbook.gif" width="1" height="1" border="0" align="RIGHT"></a>
+
+
+	<table cellpadding="1" width="100%">
+		<tbody><tr>
+			<td bgcolor="white" width="5%">
+				<nobr>&nbsp;
+				        <a href="http://www.crazyguyonabike.com/?o=RpmwT" alt="" style="text-decoration:none;" title=""><big><b>crazyguyonabike</b></big></a>&nbsp;</nobr>
+				</td>
+			<td width="25%" align="LEFT">
+			   <table cellpadding="1">
+			      <tbody><tr>
+			 	<td>
+				   <nobr>
+					Topic: <b>Bicycle Touring</b>
+					[<a href="http://www.topicwise.com/?o=RpmwT">change</a>]
+					</nobr>
+				   </td>
+			      </tr>
+			   </tbody></table>
+			</td>
+			<td align="RIGHT" width="70%">
+				<table cellpadding="1">
+				   <tbody><tr>
+					<td><a href="http://www.crazyguyonabike.com/website/about/?o=RpmwT">About</a>&nbsp;</td>
+					   <td><a href="http://www.crazyguyonabike.com/website/help/?o=RpmwT">Help</a>&nbsp;</td>
+					      <td><a href="http://www.crazyguyonabike.com/website/faq/?o=RpmwT">FAQ</a>&nbsp;</td>
+					   <td><a href="http://www.crazyguyonabike.com/website/sitemap/?o=RpmwT">Sitemap</a>&nbsp;</td>
+					   <td><a href="http://www.crazyguyonabike.com/website/options/?o=RpmwT">Options</a>&nbsp;</td>
+					   <td><a href="http://www.crazyguyonabike.com/website/sponsors/?o=RpmwT">Sponsors</a>&nbsp;</td>
+					   <td><a href="http://www.crazyguyonabike.com/website/sponsors/donate/?o=RpmwT">Donate</a>&nbsp;</td>
+					   <form action="http://www.crazyguyonabike.com/search/" method="GET" style="margin-bottom: 0"></form>
+					         <td><input type="TEXT" name="term" size="10" maxlength="60" value=""></td>
+					         <td><input type="SUBMIT" value="Search"></td>
+					         <input type="HIDDEN" name="expand" value="auto">
+					      
+					   </tr>
+				</tbody></table>
+			</td>
+		</tr>
+	</tbody></table>
+
+	<hr>
+
+
+
+   <table border="0" cellpadding="3" cellspacing="0"><tbody><tr><td bgcolor="beige">&nbsp;<a href="http://www.crazyguyonabike.com/?o=RpmwT">Home</a></td>
+<td bgcolor="#00ccff">&nbsp;<a href="http://www.crazyguyonabike.com/my/?o=RpmwT">My</a>&nbsp;</td>
+<td bgcolor="beige">&nbsp;<a href="http://www.crazyguyonabike.com/doc/?o=RpmwT&doctype=journal">Journals</a><font color="red">*</font></td>
+<td bgcolor="beige">&nbsp;<a href="http://www.crazyguyonabike.com/doc/?o=RpmwT&doctype=article">Articles</a><font color="red">*</font></td>
+<td bgcolor="beige">&nbsp;<a href="http://www.crazyguyonabike.com/forum/?o=RpmwT">Forums</a><font color="red">*</font></td>
+<td bgcolor="beige">&nbsp;<a href="http://www.crazyguyonabike.com/reviews/?o=RpmwT">Reviews</a><font color="red">*</font></td>
+<td bgcolor="beige">&nbsp;<a href="http://www.crazyguyonabike.com/resources/?o=RpmwT">Resources</a><font color="green">*</font></td>
+<td bgcolor="beige">&nbsp;<a href="http://www.crazyguyonabike.com/classifieds/?o=RpmwT">Classifieds</a><font color="green">*</font></td>
+<td bgcolor="beige">&nbsp;<a href="http://www.crazyguyonabike.com/serendipity/?o=RpmwT">Serendipity</a></td>
+<td bgcolor="beige">&nbsp;<a href="http://www.crazyguyonabike.com/ratings/?o=RpmwT">Ratings</a><font color="red">*</font></td>
+<td bgcolor="beige">&nbsp;<a href="http://www.crazyguyonabike.com/directory/?o=RpmwT">Directory</a></td>
+<td bgcolor="beige">&nbsp;<a href="http://www.crazyguyonabike.com/search/?o=RpmwT">Search</a></td>
+<td bgcolor="beige">&nbsp;<a href="http://www.crazyguyonabike.com/website/?o=RpmwT">Website</a></td>
+</tr><tr>
+<td bgcolor="#00ccff" colspan="14"><table border="0" cellpadding="3" cellspacing="0"><tbody><tr><td bgcolor="#ffcc99">&nbsp;<big><b>Account</b></big>&nbsp;</td>
+<td bgcolor="white">&nbsp;<a href="http://www.crazyguyonabike.com/my/topics/?o=RpmwT">Topics</a></td>
+<td bgcolor="white">&nbsp;<a href="http://www.crazyguyonabike.com/my/options/?o=RpmwT">Options</a></td>
+<td bgcolor="white">&nbsp;<a href="http://www.crazyguyonabike.com/my/replies/?o=RpmwT">Replies</a></td>
+<td bgcolor="white">&nbsp;<a href="http://www.crazyguyonabike.com/my/reviews/?o=RpmwT">Reviews</a></td>
+<td bgcolor="white">&nbsp;<a href="http://www.crazyguyonabike.com/my/resources/?o=RpmwT">Resources</a></td>
+<td bgcolor="white">&nbsp;<a href="http://www.crazyguyonabike.com/my/classifieds/?o=RpmwT">Classifieds</a></td>
+<td bgcolor="white">&nbsp;<a href="http://www.crazyguyonabike.com/my/relations/?o=RpmwT">Relations</a></td>
+<td bgcolor="white">&nbsp;<a href="http://www.crazyguyonabike.com/my/bookmarks/?o=RpmwT">Bookmarks</a></td>
+<td bgcolor="white">&nbsp;<a href="http://www.crazyguyonabike.com/my/ratings/?o=RpmwT">Ratings</a></td>
+<td bgcolor="white">&nbsp;<a href="http://www.crazyguyonabike.com/my/downloads/?o=RpmwT">Downloads</a></td>
+<td bgcolor="white">&nbsp;<a href="http://www.crazyguyonabike.com/my/donations/?o=RpmwT">Donations</a></td>
+<td bgcolor="white">&nbsp;<a href="http://www.crazyguyonabike.com/my/ads/?o=RpmwT">Ads</a></td>
+</tr>
+</tbody></table>
+</td>
+</tr>
+
+</tbody></table>
+<hr>
+
+<h1>Update Account</h1>
+
+
+
+   <hr>
+   <form action="http://www.crazyguyonabike.com/my/account/" method="POST" name="form">
+
+   <table>
+
+   
+
+   <tbody><tr>
+	 <td colspan="2">
+	    <h3>Username:</h3>
+
+	    <ul>
+		<li>This can be anything you like, within the usual boundaries of common sense and decency.
+    		</li><li>Allowed characters are letters, numbers, underscore and hyphen. Spaces and other punctuation are not allowed.
+		</li><li>Your username and real name will both be visible on the public website.
+		 </li></ul>
+
+	    <hr>
+
+	 </td>
+   </tr>
+
+   <tr>
+	 <th align="RIGHT">Username:</th>
+	 <td>
+		<input name="username" type="TEXT" size="20" maxlength="20" value="benrowlands">
+		You use this to log in, and for your profile address - http://www.crazyguyonabike.com/<i>username</i>
+	 </td>
+   </tr>
+
+   <tr><td colspan="2"><hr></td></tr>
+
+   <tr>
+	 <td colspan="2">
+	    <h3>Password:</h3>
+
+	    <ul>
+		<li>This can be anything you like, including spaces and punctuation. The more obscure the better, but try to make it memorable!
+		</li><li>If you ever forget your password, then a new one can be emailed to you automatically via an <a href="http://www.crazyguyonabike.com/login/email/" target="_blank">option</a> on the login form.
+	    </li></ul>
+
+	    <hr>
+
+	 </td>
+   </tr>
+
+   <tr>
+	 <th align="RIGHT">New Password:</th>
+	 <td>
+		<input name="password" type="PASSWORD" size="20" maxlength="20" value="">
+		Leave these blank if you don't wish to change your password.
+	 </td>
+      </tr>
+      <tr>
+	 <th align="RIGHT">Confirm:</th>
+	 <td>
+		<input name="confirm_password" type="PASSWORD" size="20" maxlength="20" value="">
+		Enter your new password again, to reduce the chances of a typo.
+	 </td>
+      </tr>
+   <tr><td colspan="2"><hr></td></tr>
+
+   <tr>
+	<td colspan="2">
+
+	    <h3>Real name:</h3>
+
+	    <ul>
+		<li>Please enter below your real first and last name.
+		</li><li>Pseudonyms and nicknames are strongly discouraged, unless there is a real privacy or safety issue for you or your family.
+	    	</li><li>One person per registration, please (you can still have multiple authors on journals). Register each person separately.
+		</li><li>New accounts that violate these rules may be removed without notice.
+	    </li></ul>
+		
+	    <p>
+
+   </p></td> </tr>
+
+
+   <tr><td colspan="2"><hr></td></tr>
+
+   <tr>
+         <th align="RIGHT">First name:</th>
+	 <td>
+		<input name="firstname" type="TEXT" size="20" maxlength="40" value="Ben">
+		Please use your <b>full, real name</b> here rather than nickname or pseudonym. See notes above.
+	 </td>
+   </tr>
+
+   <tr>
+         <th align="RIGHT">Last name:</th>
+	 <td>
+		<input name="lastname" type="TEXT" size="20" maxlength="40" value="Rowlands">
+		</td>
+   </tr>
+
+   <tr><td colspan="2"><hr></td></tr>
+
+   <tr>
+        <td colspan="2">
+	    <h3>Email Address:</h3>
+
+	    <ul>
+		   <li>Please use a working address that you check regularly, so that I can get in touch with you if the need arises.
+		   </li><li>Do not use addresses which require senders to respond to confirmation emails or click on special links order to get the message delivered - this will fail, since registration is an automated process.
+		   </li><li>Your email address is never displayed on the website, unless you explicitly post it in text.
+		   </li><li>Your personal info will never be voluntarily passed to anyone else (<a href="http://www.crazyguyonabike.com/website/privacy/" target="_blank">Privacy Statement</a>).
+		       
+	    </li></ul>
+	    <p>
+	</p></td>
+   </tr>
+
+   <tr><td colspan="2"><hr></td></tr>
+
+   <tr>
+	<th align="RIGHT">Email:</th>
+	<td>
+		<input name="email" type="TEXT" size="40" maxlength="80" value="ben.rowlands@gmail.com">
+		e.g. user@example.com.
+	</td>
+   </tr>
+
+   <tr>
+	<th align="RIGHT">Confirm:</th>
+	<td>
+		<input name="email_confirm" type="TEXT" size="40" maxlength="80" value="ben.rowlands@gmail.com">
+		Enter your email address again, to reduce the chances of a typo.
+	</td>
+   </tr>
+
+   <tr><td colspan="2"><hr></td></tr>
+
+   <tr>
+	<th align="RIGHT">Newsletter?</th>
+	<td>
+		<input name="email_news" type="CHECKBOX" value="on" checked="">
+
+		If checked then you will receive <b>very</b>
+		occasional email <a href="http://www.crazyguyonabike.com/website/news/?o=RpmwT" target="_blank">newsletters</a>
+		about the website.  It's safe to check this.
+
+	</td>
+   </tr>
+
+   <tr>
+	<td colspan="2"><hr></td>
+   </tr>
+
+</tbody></table>
+
+   <p>
+
+   <input type="HIDDEN" name="command" value="do_update">
+   <input type="SUBMIT" value="Save Changes">
+   <input type="HIDDEN" name="submitted" value="1">
+   <input type="HIDDEN" name="user_id" value="20292">
+
+   &nbsp;
+   &nbsp;
+   &nbsp;
+
+   <a href="http://www.crazyguyonabike.com/my/?o=RpmwT" onclick="javascript:return confirm(&#39;Cancel - Are you sure?&#39;)">Cancel</a>
+
+   <input type="hidden" name="pseudonym" value=""><input type="hidden" name="o" value="300200010000001">
+
+</p></form>
+
+<p>
+   </p><hr>
+   <table width="100%" id="bottom">
+      <tbody><tr>
+	<td align="LEFT">Website Copyright ©
+2000-2010
+by Neil Gunton
+Fri Dec 10 03:51:05 2010
+PST
+&nbsp;&nbsp;&nbsp;&nbsp;
+<a href="http://www.crazyguyonabike.com/my/account/?o=RpmwT#top">Top</a>
+&nbsp;&nbsp;
+<a href="http://www.crazyguyonabike.com/link/">Link</a>
+&nbsp;&nbsp;
+<a href="http://www.crazyguyonabike.com/report/" title="Report problems with this page to the webmaster">Report</a>
+</td>
+	<td align="RIGHT"><a href="http://www.crazyguyonabike.com/email/guestbook/message/?email=293347690" onclick="event.returnValue = false; return false;"><img src="./UserAccountPage_files/guestbook.gif" width="1" height="1" border="0" align="RIGHT"></a></td>
+	</tr>
+   </tbody></table>
+
+
+<script language="JavaScript" type="text/javascript">
+<!--
+      function do_onload()
+      {
+        
+	if (!document.form.firstname || document.form.locale_id) return;
+	document.form.firstname.focus();
+	 }
+
+      function do_onunload()
+      {
+	 }
+
+      ;
+
+//-->
+</script>
+
+</body></html>

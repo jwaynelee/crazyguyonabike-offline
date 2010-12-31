@@ -1,0 +1,1642 @@
+
+<!-- saved from url=(0039)http://www.crazyguyonabike.com/?o=RpmwT -->
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml"><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+	
+	<title>
+	crazyguyonabike.com:	Bicycle Touring:	A place for bicycle tourists and their journals
+</title>
+<script language="JavaScript" type="text/javascript">
+<!--
+      function el(x)
+      {
+         return (typeof x == "string") ? document.getElementById(x) : x;
+      }
+      
+
+   
+
+   
+
+   var request = null;
+
+      function createRequest()
+      {
+	request = null;
+	try
+	{
+		request = new XMLHttpRequest();
+	}
+	catch (trymicrosoft)
+	{
+		try
+		{
+			request = new ActiveXObject("Msxm12.XMLHTTP");
+		}
+		catch (othermicrosoft)
+		{
+			try
+			{
+				request = new ActiveXObject("Microsoft.XMLHTTP");
+			}
+			catch (failed)
+			{
+				request = null;
+			}
+		}
+	}
+      }
+
+      var context = '';
+   var type = '';
+   var id = 0;
+   var id_field = '';
+   var action = '';
+   var rating = '';
+   var counter = 0;
+
+   function doRatingsCallback()
+   {
+	if (request.readyState == 4)
+	{
+		var result = request.responseText;
+		if (result.substring(0,5) == 'Error')
+		{
+			if (result.indexOf ('logged in') > -1)
+			{
+				window.location = '/login/?referer=' + escape(window.location);
+			}
+			else
+			{
+				alert (result);
+			}
+		}
+		else
+		{
+			document.getElementById ('divRatings_' + type + '_' + id + '_' + counter).innerHTML = result;
+			if (action == 'toggle')
+			{
+				document.getElementById('RatingCollapsedScore_' + type + '_' + id + '_' + counter).innerHTML = 'Score';
+				document.getElementById('divRatings_' + type + '_' + id + '_' + counter).style.display = 'block';
+				document.getElementById('divRatingsContainer_' + type + '_' + id + '_' + counter).style.zIndex = 100;
+				document.getElementById('divRatings_' + type + '_' + id + '_' + counter).style.zIndex = 50;
+			}
+		}
+		action = '';
+	}
+   }
+
+   function closeRatingsMenu ()
+   {
+	if (id > 0 && action == '')
+	{
+		document.getElementById('RatingCollapsedScore_' + type + '_' + id + '_' + counter).innerHTML = 
+		    document.getElementById('RatingScore_' + type + '_' + id + '_' + counter).innerHTML;
+		document.getElementById('divRatings_' + type + '_' + id + '_' + counter).style.display = 'none';
+		document.getElementById('divRatingsContainer_' + type + '_' + id + '_' + counter).style.zIndex = 1;
+		document.getElementById('divRatings_' + type + '_' + id + '_' + counter).style.zIndex = 1;
+		id = 0;
+	}
+	var old_context = context;
+	context = '';
+	return (old_context == '') ? true : false;
+   }
+
+   function toggleRatings (the_type, the_id_field, the_id, version, format, filter, the_counter)
+   {
+	createRequest();
+	if (request == null)
+	{
+		return true;
+	}
+	else
+	{
+		context = 'toggleRatings';
+		action = '';
+		if (the_id == id)
+		{
+			closeRatingsMenu ();
+			context = 'toggleRatings';
+		}
+		else
+		{
+			closeRatingsMenu ();
+			context = 'toggleRatings';
+			type = the_type;
+			id = the_id;
+			id_field = the_id_field;
+			counter = the_counter;
+			action = 'toggle';
+			var url = "/ajax/doRatings.html?id_field=" + the_id_field + "&id=" + the_id + "&counter=" + counter + "&v=" + version + "&format=" + format + "&filter=" + filter;
+			request.open("GET", url, true);
+			request.onreadystatechange = doRatingsCallback;
+			var result = request.send(null);
+		}
+		return false;
+	}
+   }
+
+   function doRating (the_type, the_id_field, the_id, the_counter, the_rating, the_delta, version, format, filter, do_confirm)
+   {
+	context = 'doRating';
+	type = the_type;
+	id = the_id;
+	id_field = the_id_field;
+	rating = the_rating;
+	counter = the_counter;
+	createRequest();
+	if (request == null)
+	{
+		return true;
+	}
+	else
+	{
+		if ((do_confirm == 1 && (( the_rating != 'miscategorized' && the_rating != 'troll' && the_rating != 'abuse' && the_rating != 'spam' && the_rating != 'offtopic' ) || confirm ("Are you sure you want to use this rating? It should not be used lightly. If you click 'Ok' then the webmaster will be notified so further action can be taken.") )) || do_confirm == 0)
+		{
+			action = 'do_rating';
+			var url = "/ajax/doRatings.html?id_field=" + the_id_field + "&id=" + the_id + "&counter=" + counter + "&rating=" + the_rating + "&filter=" + filter + "&delta=" + the_delta + "&v=" + version + "&format=" + format;
+			request.open("GET", url, true);
+			request.onreadystatechange = doRatingsCallback;
+			var result = request.send(null);
+		}
+		return false;
+	}
+   }
+
+
+
+   
+
+   var bookmark_type;
+   var bookmark_id;
+   var bookmark_counter;
+
+   function doBookmark_callback()
+   {
+	if (request.readyState == 4)
+	{
+		var result = request.responseText;
+
+		if (result == 'OK')
+		{
+			var element = document.getElementById ('bookmark_' + bookmark_type + '_' + bookmark_id + '_' + bookmark_counter);
+			//element.innerHTML = 'Bookmark&#10003;';
+			element.innerHTML = 'BOOKMARK';
+		}
+		else
+		{
+			alert(result);
+		}
+	}
+   }
+
+   function doBookmark (type, id, counter)
+   {
+        bookmark_type = type;
+	bookmark_id = id;
+	bookmark_counter = counter;
+	createRequest();
+	if (request == null)
+	{
+		return true;
+	}
+	else
+	{
+		var url = '/ajax/bookmark.html?type=' + type + '&id=' + id;
+		request.open("GET", url, true);
+		request.onreadystatechange = doBookmark_callback;
+		var result = request.send(null);
+		return false;
+	}
+   }
+
+//-->
+</script>
+<style type="text/css">
+	   </style>
+
+</head>
+
+<body bgcolor="beige" onload="do_onload();" onunload="do_onunload();" onclick="javascript:closeRatingsMenu();"><a name="top"></a>
+<a href="http://www.crazyguyonabike.com/email/guestbook/message/?email=986024032" onclick="event.returnValue = false; return false;"></a>
+   <a href="http://www.crazyguyonabike.com/email/guestbook/post/?email=986024032" onclick="event.returnValue = false; return false;"><img src="./HomePage_files/guestbook.gif" width="1" height="1" border="0" align="RIGHT"></a>
+
+
+	<table cellpadding="1" width="100%">
+		<tbody><tr>
+			<td bgcolor="white" width="5%">
+				<nobr><big><b>&nbsp;crazyguyonabike&nbsp;</b></big></nobr>
+				</td>
+			<td width="25%" align="LEFT">
+			   <table cellpadding="1">
+			      <tbody><tr>
+			 	<td>
+				   <nobr>
+					Topic: <b>Bicycle Touring</b>
+					[<a href="http://www.topicwise.com/?o=RpmwT">change</a>]
+					</nobr>
+				   </td>
+			      </tr>
+			   </tbody></table>
+			</td>
+			<td align="RIGHT" width="70%">
+				<table cellpadding="1">
+				   <tbody><tr>
+					<td><a href="http://www.crazyguyonabike.com/website/about/?o=RpmwT">About</a>&nbsp;</td>
+					   <td><a href="http://www.crazyguyonabike.com/website/help/?o=RpmwT">Help</a>&nbsp;</td>
+					      <td><a href="http://www.crazyguyonabike.com/website/faq/?o=RpmwT">FAQ</a>&nbsp;</td>
+					   <td><a href="http://www.crazyguyonabike.com/website/sitemap/?o=RpmwT">Sitemap</a>&nbsp;</td>
+					   <td><a href="http://www.crazyguyonabike.com/website/options/?o=RpmwT">Options</a>&nbsp;</td>
+					   <td><a href="http://www.crazyguyonabike.com/website/sponsors/?o=RpmwT">Sponsors</a>&nbsp;</td>
+					   <td><a href="http://www.crazyguyonabike.com/website/sponsors/donate/?o=RpmwT">Donate</a>&nbsp;</td>
+					   <form action="http://www.crazyguyonabike.com/search/" method="GET" style="margin-bottom: 0"></form>
+					         <td><input type="TEXT" name="term" size="10" maxlength="60" value=""></td>
+					         <td><input type="SUBMIT" value="Search"></td>
+					         <input type="HIDDEN" name="expand" value="auto">
+					      
+					   </tr>
+				</tbody></table>
+			</td>
+		</tr>
+	</tbody></table>
+
+	<hr>
+
+
+
+   <table border="0" cellpadding="3" cellspacing="0"><tbody><tr><td bgcolor="#00ccff">&nbsp;<big><b>Home</b></big>&nbsp;</td>
+<td bgcolor="beige">&nbsp;<a href="http://www.crazyguyonabike.com/my/?o=RpmwT">My</a></td>
+<td bgcolor="beige">&nbsp;<a href="http://www.crazyguyonabike.com/doc/?o=RpmwT&doctype=journal">Journals</a><font color="red">*</font></td>
+<td bgcolor="beige">&nbsp;<a href="http://www.crazyguyonabike.com/doc/?o=RpmwT&doctype=article">Articles</a><font color="red">*</font></td>
+<td bgcolor="beige">&nbsp;<a href="http://www.crazyguyonabike.com/forum/?o=RpmwT">Forums</a><font color="red">*</font></td>
+<td bgcolor="beige">&nbsp;<a href="http://www.crazyguyonabike.com/reviews/?o=RpmwT">Reviews</a><font color="red">*</font></td>
+<td bgcolor="beige">&nbsp;<a href="http://www.crazyguyonabike.com/resources/?o=RpmwT">Resources</a><font color="green">*</font></td>
+<td bgcolor="beige">&nbsp;<a href="http://www.crazyguyonabike.com/classifieds/?o=RpmwT">Classifieds</a><font color="green">*</font></td>
+<td bgcolor="beige">&nbsp;<a href="http://www.crazyguyonabike.com/serendipity/?o=RpmwT">Serendipity</a></td>
+<td bgcolor="beige">&nbsp;<a href="http://www.crazyguyonabike.com/ratings/?o=RpmwT">Ratings</a><font color="red">*</font></td>
+<td bgcolor="beige">&nbsp;<a href="http://www.crazyguyonabike.com/directory/?o=RpmwT">Directory</a></td>
+<td bgcolor="beige">&nbsp;<a href="http://www.crazyguyonabike.com/search/?o=RpmwT">Search</a></td>
+<td bgcolor="beige">&nbsp;<a href="http://www.crazyguyonabike.com/website/?o=RpmwT">Website</a></td>
+</tr>
+</tbody></table>
+<hr>
+
+
+
+   <table width="100%">
+   <tbody><tr>
+      <td valign="TOP" align="CENTER" width="25%">
+            <table cellpadding="3" cellspacing="0" bgcolor="gainsboro">
+	       <tbody><tr>
+	          <td>
+                     
+
+   <table cellpadding="3" bgcolor="beige">
+
+      
+
+   <tbody><tr bgcolor="white">
+      <td valign="CENTER" align="CENTER">
+         <big><big><big><b>
+		crazyguyonabike	</b></big></big></big>
+      </td>
+   </tr>
+
+
+
+   <tr bgcolor="beige">
+      <td valign="CENTER" align="CENTER">
+
+	 <h3>A place for bicycle tourists and their journals</h3>
+
+	 5,283 <a href="http://www.crazyguyonabike.com/doc/?doctype=journal">journals</a> and <a href="http://www.crazyguyonabike.com/doc/?doctype=article">articles</a>, with
+	    702,536 <a href="http://www.crazyguyonabike.com/serendipity/?o=RpmwT">pictures</a>
+
+	 </td>
+   </tr>
+
+
+
+   <tr><td><hr></td></tr>
+	
+   <tr bgcolor="beige">
+      <td valign="CENTER" align="CENTER">
+      	  <b><a href="http://www.crazyguyonabike.com/register/">Register</a> | <a href="http://www.crazyguyonabike.com/login/">Log in</a> | <a href="http://www.crazyguyonabike.com/logout/">Log out</a></b>
+      </td>
+   </tr>
+
+   
+
+   
+
+   <tr><td><hr></td></tr>
+   <tr bgcolor="beige">
+      <td valign="CENTER" align="CENTER">
+   	
+
+   <h3><a href="http://www.crazyguyonabike.com/website/sponsors/donate/">Support crazyguyonabike!</a></h3>
+	Total this month: $327.00	<br>
+	Total this year: $22,404.92	<p>
+	<a href="http://www.crazyguyonabike.com/website/sponsors/">Sponsors</a> | <a href="http://www.crazyguyonabike.com/website/sponsors/donate/totals/">Totals</a> | <a href="http://www.crazyguyonabike.com/website/faq/#why_donate">Why donate?</a>
+   </p><p>
+      </p></td>
+   </tr>
+
+
+
+   <tr bgcolor="gainsboro">
+      <td>
+         <big><b>Journals by Category</b></big>
+      </td>
+   </tr>
+   <tr bgcolor="beige">
+      <td>
+         <dl><dt><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=214&doctype=journal">Bicycle types</a>
+</dt><dd></dd><dd><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=364&doctype=journal">Cargo bikes</a>
+</dd><dd></dd><dd><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=330&doctype=journal">Classic bikes</a>
+</dd><dd></dd><dd><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=352&doctype=journal">Crank Forward</a>
+</dd><dd></dd><dd><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=329&doctype=journal">Custom bikes</a>
+</dd><dd></dd><dd><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=349&doctype=journal">Expedition touring bikes</a>
+</dd><dd></dd><dd><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=315&doctype=journal">Folding bicycles</a>
+</dd><dd></dd><dd><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=350&doctype=journal">Hybrid bicycles</a>
+</dd><dd></dd><dd><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=348&doctype=journal">MTB</a>
+</dd><dd></dd><dd><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=206&doctype=journal">Penny Farthing</a>
+</dd><dd></dd><dd><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=21&doctype=journal">Recumbent</a>
+</dd><dd></dd><dd><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=347&doctype=journal">Road bikes</a>
+</dd><dd></dd><dd><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=88&doctype=journal">Tandem</a>
+</dd><dd></dd><dd><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=22&doctype=journal">Trike</a>
+</dd><dd></dd><dd><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=340&doctype=journal">Unicycle</a>
+</dd><dd></dd><dt><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=212&doctype=journal">Equipment lists</a>
+</dt><dd></dd><dt><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=355&doctype=journal">Events</a>
+</dt><dd></dd><dt><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=191&doctype=journal">Offroad</a>
+</dt><dd></dd><dt><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=341&doctype=journal">Other languages</a>
+</dt><dd></dd><dd><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=357&doctype=journal">Bulgarian</a>
+</dd><dd></dd><dd><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=343&doctype=journal">Dutch</a>
+</dd><dd></dd><dd><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=345&doctype=journal">French</a>
+</dd><dd></dd><dd><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=342&doctype=journal">German</a>
+</dd><dd></dd><dd><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=365&doctype=journal">Hungarian</a>
+</dd><dd></dd><dd><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=362&doctype=journal">Italian</a>
+</dd><dd></dd><dd><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=346&doctype=journal">Polish</a>
+</dd><dd></dd><dd><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=351&doctype=journal">Portuguese</a>
+</dd><dd></dd><dd><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=344&doctype=journal">Spanish</a>
+</dd><dd></dd><dt><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=358&doctype=journal">Philosophy &amp; Poetry</a>
+</dt><dd></dd><dt><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=333&doctype=journal">Recovery</a>
+</dt><dd></dd><dt><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=299&doctype=journal">Routes</a>
+</dt><dd></dd><dd><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=300&doctype=journal">Europe</a>
+</dd><dd></dd><dd><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=301&doctype=journal">North America</a>
+</dd><dd></dd><dd><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=207&doctype=journal">World</a>
+</dd><dd></dd><dt><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=124&doctype=journal">Tour diaries</a>
+</dt><dd></dd><dd><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=176&doctype=journal">Duration</a>
+</dd><dd></dd><dd><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=316&doctype=journal">First tour</a>
+</dd><dd></dd><dt><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=359&doctype=journal">Winter touring</a>
+</dt><dd></dd><dt><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=190&doctype=journal">With kids</a>
+</dt><dd></dd><dt><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=275&doctype=journal">With pets</a>
+</dt><dd></dd></dl><p>
+      </p></td>
+   </tr>
+
+
+
+   <tr bgcolor="gainsboro">
+      <td>
+         <big><b>Journals by Locale</b></big>
+      </td>
+   </tr>
+   <tr bgcolor="beige">
+      <td>
+         <dl><dt><a href="http://www.crazyguyonabike.com/doc/locales/?o=RpmwT&locale_id=7160705&doctype=journal">Africa</a> </dt><dt><a href="http://www.crazyguyonabike.com/doc/locales/?o=RpmwT&locale_id=7160708&doctype=journal">Asia</a> </dt><dt><a href="http://www.crazyguyonabike.com/doc/locales/?o=RpmwT&locale_id=7160711&doctype=journal">Caribbean</a> </dt><dt><a href="http://www.crazyguyonabike.com/doc/locales/?o=RpmwT&locale_id=7160710&doctype=journal">Central America</a> </dt><dt><a href="http://www.crazyguyonabike.com/doc/locales/?o=RpmwT&locale_id=7160707&doctype=journal">Europe</a> </dt><dt><a href="http://www.crazyguyonabike.com/doc/locales/?o=RpmwT&locale_id=7160706&doctype=journal">Middle East</a> </dt><dt><a href="http://www.crazyguyonabike.com/doc/locales/?o=RpmwT&locale_id=7160709&doctype=journal">North America</a> </dt><dt><a href="http://www.crazyguyonabike.com/doc/locales/?o=RpmwT&locale_id=7160713&doctype=journal">Oceania</a> </dt><dt><a href="http://www.crazyguyonabike.com/doc/locales/?o=RpmwT&locale_id=160&doctype=journal">Oceans</a> </dt><dt><a href="http://www.crazyguyonabike.com/doc/locales/?o=RpmwT&locale_id=7160712&doctype=journal">South America</a> </dt></dl><p>
+      </p></td>
+   </tr>
+
+
+
+   <tr bgcolor="gainsboro">
+      <td>
+         <big><b>Articles by Category</b></big>
+      </td>
+   </tr>
+   <tr bgcolor="beige">
+      <td>
+         <dl><dt><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=325&doctype=article">Bags &amp; Packing</a>
+</dt><dd></dd><dt><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=214&doctype=article">Bicycle types</a>
+</dt><dd></dd><dd><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=330&doctype=article">Classic bikes</a>
+</dd><dd></dd><dd><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=352&doctype=article">Crank Forward</a>
+</dd><dd></dd><dd><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=329&doctype=article">Custom bikes</a>
+</dd><dd></dd><dd><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=349&doctype=article">Expedition touring bikes</a>
+</dd><dd></dd><dd><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=315&doctype=article">Folding bicycles</a>
+</dd><dd></dd><dd><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=350&doctype=article">Hybrid bicycles</a>
+</dd><dd></dd><dd><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=348&doctype=article">MTB</a>
+</dd><dd></dd><dd><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=206&doctype=article">Penny Farthing</a>
+</dd><dd></dd><dd><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=21&doctype=article">Recumbent</a>
+</dd><dd></dd><dd><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=347&doctype=article">Road bikes</a>
+</dd><dd></dd><dd><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=88&doctype=article">Tandem</a>
+</dd><dd></dd><dd><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=22&doctype=article">Trike</a>
+</dd><dd></dd><dt><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=273&doctype=article">Books</a>
+</dt><dd></dd><dt><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=321&doctype=article">Camping</a>
+</dt><dd></dd><dt><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=318&doctype=article">Diet &amp; Cooking</a>
+</dt><dd></dd><dt><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=363&doctype=article">Digital Gear</a>
+</dt><dd></dd><dt><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=289&doctype=article">Disasters</a>
+</dt><dd></dd><dt><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=212&doctype=article">Equipment lists</a>
+</dt><dd></dd><dt><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=322&doctype=article">Event</a>
+</dt><dd></dd><dt><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=267&doctype=article">Fitness &amp; Training</a>
+</dt><dd></dd><dt><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=361&doctype=article">General Touring</a>
+</dt><dd></dd><dt><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=247&doctype=article">Hazards</a>
+</dt><dd></dd><dt><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=326&doctype=article">Historical</a>
+</dt><dd></dd><dt><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=353&doctype=article">Hosting experiences</a>
+</dt><dd></dd><dt><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=320&doctype=article">Humor</a>
+</dt><dd></dd><dt><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=356&doctype=article">Interviews</a>
+</dt><dd></dd><dt><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=290&doctype=article">Maintenance</a>
+</dt><dd></dd><dt><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=341&doctype=article">Other languages</a>
+</dt><dd></dd><dd><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=342&doctype=article">German</a>
+</dd><dd></dd><dd><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=344&doctype=article">Spanish</a>
+</dd><dd></dd><dt><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=358&doctype=article">Philosophy &amp; Poetry</a>
+</dt><dd></dd><dt><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=324&doctype=article">Photography</a>
+</dt><dd></dd><dt><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=333&doctype=article">Recovery</a>
+</dt><dd></dd><dt><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=248&doctype=article">Regional</a>
+</dt><dd></dd><dt><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=323&doctype=article">Routes</a>
+</dt><dd></dd><dt><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=319&doctype=article">Touring bikes</a>
+</dt><dd></dd><dt><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=294&doctype=article">Touring Howto</a>
+</dt><dd></dd><dt><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=354&doctype=article">Transportation</a>
+</dt><dd></dd><dt><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=314&doctype=article">Website Howto</a>
+</dt><dd></dd><dt><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=359&doctype=article">Winter touring</a>
+</dt><dd></dd><dt><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=190&doctype=article">With kids</a>
+</dt><dd></dd><dt><a href="http://www.crazyguyonabike.com/doc/categories/?o=RpmwT&category_id=275&doctype=article">With pets</a>
+</dt><dd></dd></dl><p>
+      </p></td>
+   </tr>
+
+
+
+   <tr bgcolor="gainsboro">
+      <td>
+         <big><b>Articles by Locale</b></big>
+      </td>
+   </tr>
+   <tr bgcolor="beige">
+      <td>
+         <dl><dt><a href="http://www.crazyguyonabike.com/doc/locales/?o=RpmwT&locale_id=7160705&doctype=article">Africa</a> </dt><dt><a href="http://www.crazyguyonabike.com/doc/locales/?o=RpmwT&locale_id=7160708&doctype=article">Asia</a> </dt><dt><a href="http://www.crazyguyonabike.com/doc/locales/?o=RpmwT&locale_id=7160711&doctype=article">Caribbean</a> </dt><dt><a href="http://www.crazyguyonabike.com/doc/locales/?o=RpmwT&locale_id=7160707&doctype=article">Europe</a> </dt><dt><a href="http://www.crazyguyonabike.com/doc/locales/?o=RpmwT&locale_id=7160709&doctype=article">North America</a> </dt><dt><a href="http://www.crazyguyonabike.com/doc/locales/?o=RpmwT&locale_id=7160713&doctype=article">Oceania</a> </dt><dt><a href="http://www.crazyguyonabike.com/doc/locales/?o=RpmwT&locale_id=7160712&doctype=article">South America</a> </dt></dl><p>
+      </p></td>
+   </tr>
+
+
+
+   </tbody></table>
+
+</td>
+	       </tr>
+	    </tbody></table>
+         </td>
+      <td valign="TOP">
+         
+
+   <table cellpadding="3">
+
+      <tbody><tr>
+            <td>
+		<h3>Current Featured Journal:</h3>
+		
+
+   <table id="420" border="0" bgcolor="beige" width="100%">
+   <tbody><tr>
+	
+
+   <td valign="TOP">
+
+   <a href="http://www.crazyguyonabike.com/doc/page/?o=RpmwT&page_id=172320&v=1u#pic_816279">
+	    <img src="./HomePage_files/IMG_4874_jpg" height="200" width="124" hspace="5" vspace="5" border="0" alt="Click here to see this page" title="Click here to see this page"></a>
+   </td>
+
+
+
+   <td valign="TOP">
+
+   <h3><a href="http://www.crazyguyonabike.com/doc/?o=RpmwT&doc_id=7589&v=8m">This is not an Expedition</a></h3>
+   <b>It's not even a world tour.  (We're cycling from UK to Australia, via the 'Stans).</b>
+      <br>
+   
+
+   By <nobr><a href="http://www.crazyguyonabike.com/directory/?o=RpmwT&user=oanh&v=C">Oanh Tran</a></nobr> and <nobr><a href="http://www.crazyguyonabike.com/directory/?o=RpmwT&user=nicgeard&v=2">Nic Geard</a></nobr> <br>
+   <small>
+	<font color="gray">
+	      #420 - posted Sunday December 5, 2010 by Neil Gunton	</font>
+   </small>
+   <p>
+      <i>"We are two Australians, who have been living in the UK for the past 3 and a half years. It's time we left this green and pleasant land to return to our sunburnt country. If we don't leave of our own accord, we'll be kicked out. We're both rather rule abiding (I'm a lawyer; Nic's an academic; we can't help it), so we'll depart before our visas expire. The plan is to cycle home. As we leave in October, we'll be making a mad dash south to ensure that hypothermia, along with all the other dangers our respective families and friends have envisaged for us, does not kill us. We will over-winter in Morocco and then head back up to the warmer Mediterranean countries in 2011, island hopping our way to Turkey (via Sardinia, Sicily and the Greek Islands). After Turkey, we hope to travel through Iran and Central Asia, politics, wars and visas permitting. We then plan to wend our way through China and SE Asia before, most likely, finding an aeroplane to cross the oceans to Australia-land..."</i> </p><p>
+
+   </p></td>
+
+</tr>
+   </tbody></table>
+
+<b>More featured
+		   <a href="http://www.crazyguyonabike.com/doc/featured/?o=RpmwT&doctype=journal">journals</a>
+		   and <a href="http://www.crazyguyonabike.com/doc/featured/?o=RpmwT&doctype=article">articles</a>
+		   ...</b>
+		   <br>
+		   <br>
+		</td>
+	 </tr>
+      <tr>
+            <td align="LEFT">
+
+	       <big><b>Serendipity:</b></big>
+
+	       Here are some random pics from the database - click on an image to go to that page...
+	       <p>
+	       
+
+   </p><center>
+   <a href="http://www.crazyguyonabike.com/doc/page/?o=RpmwT&page_id=135255&v=eC#pic_592650">
+	 <img src="./HomePage_files/IMGP4104.JPG" height="150" width="199" hspace="4" vspace="4" border="0" alt="Journal: &quot;Central America on a Tandem&quot; by alan baird and wendy baird" title="Journal: &quot;Central America on a Tandem&quot; by alan baird and wendy baird"></a>
+
+   <a href="http://www.crazyguyonabike.com/doc/page/?o=RpmwT&page_id=91691&v=8A#pic_393137">
+	 <img src="./HomePage_files/DSCF0224.jpg" height="150" width="199" hspace="4" vspace="4" border="0" alt="Journal: &quot;Two bikes, Four States, Six Days&quot; by Larry Plumlee" title="Journal: &quot;Two bikes, Four States, Six Days&quot; by Larry Plumlee"></a>
+
+   <a href="http://www.crazyguyonabike.com/doc/page/?o=RpmwT&page_id=73664&v=48#pic_276086">
+	 <img src="./HomePage_files/BuffaloBathroom" height="150" width="200" hspace="4" vspace="4" border="0" alt="Journal: &quot;Frankie goes to.....Laos&quot; by Frank Roettgen" title="Journal: &quot;Frankie goes to.....Laos&quot; by Frank Roettgen"></a>
+
+   </center>
+   <b><a href="http://www.crazyguyonabike.com/serendipity/?o=RpmwT">More Serendipity...</a></b>
+	       <br>
+	       <br>
+	       <br>
+	    </td>
+         </tr>
+      <tr>
+         <td align="LEFT">
+
+	    <big><b>Latest journal updates:</b></big>
+	       <br>
+	       
+
+   <table cellpadding="0">
+      <tbody><tr>
+      <td bgcolor="gainsboro">
+      <table border="0" cellspacing="1" cellpadding="1">
+
+      <tbody><tr bgcolor="gainsboro">
+	 <th align="LEFT">Journal</th>
+         <th align="LEFT">Author</th>
+	 <th align="LEFT">Updated</th>
+	 <th align="CENTER">Status</th>
+	 </tr>
+
+      <tr>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	       <a href="http://www.crazyguyonabike.com/doc/?o=RpmwT&doc_id=6270&v=10T">Cycling the World</a>&nbsp;<font color="red">*</font>&nbsp;&nbsp;
+	    </td>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	          <nobr><a href="http://www.crazyguyonabike.com/directory/?o=RpmwT&user=chris__p&v=B">Chris Pountney</a></nobr> </td>
+	    <td align="RIGHT" valign="TOP" bgcolor="beige">
+		&nbsp;03:50&nbsp;
+	    </td>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	          <table cellpadding="0" cellspacing="0"><tbody><tr><td><b>223&nbsp;of&nbsp;???&nbsp;days</b></td></tr></tbody></table> </td>
+	    </tr>
+	
+	 <tr>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	       <a href="http://www.crazyguyonabike.com/doc/?o=RpmwT&doc_id=7917&v=YP">Moroccan Tandem Adventure</a>&nbsp;<font color="red">*</font>&nbsp;&nbsp;
+	    </td>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	          <nobr><a href="http://www.crazyguyonabike.com/directory/?o=RpmwT&user=wendybaird&v=2">wendy baird</a></nobr> and <nobr><a href="http://www.crazyguyonabike.com/directory/?o=RpmwT&user=alanbaird&v=F">alan baird</a></nobr> </td>
+	    <td align="RIGHT" valign="TOP" bgcolor="beige">
+		&nbsp;03:17&nbsp;
+	    </td>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	          <table cellpadding="0" cellspacing="0"><tbody><tr><td><b>22&nbsp;of&nbsp;29&nbsp;days</b></td></tr></tbody></table> </td>
+	    </tr>
+	
+	 <tr>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	       <a href="http://www.crazyguyonabike.com/doc/?o=RpmwT&doc_id=6565&v=1d7">Rochdale to the outside world</a>&nbsp;<font color="red">*</font>&nbsp;&nbsp;
+	    </td>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	          <nobr><a href="http://www.crazyguyonabike.com/directory/?o=RpmwT&user=Bellringer&v=2">Philip Malone</a></nobr> </td>
+	    <td align="RIGHT" valign="TOP" bgcolor="beige">
+		&nbsp;01:34&nbsp;
+	    </td>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	          <table cellpadding="0" cellspacing="0"><tbody><tr><td><b>244&nbsp;of&nbsp;???&nbsp;days</b></td></tr></tbody></table> </td>
+	    </tr>
+	
+	 <tr>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	       <a href="http://www.crazyguyonabike.com/doc/?o=RpmwT&doc_id=7949&v=2v">Aotearoa Ko Te Wawata</a>&nbsp;<font color="red">*</font>&nbsp;&nbsp;
+	    </td>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	          <nobr><a href="http://www.crazyguyonabike.com/directory/?o=RpmwT&user=pilgoGMP&v=9">Mark Pilgrim</a></nobr> </td>
+	    <td align="RIGHT" valign="TOP" bgcolor="beige">
+		&nbsp;00:34&nbsp;
+	    </td>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	          <table cellpadding="0" cellspacing="0"><tbody><tr><td><b>9&nbsp;of&nbsp;36&nbsp;days</b></td></tr></tbody></table> </td>
+	    </tr>
+	
+	 <tr>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	       <a href="http://www.crazyguyonabike.com/doc/?o=RpmwT&doc_id=7910&v=7c">Flat Feet in Formosa IV: The End of the Trail</a>&nbsp;<font color="red">*</font>&nbsp;&nbsp;
+	    </td>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	          <nobr><a href="http://www.crazyguyonabike.com/directory/?o=RpmwT&user=Depeator&v=Le">Carsten Hoefer</a></nobr> </td>
+	    <td align="RIGHT" valign="TOP" bgcolor="beige">
+		&nbsp;23:51&nbsp;
+	    </td>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	          <table cellpadding="0" cellspacing="0"><tbody><tr><td>Work&nbsp;in&nbsp;progress</td></tr></tbody></table> </td>
+	    </tr>
+	
+	 <tr>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	       <a href="http://www.crazyguyonabike.com/doc/?o=RpmwT&doc_id=7360&v=zb">Song of the Little Road</a>&nbsp;<font color="red">*</font>&nbsp;&nbsp;
+	    </td>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	          <nobr><a href="http://www.crazyguyonabike.com/directory/?o=RpmwT&user=cycladelic&v=6">Graham Finch</a></nobr> </td>
+	    <td align="RIGHT" valign="TOP" bgcolor="beige">
+		&nbsp;22:28&nbsp;
+	    </td>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	          <table cellpadding="0" cellspacing="0"><tbody><tr><td><b>39&nbsp;of&nbsp;???&nbsp;days</b></td><td><a href="http://www.crazyguyonabike.com/doc/featured/?o=RpmwT&feature_id=418#418"><img src="./HomePage_files/gold_star.gif" alt="Featured Journal #418" title="Featured Journal #418" width="12" height="12" border="0"></a></td></tr></tbody></table> </td>
+	    </tr>
+	
+	 <tr>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	       <a href="http://www.crazyguyonabike.com/doc/?o=RpmwT&doc_id=7439&v=16p">A 20,000 Km Graduation Present Across North America</a>&nbsp;<font color="red">*</font>&nbsp;&nbsp;
+	    </td>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	          <nobr><a href="http://www.crazyguyonabike.com/directory/?o=RpmwT&user=chfergusonmartin&v=0">Chris Ferguson-Martin</a></nobr> </td>
+	    <td align="RIGHT" valign="TOP" bgcolor="beige">
+		&nbsp;22:09&nbsp;
+	    </td>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	          <table cellpadding="0" cellspacing="0"><tbody><tr><td><b>87&nbsp;of&nbsp;???&nbsp;days</b></td></tr></tbody></table> </td>
+	    </tr>
+	
+	 <tr>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	       <a href="http://www.crazyguyonabike.com/doc/?o=RpmwT&doc_id=7768&v=Hj">THE GNARLY FISH GOES DOWN UNDER</a>&nbsp;<font color="red">*</font>&nbsp;&nbsp;
+	    </td>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	          <nobr><a href="http://www.crazyguyonabike.com/directory/?o=RpmwT&user=gnarlyFish&v=0">Linda Ng</a></nobr> </td>
+	    <td align="RIGHT" valign="TOP" bgcolor="beige">
+		&nbsp;22:00&nbsp;
+	    </td>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	          <table cellpadding="0" cellspacing="0"><tbody><tr><td><b>36&nbsp;of&nbsp;???&nbsp;days</b></td></tr></tbody></table> </td>
+	    </tr>
+	
+	 <tr>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	       <a href="http://www.crazyguyonabike.com/doc/?o=RpmwT&doc_id=7575&v=ER">Down the Mekong</a>&nbsp;<font color="red">*</font>&nbsp;&nbsp;
+	    </td>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	          <nobr><a href="http://www.crazyguyonabike.com/directory/?o=RpmwT&user=Chiwoman&v=4">cindy engel</a></nobr> </td>
+	    <td align="RIGHT" valign="TOP" bgcolor="beige">
+		&nbsp;21:39&nbsp;
+	    </td>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	          <table cellpadding="0" cellspacing="0"><tbody><tr><td><b>51&nbsp;of&nbsp;???&nbsp;days</b></td></tr></tbody></table> </td>
+	    </tr>
+	
+	 <tr>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	       <a href="http://www.crazyguyonabike.com/doc/?o=RpmwT&doc_id=7960&v=3b">South India on Pegasus</a>&nbsp;<font color="red">*</font>&nbsp;&nbsp;
+	    </td>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	          <nobr><a href="http://www.crazyguyonabike.com/directory/?o=RpmwT&user=jilllundmark&v=5">Jill Lundmark</a></nobr> </td>
+	    <td align="RIGHT" valign="TOP" bgcolor="beige">
+		&nbsp;21:35&nbsp;
+	    </td>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	          <table cellpadding="0" cellspacing="0"><tbody><tr><td><b>10&nbsp;of&nbsp;67&nbsp;days</b></td></tr></tbody></table> </td>
+	    </tr>
+	
+	 </tbody></table>
+
+      </td>
+      </tr>
+      </tbody></table>
+
+   <b><a href="http://www.crazyguyonabike.com/doc/?o=RpmwT&doctype=journal">More journals...</a></b>
+	       <br>
+	       <br>
+	       <br>
+	    <big><b>Latest article updates:</b></big>
+	       <br>
+	       
+
+   <table cellpadding="0">
+      <tbody><tr>
+      <td bgcolor="gainsboro">
+      <table border="0" cellspacing="1" cellpadding="1">
+
+      <tbody><tr bgcolor="gainsboro">
+	 <th align="LEFT">Article</th>
+         <th align="LEFT">Author</th>
+	 <th align="LEFT">Updated</th>
+	 <th align="CENTER">Status</th>
+	 </tr>
+
+      <tr>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	       <a href="http://www.crazyguyonabike.com/doc/?o=RpmwT&doc_id=3531&v=2M">European (Schengen) visas</a>&nbsp;<font color="red">*</font>&nbsp;&nbsp;
+	    </td>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	          <nobr><a href="http://www.crazyguyonabike.com/directory/?o=RpmwT&user=Leo&v=o">Leo Woodland</a></nobr> </td>
+	    <td align="RIGHT" valign="TOP" bgcolor="beige">
+		&nbsp;21:22&nbsp;
+	    </td>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	          <table cellpadding="0" cellspacing="0"><tbody><tr><td><nobr><font color="green">Completed Apr 2008</font></nobr></td><td><a href="http://www.crazyguyonabike.com/doc/featured/?o=RpmwT&feature_id=278#278"><img src="./HomePage_files/gold_star.gif" alt="Featured Journal #278" title="Featured Journal #278" width="12" height="12" border="0"></a></td></tr></tbody></table> </td>
+	    </tr>
+	
+	 <tr>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	       <a href="http://www.crazyguyonabike.com/doc/?o=RpmwT&doc_id=8000&v=C7">Loaded Bicycles</a>&nbsp;<font color="red">*</font>&nbsp;&nbsp;
+	    </td>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	          <nobr><a href="http://www.crazyguyonabike.com/directory/?o=RpmwT&user=kellyiniguez&v=9H">Kelly Iniguez</a></nobr> </td>
+	    <td align="RIGHT" valign="TOP" bgcolor="beige">
+		&nbsp;09:13&nbsp;
+	    </td>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	          <table cellpadding="0" cellspacing="0"><tbody><tr><td>Work&nbsp;in&nbsp;progress</td></tr></tbody></table> </td>
+	    </tr>
+	
+	 <tr>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	       <a href="http://www.crazyguyonabike.com/doc/?o=RpmwT&doc_id=5873&v=3M">Cycle Touring in New Zealand Tips</a>&nbsp;<font color="green">*</font>&nbsp;&nbsp;
+	    </td>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	          <nobr><a href="http://www.crazyguyonabike.com/directory/?o=RpmwT&user=sglasgow&v=1">Steve Glasgow</a></nobr> </td>
+	    <td align="RIGHT" valign="TOP" bgcolor="beige">
+		&nbsp;Wed&nbsp;8&nbsp;
+	    </td>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	          <table cellpadding="0" cellspacing="0"><tbody><tr><td>Work&nbsp;in&nbsp;progress</td></tr></tbody></table> </td>
+	    </tr>
+	
+	 <tr>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	       <a href="http://www.crazyguyonabike.com/doc/?o=RpmwT&doc_id=3036&v=I4">Vancouver to Kamloops</a>&nbsp;<font color="green">*</font>&nbsp;&nbsp;
+	    </td>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	          <nobr><a href="http://www.crazyguyonabike.com/directory/?o=RpmwT&user=randobarf&v=Y">David Cambon</a></nobr> </td>
+	    <td align="RIGHT" valign="TOP" bgcolor="beige">
+		&nbsp;Mon&nbsp;6&nbsp;
+	    </td>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	          <table cellpadding="0" cellspacing="0"><tbody><tr><td><nobr><font color="green">Completed Oct 2007</font></nobr></td></tr></tbody></table> </td>
+	    </tr>
+	
+	 <tr>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	       <a href="http://www.crazyguyonabike.com/doc/?o=RpmwT&doc_id=4255&v=Cc">It's ALL about the bike</a>&nbsp;<font color="green">*</font>&nbsp;&nbsp;
+	    </td>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	          <nobr><a href="http://www.crazyguyonabike.com/directory/?o=RpmwT&user=Leo&v=o">Leo Woodland</a></nobr> </td>
+	    <td align="RIGHT" valign="TOP" bgcolor="beige">
+		&nbsp;Mon&nbsp;6&nbsp;
+	    </td>
+	    <td align="LEFT" valign="TOP" bgcolor="beige">
+	          <table cellpadding="0" cellspacing="0"><tbody><tr><td><nobr><font color="green">Completed Nov 2008</font></nobr></td><td><a href="http://www.crazyguyonabike.com/doc/featured/?o=RpmwT&feature_id=318#318"><img src="./HomePage_files/gold_star.gif" alt="Featured Journal #318" title="Featured Journal #318" width="12" height="12" border="0"></a></td></tr></tbody></table> </td>
+	    </tr>
+	
+	 </tbody></table>
+
+      </td>
+      </tr>
+      </tbody></table>
+
+   <b><a href="http://www.crazyguyonabike.com/doc/?o=RpmwT&doctype=article">More articles...</a></b>
+	       <br>
+	       <br>
+	       <br>
+	    <big><b>Latest forum posts:</b></big>
+	       <br>
+	       
+
+   <table cellpadding="0"><tbody><tr><td bgcolor="gainsboro">
+      <table border="0" cellspacing="1" cellpadding="1">
+
+      <tbody><tr bgcolor="gainsboro">
+         <th align="LEFT">Forum</th>
+	 <th align="LEFT">Subject</th>
+	 <th align="LEFT">Name</th>
+	 <th align="LEFT">Posted</th>
+	 <th align="LEFT">Replies</th>
+	    <th align="LEFT"><nobr>Last post</nobr></th>
+	 </tr>
+
+      <tr>
+	<td align="LEFT" valign="TOP" bgcolor="beige">
+	    <a href="http://www.crazyguyonabike.com/forum/board/?o=RpmwT&board_id=383&v=3">
+	       Bikes</a>&nbsp;
+	    </td>
+	<td align="LEFT" valign="TOP" bgcolor="beige">
+	    <a href="http://www.crazyguyonabike.com/forum/board/message/?o=RpmwT&thread_id=197113&v=3&page=1&nested=0">Lighter Bikes Not Faster?</a>&nbsp;&nbsp;
+	</td>
+	<td align="LEFT" valign="TOP" bgcolor="beige">
+	      iain cullen&nbsp;
+	   </td>
+	<td align="CENTER" valign="TOP" bgcolor="beige">
+	   03:43 &nbsp;
+	</td>
+	<td align="CENTER" valign="TOP" bgcolor="beige">
+	      <font color="red">
+	         1 </font>&nbsp;
+	   </td>
+	   <td align="CENTER" valign="TOP" bgcolor="beige">
+	      <a href="http://www.crazyguyonabike.com/forum/board/message/?o=RpmwT&thread_id=197113&v=3&page=1&nested=0#197114">03:47</a>
+	   </td>
+	</tr>
+
+      <tr>
+	<td align="LEFT" valign="TOP" bgcolor="beige">
+	    <a href="http://www.crazyguyonabike.com/forum/board/?o=RpmwT&board_id=1224&v=K">
+	       Communications</a>&nbsp;
+	    </td>
+	<td align="LEFT" valign="TOP" bgcolor="beige">
+	    <a href="http://www.crazyguyonabike.com/forum/board/message/?o=RpmwT&thread_id=197016&v=K&page=1&nested=0">Communications</a>&nbsp;&nbsp;
+	</td>
+	<td align="LEFT" valign="TOP" bgcolor="beige">
+	      sean darragh&nbsp;
+	   </td>
+	<td align="CENTER" valign="TOP" bgcolor="beige">
+	   08:43 &nbsp;
+	</td>
+	<td align="CENTER" valign="TOP" bgcolor="beige">
+	      <font color="red">
+	         6 </font>&nbsp;
+	   </td>
+	   <td align="CENTER" valign="TOP" bgcolor="beige">
+	      <a href="http://www.crazyguyonabike.com/forum/board/message/?o=RpmwT&thread_id=197016&v=K&page=1&nested=0#197108">22:46</a>
+	   </td>
+	</tr>
+
+      <tr>
+	<td align="LEFT" valign="TOP" bgcolor="beige">
+	    <a href="http://www.crazyguyonabike.com/forum/board/?o=RpmwT&board_id=1135&v=6">
+	       Hygiene</a>&nbsp;
+	    </td>
+	<td align="LEFT" valign="TOP" bgcolor="beige">
+	    <a href="http://www.crazyguyonabike.com/forum/board/message/?o=RpmwT&thread_id=197064&v=6&page=1&nested=0">Praise for Huggies Supreme</a>&nbsp;&nbsp;
+	</td>
+	<td align="LEFT" valign="TOP" bgcolor="beige">
+	      Douglas Coulter&nbsp;
+	   </td>
+	<td align="CENTER" valign="TOP" bgcolor="beige">
+	   14:32 &nbsp;
+	</td>
+	<td align="CENTER" valign="TOP" bgcolor="beige">
+	      <font color="red">
+	         2 </font>&nbsp;
+	   </td>
+	   <td align="CENTER" valign="TOP" bgcolor="beige">
+	      <a href="http://www.crazyguyonabike.com/forum/board/message/?o=RpmwT&thread_id=197064&v=6&page=1&nested=0#197107">22:32</a>
+	   </td>
+	</tr>
+
+      <tr>
+	<td align="LEFT" valign="TOP" bgcolor="beige">
+	    <a href="http://www.crazyguyonabike.com/forum/board/?o=RpmwT&board_id=386&v=E">
+	       Bags &amp; Packing</a>&nbsp;
+	    </td>
+	<td align="LEFT" valign="TOP" bgcolor="beige">
+	    <a href="http://www.crazyguyonabike.com/forum/board/message/?o=RpmwT&thread_id=197012&v=E&page=1&nested=0">Fanny - Lumbar - Waist/Belt Packs .... ???</a>&nbsp;&nbsp;
+	</td>
+	<td align="LEFT" valign="TOP" bgcolor="beige">
+	      Jim Andrews&nbsp;
+	   </td>
+	<td align="CENTER" valign="TOP" bgcolor="beige">
+	   08:38 &nbsp;
+	</td>
+	<td align="CENTER" valign="TOP" bgcolor="beige">
+	      <font color="red">
+	         5 </font>&nbsp;
+	   </td>
+	   <td align="CENTER" valign="TOP" bgcolor="beige">
+	      <a href="http://www.crazyguyonabike.com/forum/board/message/?o=RpmwT&thread_id=197012&v=E&page=1&nested=0#197103">22:00</a>
+	   </td>
+	</tr>
+
+      <tr>
+	<td align="LEFT" valign="TOP" bgcolor="beige">
+	    <a href="http://www.crazyguyonabike.com/forum/board/?o=RpmwT&board_id=382&v=O">
+	       Regional: North America</a>&nbsp;
+	    </td>
+	<td align="LEFT" valign="TOP" bgcolor="beige">
+	    <a href="http://www.crazyguyonabike.com/forum/board/message/?o=RpmwT&thread_id=196887&v=O&page=1&nested=0">Established Cross-Canada Route?</a>&nbsp;&nbsp;
+	</td>
+	<td align="LEFT" valign="TOP" bgcolor="beige">
+	      Dale Oswald&nbsp;
+	   </td>
+	<td align="CENTER" valign="TOP" bgcolor="beige">
+	   Wed 8 &nbsp;
+	</td>
+	<td align="CENTER" valign="TOP" bgcolor="beige">
+	      <font color="red">
+	         9 </font>&nbsp;
+	   </td>
+	   <td align="CENTER" valign="TOP" bgcolor="beige">
+	      <a href="http://www.crazyguyonabike.com/forum/board/message/?o=RpmwT&thread_id=196887&v=O&page=1&nested=0#197101">21:42</a>
+	   </td>
+	</tr>
+
+      </tbody></table>
+      </td></tr></tbody></table>
+
+   <b><a href="http://www.crazyguyonabike.com/forum/?o=RpmwT">More forums...</a></b>
+	       <br>
+	       <br>
+	       <br>
+	    <big><b>Latest review posts:</b></big>
+	       <br>
+	       
+
+   <table cellpadding="0"><tbody><tr><td bgcolor="gainsboro">
+      <table border="0" cellspacing="1" cellpadding="1">
+
+      <tbody><tr bgcolor="gainsboro">
+         <th align="LEFT">Forum</th>
+	 <th align="LEFT">Subject</th>
+	 <th align="LEFT">Rating</th>
+	    <th align="LEFT">Average</th>
+	       <th align="LEFT">Votes</th>
+	    <th align="LEFT">Name</th>
+	 <th align="LEFT">Posted</th>
+	 <th align="LEFT">Replies</th>
+	    <th align="LEFT"><nobr>Last post</nobr></th>
+	 </tr>
+
+      <tr>
+	<td align="LEFT" valign="TOP" bgcolor="beige">
+	    <a href="http://www.crazyguyonabike.com/reviews/board/?o=RpmwT&board_id=10498&v=I">
+	       Dynamos</a>&nbsp;
+	    </td>
+	<td align="LEFT" valign="TOP" bgcolor="beige">
+	    <a href="http://www.crazyguyonabike.com/reviews/board/message/?o=RpmwT&thread_id=162525&v=I&page=1&nested=0">Dymotec 6 dynamo &amp; E-WERK</a>&nbsp;&nbsp;
+	</td>
+	<td align="LEFT" valign="TOP" bgcolor="beige"><nobr><span title="4 stars: Very Good - exceeding expectations, but still room for improvement"><img src="./HomePage_files/gold_star.gif" alt="*" width="12" height="12"><img src="./HomePage_files/gold_star.gif" alt="*" width="12" height="12"><img src="./HomePage_files/gold_star.gif" alt="*" width="12" height="12"><img src="./HomePage_files/gold_star.gif" alt="*" width="12" height="12"><img src="./HomePage_files/white_star.gif" alt="_" width="12" height="12"></span>&nbsp;</nobr></td>
+	   <td align="LEFT" valign="TOP" bgcolor="beige">
+	         </td>
+	      <td align="CENTER" valign="TOP" bgcolor="beige">
+	         <font color="red">
+		     1 </font>&nbsp;
+	      </td>
+	   <td align="LEFT" valign="TOP" bgcolor="beige">
+	      Carlton Davis&nbsp;
+	   </td>
+	<td align="CENTER" valign="TOP" bgcolor="beige">
+	   Apr 11 &nbsp;
+	</td>
+	<td align="CENTER" valign="TOP" bgcolor="beige">
+	      <font color="red">
+	         6 </font>&nbsp;
+	   </td>
+	   <td align="CENTER" valign="TOP" bgcolor="beige">
+	      <a href="http://www.crazyguyonabike.com/reviews/board/message/?o=RpmwT&thread_id=162525&v=I&page=1&nested=0#197074">16:27</a>
+	   </td>
+	</tr>
+
+      <tr>
+	<td align="LEFT" valign="TOP" bgcolor="beige">
+	    <a href="http://www.crazyguyonabike.com/reviews/board/?o=RpmwT&board_id=3653&v=e">
+	       Sleeping mats</a>&nbsp;
+	    </td>
+	<td align="LEFT" valign="TOP" bgcolor="beige">
+	    <a href="http://www.crazyguyonabike.com/reviews/board/message/?o=RpmwT&thread_id=168746&v=e&page=1&nested=0">EXPED Downmat 7 pump</a>&nbsp;&nbsp;
+	</td>
+	<td align="LEFT" valign="TOP" bgcolor="beige"><nobr><span title="4 stars: Very Good - exceeding expectations, but still room for improvement"><img src="./HomePage_files/gold_star.gif" alt="*" width="12" height="12"><img src="./HomePage_files/gold_star.gif" alt="*" width="12" height="12"><img src="./HomePage_files/gold_star.gif" alt="*" width="12" height="12"><img src="./HomePage_files/gold_star.gif" alt="*" width="12" height="12"><img src="./HomePage_files/white_star.gif" alt="_" width="12" height="12"></span>&nbsp;</nobr></td>
+	   <td align="LEFT" valign="TOP" bgcolor="beige">
+	         <nobr><span title="4 stars: Very Good - exceeding expectations, but still room for improvement"><img src="./HomePage_files/gold_star.gif" alt="*" width="12" height="12"><img src="./HomePage_files/gold_star.gif" alt="*" width="12" height="12"><img src="./HomePage_files/gold_star.gif" alt="*" width="12" height="12"><img src="./HomePage_files/gold_star.gif" alt="*" width="12" height="12"><img src="./HomePage_files/white_star.gif" alt="_" width="12" height="12"></span>&nbsp;</nobr></td>
+	      <td align="CENTER" valign="TOP" bgcolor="beige">
+	         <font color="green">
+		     4 </font>&nbsp;
+	      </td>
+	   <td align="LEFT" valign="TOP" bgcolor="beige">
+	      dave kane&nbsp;
+	   </td>
+	<td align="CENTER" valign="TOP" bgcolor="beige">
+	   May 20 &nbsp;
+	</td>
+	<td align="CENTER" valign="TOP" bgcolor="beige">
+	      <font color="green">
+	         15 </font>&nbsp;
+	   </td>
+	   <td align="CENTER" valign="TOP" bgcolor="beige">
+	      <a href="http://www.crazyguyonabike.com/reviews/board/message/?o=RpmwT&thread_id=168746&v=e&page=1&nested=0#196771">Tue 7</a>
+	   </td>
+	</tr>
+
+      <tr>
+	<td align="LEFT" valign="TOP" bgcolor="beige">
+	    <a href="http://www.crazyguyonabike.com/reviews/board/?o=RpmwT&board_id=3606&v=P">
+	       Pumps (bike)</a>&nbsp;
+	    </td>
+	<td align="LEFT" valign="TOP" bgcolor="beige">
+	    <a href="http://www.crazyguyonabike.com/reviews/board/message/?o=RpmwT&thread_id=149800&v=P&page=1&nested=0">Topeak Mountain Morph</a>&nbsp;&nbsp;
+	</td>
+	<td align="LEFT" valign="TOP" bgcolor="beige"><nobr><span title="3 stars: Good - not outstanding but nothing wrong with it"><img src="./HomePage_files/gold_star.gif" alt="*" width="12" height="12"><img src="./HomePage_files/gold_star.gif" alt="*" width="12" height="12"><img src="./HomePage_files/gold_star.gif" alt="*" width="12" height="12"><img src="./HomePage_files/white_star.gif" alt="_" width="12" height="12"><img src="./HomePage_files/white_star.gif" alt="_" width="12" height="12"></span>&nbsp;</nobr></td>
+	   <td align="LEFT" valign="TOP" bgcolor="beige">
+	         <nobr><span title="4 stars: Very Good - exceeding expectations, but still room for improvement"><img src="./HomePage_files/gold_star.gif" alt="*" width="12" height="12"><img src="./HomePage_files/gold_star.gif" alt="*" width="12" height="12"><img src="./HomePage_files/gold_star.gif" alt="*" width="12" height="12"><img src="./HomePage_files/gold_star.gif" alt="*" width="12" height="12"><img src="./HomePage_files/white_star.gif" alt="_" width="12" height="12"></span>&nbsp;</nobr></td>
+	      <td align="CENTER" valign="TOP" bgcolor="beige">
+	         <font color="green">
+		     5 </font>&nbsp;
+	      </td>
+	   <td align="LEFT" valign="TOP" bgcolor="beige">
+	      Robert Ewing&nbsp;
+	   </td>
+	<td align="CENTER" valign="TOP" bgcolor="beige">
+	   Jan 5 &nbsp;
+	</td>
+	<td align="CENTER" valign="TOP" bgcolor="beige">
+	      <font color="green">
+	         9 </font>&nbsp;
+	   </td>
+	   <td align="CENTER" valign="TOP" bgcolor="beige">
+	      <a href="http://www.crazyguyonabike.com/reviews/board/message/?o=RpmwT&thread_id=149800&v=P&page=1&nested=0#196756">Tue 7</a>
+	   </td>
+	</tr>
+
+      <tr>
+	<td align="LEFT" valign="TOP" bgcolor="beige">
+	    <a href="http://www.crazyguyonabike.com/reviews/board/?o=RpmwT&board_id=3572&v=u">
+	       Trailers</a>&nbsp;
+	    </td>
+	<td align="LEFT" valign="TOP" bgcolor="beige">
+	    <a href="http://www.crazyguyonabike.com/reviews/board/message/?o=RpmwT&thread_id=79127&v=u&page=1&nested=0">Extrawheel Single-Wheel Bicycle Trailer</a>&nbsp;&nbsp;
+	</td>
+	<td align="LEFT" valign="TOP" bgcolor="beige"><nobr><span title="4 stars: Very Good - exceeding expectations, but still room for improvement"><img src="./HomePage_files/gold_star.gif" alt="*" width="12" height="12"><img src="./HomePage_files/gold_star.gif" alt="*" width="12" height="12"><img src="./HomePage_files/gold_star.gif" alt="*" width="12" height="12"><img src="./HomePage_files/gold_star.gif" alt="*" width="12" height="12"><img src="./HomePage_files/white_star.gif" alt="_" width="12" height="12"></span>&nbsp;</nobr></td>
+	   <td align="LEFT" valign="TOP" bgcolor="beige">
+	         </td>
+	      <td align="CENTER" valign="TOP" bgcolor="beige">
+	         <font color="green">
+		     1 </font>&nbsp;
+	      </td>
+	   <td align="LEFT" valign="TOP" bgcolor="beige">
+	      Tom Allen&nbsp;
+	   </td>
+	<td align="CENTER" valign="TOP" bgcolor="beige">
+	   Apr 2008 &nbsp;
+	</td>
+	<td align="CENTER" valign="TOP" bgcolor="beige">
+	      <font color="green">
+	         15 </font>&nbsp;
+	   </td>
+	   <td align="CENTER" valign="TOP" bgcolor="beige">
+	      <a href="http://www.crazyguyonabike.com/reviews/board/message/?o=RpmwT&thread_id=79127&v=u&page=1&nested=0#196681">Mon 6</a>
+	   </td>
+	</tr>
+
+      <tr>
+	<td align="LEFT" valign="TOP" bgcolor="beige">
+	    <a href="http://www.crazyguyonabike.com/reviews/board/?o=RpmwT&board_id=3578&v=1E">
+	       Tires</a>&nbsp;
+	    </td>
+	<td align="LEFT" valign="TOP" bgcolor="beige">
+	    <a href="http://www.crazyguyonabike.com/reviews/board/message/?o=RpmwT&thread_id=41620&v=1E&page=1&nested=0">Schwalbe Marathon XR 26" (new style)</a>&nbsp;&nbsp;
+	</td>
+	<td align="LEFT" valign="TOP" bgcolor="beige"><nobr><span title="5 stars: Excellent - no room for improvement because it&#39;s just about perfect"><img src="./HomePage_files/gold_star.gif" alt="*" width="12" height="12"><img src="./HomePage_files/gold_star.gif" alt="*" width="12" height="12"><img src="./HomePage_files/gold_star.gif" alt="*" width="12" height="12"><img src="./HomePage_files/gold_star.gif" alt="*" width="12" height="12"><img src="./HomePage_files/gold_star.gif" alt="*" width="12" height="12"></span>&nbsp;</nobr></td>
+	   <td align="LEFT" valign="TOP" bgcolor="beige">
+	         <nobr><span title="5 stars: Excellent - no room for improvement because it&#39;s just about perfect"><img src="./HomePage_files/gold_star.gif" alt="*" width="12" height="12"><img src="./HomePage_files/gold_star.gif" alt="*" width="12" height="12"><img src="./HomePage_files/gold_star.gif" alt="*" width="12" height="12"><img src="./HomePage_files/gold_star.gif" alt="*" width="12" height="12"><img src="./HomePage_files/gold_star.gif" alt="*" width="12" height="12"></span>&nbsp;</nobr></td>
+	      <td align="CENTER" valign="TOP" bgcolor="beige">
+	         <font color="green">
+		     5 </font>&nbsp;
+	      </td>
+	   <td align="LEFT" valign="TOP" bgcolor="beige">
+	      Victor Weinreber&nbsp;
+	   </td>
+	<td align="CENTER" valign="TOP" bgcolor="beige">
+	   Dec 2006 &nbsp;
+	</td>
+	<td align="CENTER" valign="TOP" bgcolor="beige">
+	      <font color="green">
+	         25 </font>&nbsp;
+	   </td>
+	   <td align="CENTER" valign="TOP" bgcolor="beige">
+	      <a href="http://www.crazyguyonabike.com/reviews/board/message/?o=RpmwT&thread_id=41620&v=1E&page=2&nested=0#196641">Sun 5</a>
+	   </td>
+	</tr>
+
+      </tbody></table>
+      </td></tr></tbody></table>
+
+   <b><a href="http://www.crazyguyonabike.com/reviews/?o=RpmwT">More reviews...</a></b>
+	       <br>
+	       <br>
+	       <br>
+	    <big><b>Latest classifieds:</b></big>
+	       <br>
+	       
+
+   <table cellspacing="0" cellpadding="0">
+	 <tbody><tr>
+	    <td>
+	    <big><b>
+	     </b>
+	    </big>
+	    </td>
+	    </tr>
+      </tbody></table>
+
+      <table cellpadding="0">
+	    <tbody><tr>
+	    <td bgcolor="gainsboro">
+	    <table border="0" cellspacing="1" cellpadding="1">
+	    <tbody><tr>
+		  <th align="LEFT">Category&nbsp;</th>
+		  <th width="60%" align="LEFT">Summary</th>
+		  <th align="LEFT">Price&nbsp;</th>
+		  <th align="LEFT">Status&nbsp;</th>
+		  <th align="LEFT"><nobr>Author</nobr>&nbsp;</th>
+		  <th align="LEFT">Created&nbsp;</th>
+	    </tr>
+	    <tr>
+		  <td valign="TOP" bgcolor="beige">
+			Companions&nbsp;
+		  </td>
+		  <td valign="TOP" bgcolor="beige">
+		      <a href="http://www.crazyguyonabike.com/classifieds/?o=RpmwT&classified_id=2074&v=5">A ride through California, Oregon, and a little Nevada</a><font color="green">*</font> </td>
+		  <td valign="TOP" bgcolor="beige">
+			<nobr>&nbsp;</nobr>
+		  </td>
+		  <td valign="TOP" bgcolor="beige">
+			<nobr><font color="green"><b>open</b></font>&nbsp;</nobr>
+		  </td>
+		  <td valign="TOP" bgcolor="beige">
+		      <nobr><a href="http://www.crazyguyonabike.com/directory/?o=RpmwT&user=tkoyo&from=classifieds">Travis Krueger</a>&nbsp;</nobr>
+		  </td>
+		  <td valign="TOP" bgcolor="beige">
+			<nobr>2010-12-08&nbsp;</nobr>
+		  </td>
+	       </tr>
+	       <tr>
+		  <td valign="TOP" bgcolor="beige">
+			For Sale&nbsp;
+		  </td>
+		  <td valign="TOP" bgcolor="beige">
+		      <a href="http://www.crazyguyonabike.com/classifieds/?o=RpmwT&classified_id=2073&v=Y">50 cm Long Haul Trucker - complete bike with b17 and generator hub</a><font color="green">*</font> </td>
+		  <td valign="TOP" bgcolor="beige">
+			<nobr>$1,000 or best offer&nbsp;</nobr>
+		  </td>
+		  <td valign="TOP" bgcolor="beige">
+			<nobr><font color="green"><b>open</b></font>&nbsp;</nobr>
+		  </td>
+		  <td valign="TOP" bgcolor="beige">
+		      <nobr><a href="http://www.crazyguyonabike.com/directory/?o=RpmwT&user=scottiethomas&from=classifieds">scottie thomas</a>&nbsp;</nobr>
+		  </td>
+		  <td valign="TOP" bgcolor="beige">
+			<nobr>2010-12-08&nbsp;</nobr>
+		  </td>
+	       </tr>
+	       <tr>
+		  <td valign="TOP" bgcolor="beige">
+			Companions&nbsp;
+		  </td>
+		  <td valign="TOP" bgcolor="beige">
+		      <a href="http://www.crazyguyonabike.com/classifieds/?o=RpmwT&classified_id=2072&v=5">Biking South US</a><font color="green">*</font> </td>
+		  <td valign="TOP" bgcolor="beige">
+			<nobr>&nbsp;</nobr>
+		  </td>
+		  <td valign="TOP" bgcolor="beige">
+			<nobr><font color="green"><b>open</b></font>&nbsp;</nobr>
+		  </td>
+		  <td valign="TOP" bgcolor="beige">
+		      <nobr><a href="http://www.crazyguyonabike.com/directory/?o=RpmwT&user=matej&from=classifieds">Matej Sudor</a>&nbsp;</nobr>
+		  </td>
+		  <td valign="TOP" bgcolor="beige">
+			<nobr>2010-12-06&nbsp;</nobr>
+		  </td>
+	       </tr>
+	       <tr>
+		  <td valign="TOP" bgcolor="beige">
+			Companions&nbsp;
+		  </td>
+		  <td valign="TOP" bgcolor="beige">
+		      <a href="http://www.crazyguyonabike.com/classifieds/?o=RpmwT&classified_id=2071&v=7">Bike trip into the Yucatan Penninsula with 3 Mexican friends (20th DIC 2010 to 6th JAN 2011)</a><font color="green">*</font> </td>
+		  <td valign="TOP" bgcolor="beige">
+			<nobr>&nbsp;</nobr>
+		  </td>
+		  <td valign="TOP" bgcolor="beige">
+			<nobr><font color="green"><b>open</b></font>&nbsp;</nobr>
+		  </td>
+		  <td valign="TOP" bgcolor="beige">
+		      <nobr><a href="http://www.crazyguyonabike.com/directory/?o=RpmwT&user=janomendoza&from=classifieds">Alejandro Mendoza</a>&nbsp;</nobr>
+		  </td>
+		  <td valign="TOP" bgcolor="beige">
+			<nobr>2010-12-06&nbsp;</nobr>
+		  </td>
+	       </tr>
+	       <tr>
+		  <td valign="TOP" bgcolor="beige">
+			Companions&nbsp;
+		  </td>
+		  <td valign="TOP" bgcolor="beige">
+		      <a href="http://www.crazyguyonabike.com/classifieds/?o=RpmwT&classified_id=2069&v=9">Heading Home for a while...</a><font color="green">*</font> </td>
+		  <td valign="TOP" bgcolor="beige">
+			<nobr>&nbsp;</nobr>
+		  </td>
+		  <td valign="TOP" bgcolor="beige">
+			<nobr><font color="green"><b>open</b></font>&nbsp;</nobr>
+		  </td>
+		  <td valign="TOP" bgcolor="beige">
+		      <nobr><a href="http://www.crazyguyonabike.com/directory/?o=RpmwT&user=pwl1234&from=classifieds">Patrick Licavoli</a>&nbsp;</nobr>
+		  </td>
+		  <td valign="TOP" bgcolor="beige">
+			<nobr>2010-12-05&nbsp;</nobr>
+		  </td>
+	       </tr>
+	       </tbody></table>
+	    </td>
+	    </tr>
+	    </tbody></table>
+
+	<b><a href="http://www.crazyguyonabike.com/classifieds/?o=RpmwT">More classifieds...</a></b>
+	       <br>
+	       <br>
+	       <br>
+	    <big><b>Latest resource entries:</b></big>
+	       <br>
+	       
+
+   <table cellspacing="0" cellpadding="0">
+	 <tbody><tr>
+	    <td>
+	    <big><b>
+	     </b>
+	    </big>
+	    </td>
+	    </tr>
+      </tbody></table>
+
+      <table cellpadding="0">
+	    <tbody><tr>
+	    <td bgcolor="gainsboro">
+	    <table border="0" cellspacing="1" cellpadding="1">
+	    <tbody><tr>
+		  <th width="35%" align="LEFT">Summary</th>
+		  <th width="35%">Link</th>
+		  <th align="CENTER">Categories</th>
+		  <th align="LEFT">Updated&nbsp;</th>
+	    </tr>
+	    <tr>
+		  <td valign="TOP" bgcolor="beige">
+		      <a href="http://www.crazyguyonabike.com/resources/?o=RpmwT&resource_id=1843&v=D">America reCycled: A year on recycled road bikes</a><font color="green">*</font> </td>
+		  <td valign="TOP" bgcolor="beige">
+		        <a href="http://www.americarecycled.org/" target="_blank">www.americarecycled.org</a>
+			</td>
+		  <td valign="TOP" bgcolor="beige">
+			Community, Travelogue</td>
+		  <td valign="TOP" bgcolor="beige">
+			<nobr>2010-12-07&nbsp;</nobr>
+		  </td>
+	       </tr>
+	       <tr>
+		  <td valign="TOP" bgcolor="beige">
+		      <a href="http://www.crazyguyonabike.com/resources/?o=RpmwT&resource_id=1842&v=1">Trip Mapping/Tracking</a><font color="green">*</font> </td>
+		  <td valign="TOP" bgcolor="beige">
+		        <a href="http://www.mapmyride.com/" target="_blank">www.mapmyride.com</a>
+			</td>
+		  <td valign="TOP" bgcolor="beige">
+			Website</td>
+		  <td valign="TOP" bgcolor="beige">
+			<nobr>2010-12-07&nbsp;</nobr>
+		  </td>
+	       </tr>
+	       <tr>
+		  <td valign="TOP" bgcolor="beige">
+		      <a href="http://www.crazyguyonabike.com/resources/?o=RpmwT&resource_id=1841&v=2">A young couple's tandem trips before and after having kids</a> </td>
+		  <td valign="TOP" bgcolor="beige">
+		        <a href="http://home.comcast.net/~msmcgrath/" target="_blank">home.comcast.net/~msmcgrath</a>
+			</td>
+		  <td valign="TOP" bgcolor="beige">
+			Travelogue</td>
+		  <td valign="TOP" bgcolor="beige">
+			<nobr>2010-12-01&nbsp;</nobr>
+		  </td>
+	       </tr>
+	       <tr>
+		  <td valign="TOP" bgcolor="beige">
+		      <a href="http://www.crazyguyonabike.com/resources/?o=RpmwT&resource_id=1840&v=8">Newer Illinois transportation information map link</a> </td>
+		  <td valign="TOP" bgcolor="beige">
+		        &nbsp;
+		        </td>
+		  <td valign="TOP" bgcolor="beige">
+			Maps</td>
+		  <td valign="TOP" bgcolor="beige">
+			<nobr>2010-12-01&nbsp;</nobr>
+		  </td>
+	       </tr>
+	       <tr>
+		  <td valign="TOP" bgcolor="beige">
+		      <a href="http://www.crazyguyonabike.com/resources/?o=RpmwT&resource_id=1838&v=2">Bike aboard Kayak/Bike towing Kayak along the Erie Canal</a> </td>
+		  <td valign="TOP" bgcolor="beige">
+		        <a href="http://velogeur.blogspot.com/" target="_blank">velogeur.blogspot.com</a>
+			</td>
+		  <td valign="TOP" bgcolor="beige">
+			Travelogue</td>
+		  <td valign="TOP" bgcolor="beige">
+			<nobr>2010-11-22&nbsp;</nobr>
+		  </td>
+	       </tr>
+	       </tbody></table>
+	    </td>
+	    </tr>
+	    </tbody></table>
+
+	<b><a href="http://www.crazyguyonabike.com/resources/?o=RpmwT">More resources...</a></b>
+	       <br>
+	       <br>
+	       <br>
+	    <big><b>Latest profile updates:</b></big>
+	       <br>
+	       
+
+   
+
+   <table cellpadding="0">
+      <tbody><tr>
+      <td bgcolor="gainsboro">
+      <table border="0" cellspacing="1" cellpadding="1">
+      <tbody><tr bgcolor="gainsboro">
+          <th>Name</th>
+	  <th>Username</th>
+	  <th>Updated</th>
+	  <th>Joined</th>
+      </tr>
+      <tr>
+	      <td align="LEFT" valign="TOP" bgcolor="beige">
+	         <a href="http://www.crazyguyonabike.com/directory/?o=RpmwT&user=biking4boobs&v=7">
+		 Kavalsky, Daniel</a>
+	      </td>
+	      <td align="LEFT" valign="TOP" bgcolor="beige">
+	         biking4boobs </td>
+	      <td align="RIGHT" valign="TOP" bgcolor="beige">
+	            9 Dec 2010&nbsp;
+	         </td>
+	      <td align="RIGHT" valign="TOP" bgcolor="beige">
+	         24 Nov 2010&nbsp;
+	      </td>
+	   </tr>
+	   <tr>
+	      <td align="LEFT" valign="TOP" bgcolor="beige">
+	         <a href="http://www.crazyguyonabike.com/directory/?o=RpmwT&user=TeresaRose&v=6H">
+		 Rose, Teresa</a>
+	      </td>
+	      <td align="LEFT" valign="TOP" bgcolor="beige">
+	         TeresaRose </td>
+	      <td align="RIGHT" valign="TOP" bgcolor="beige">
+	            9 Dec 2010&nbsp;
+	         </td>
+	      <td align="RIGHT" valign="TOP" bgcolor="beige">
+	         27 Jan 2006&nbsp;
+	      </td>
+	   </tr>
+	   <tr>
+	      <td align="LEFT" valign="TOP" bgcolor="beige">
+	         <a href="http://www.crazyguyonabike.com/directory/?o=RpmwT&user=Sue_n_Will&v=9">
+		 Smith, Will</a>
+	      </td>
+	      <td align="LEFT" valign="TOP" bgcolor="beige">
+	         Sue_n_Will </td>
+	      <td align="RIGHT" valign="TOP" bgcolor="beige">
+	            8 Dec 2010&nbsp;
+	         </td>
+	      <td align="RIGHT" valign="TOP" bgcolor="beige">
+	         11 Jun 2006&nbsp;
+	      </td>
+	   </tr>
+	   <tr>
+	      <td align="LEFT" valign="TOP" bgcolor="beige">
+	         <a href="http://www.crazyguyonabike.com/directory/?o=RpmwT&user=eddeas&v=8">
+		 Deas, Ed</a>
+	      </td>
+	      <td align="LEFT" valign="TOP" bgcolor="beige">
+	         eddeas </td>
+	      <td align="RIGHT" valign="TOP" bgcolor="beige">
+	            8 Dec 2010&nbsp;
+	         </td>
+	      <td align="RIGHT" valign="TOP" bgcolor="beige">
+	         10 Jul 2010&nbsp;
+	      </td>
+	   </tr>
+	   <tr>
+	      <td align="LEFT" valign="TOP" bgcolor="beige">
+	         <a href="http://www.crazyguyonabike.com/directory/?o=RpmwT&user=mid&v=1D">
+		 Ivo, Mark</a>
+	      </td>
+	      <td align="LEFT" valign="TOP" bgcolor="beige">
+	         mid </td>
+	      <td align="RIGHT" valign="TOP" bgcolor="beige">
+	            8 Dec 2010&nbsp;
+	         </td>
+	      <td align="RIGHT" valign="TOP" bgcolor="beige">
+	         21 Oct 2007&nbsp;
+	      </td>
+	   </tr>
+	   </tbody></table>
+      </td>
+      </tr>
+      </tbody></table>
+   <b><a href="http://www.crazyguyonabike.com/directory/profiles/?o=RpmwT">More profiles...</a></b>
+	       <br>
+	       <br>
+	       <br>
+	    <big><b>Latest ratings:</b></big>
+	       <br>
+	       
+
+   <table border="0" cellpadding="3" cellspacing="2" bgcolor="gainsboro">
+
+   <tbody><tr>
+	<th align="LEFT">Type</th>
+	<th align="LEFT">Link</th>
+	<th align="RIGHT">Summary</th>
+	<th align="CENTER">Rated</th>
+     </tr>
+   <tr bgcolor="beige" valign="top"> 
+	   <td>Journal pic</td>
+	   <td>
+	      <table cellpadding="0" cellspacing="4">
+		    <tbody><tr valign="top">
+	       	       <td><a href="http://www.crazyguyonabike.com/doc/page/?o=RpmwT&page_id=161746&v=9o#pic_750367"><img src="./HomePage_files/IMG_6996.JPG" border="0"></a></td>
+		       	  <td>Thistle plant<p>Pic on journal page: <a href="http://www.crazyguyonabike.com/doc/page/?o=RpmwT&page_id=161746&v=9o#pic_750367">Island hopping</a> in journal <a href="http://www.crazyguyonabike.com/doc/?o=RpmwT&doc_id=5070&v=1EB">Kiwis on Giant Tiki Tour</a> by <nobr><a href="http://www.crazyguyonabike.com/directory/?o=RpmwT&user=kiwi_bikers&v=4">Julie Williams</a></nobr> (593&nbsp;of&nbsp;???&nbsp;days)</p></td>
+		       </tr>
+		 </tbody></table>
+	      </td>
+	   
+
+   <td valign="top" align="right">
+      <div id="divRatingsContainer_pic_750367_1" style="position:relative;">
+         <nobr id="RatingCollapsedScore_pic_750367_1">
+         <a href="http://www.crazyguyonabike.com/ajax/doRatings.html?id_field=pic_id&id=750367&counter=1&noscript=1&v=1" target="_blank" title="Rate this pic" style="text-decoration:none; color:gray;" onclick="javascript: event.returnValue = false; return toggleRatings(&#39;pic&#39;, &#39;pic_id&#39;, 750367, 1, &#39;short&#39;, &#39;&#39;, 1);"><span style="color:green; font-weight:normal;">Great pics (1)</span></a>
+   	 </nobr>
+         <div id="divRatings_pic_750367_1" style="position:absolute; top:0; right:0; display:none;"></div>
+      </div>
+   </td>
+
+<td>
+	      <nobr>&nbsp;2010-12-10 3:32&nbsp;</nobr>
+	   </td>
+      </tr>
+   <tr bgcolor="beige" valign="top"> 
+	   <td>Journal pic</td>
+	   <td>
+	      <table cellpadding="0" cellspacing="4">
+		    <tbody><tr valign="top">
+	       	       <td><a href="http://www.crazyguyonabike.com/doc/page/?o=RpmwT&page_id=172085&v=5N#pic_836397"><img src="./HomePage_files/day2sunsetI.jpg" border="0"></a></td>
+		       	  <td><p>Pic on journal page: <a href="http://www.crazyguyonabike.com/doc/page/?o=RpmwT&page_id=172085&v=5N#pic_836397">Mudslides and Sunset</a> in journal <a href="http://www.crazyguyonabike.com/doc/?o=RpmwT&doc_id=7910&v=7c">Flat Feet in Formosa IV: The End of the Trail</a> by <nobr><a href="http://www.crazyguyonabike.com/directory/?o=RpmwT&user=Depeator&v=Le">Carsten Hoefer</a></nobr> (Work&nbsp;in&nbsp;progress)</p></td>
+		       </tr>
+		 </tbody></table>
+	      </td>
+	   
+
+   <td valign="top" align="right">
+      <div id="divRatingsContainer_pic_836397_2" style="position:relative;">
+         <nobr id="RatingCollapsedScore_pic_836397_2">
+         <a href="http://www.crazyguyonabike.com/ajax/doRatings.html?id_field=pic_id&id=836397&counter=2&noscript=1&v=1" target="_blank" title="Rate this pic" style="text-decoration:none; color:gray;" onclick="javascript: event.returnValue = false; return toggleRatings(&#39;pic&#39;, &#39;pic_id&#39;, 836397, 1, &#39;short&#39;, &#39;&#39;, 2);"><span style="color:green; font-weight:normal;">Great pics (1)</span></a>
+   	 </nobr>
+         <div id="divRatings_pic_836397_2" style="position:absolute; top:0; right:0; display:none;"></div>
+      </div>
+   </td>
+
+<td>
+	      <nobr>&nbsp;2010-12-10 1:53&nbsp;</nobr>
+	   </td>
+      </tr>
+   <tr bgcolor="beige" valign="top"> 
+	   <td>Journal pic</td>
+	   <td>
+	      <table cellpadding="0" cellspacing="4">
+		    <tbody><tr valign="top">
+	       	       <td><a href="http://www.crazyguyonabike.com/doc/page/?o=RpmwT&page_id=97544&v=Z6#pic_396952"><img src="./HomePage_files/DSC06728.JPG" border="0"></a></td>
+		       	  <td>Kuching has cats as it's tacky center piece rather than birds.<p>Pic on journal page: <a href="http://www.crazyguyonabike.com/doc/page/?o=RpmwT&page_id=97544&v=Z6#pic_396952">Day 49</a> in journal <a href="http://www.crazyguyonabike.com/doc/?o=RpmwT&doc_id=4242&v=1pd">Go West</a><a href="http://www.crazyguyonabike.com/doc/featured/?o=RpmwT&feature_id=331#331"><img src="./HomePage_files/gold_star.gif" alt="Featured Journal #331" title="Featured Journal #331" width="12" height="12" border="0"></a> by <nobr><a href="http://www.crazyguyonabike.com/directory/?o=RpmwT&user=leonwhiteley&v=0">Leon Whiteley</a></nobr> (Work&nbsp;in&nbsp;progress)</p></td>
+		       </tr>
+		 </tbody></table>
+	      </td>
+	   
+
+   <td valign="top" align="right">
+      <div id="divRatingsContainer_pic_396952_3" style="position:relative;">
+         <nobr id="RatingCollapsedScore_pic_396952_3">
+         <a href="http://www.crazyguyonabike.com/ajax/doRatings.html?id_field=pic_id&id=396952&counter=3&noscript=1&v=1" target="_blank" title="Rate this pic" style="text-decoration:none; color:gray;" onclick="javascript: event.returnValue = false; return toggleRatings(&#39;pic&#39;, &#39;pic_id&#39;, 396952, 1559, &#39;short&#39;, &#39;&#39;, 3);"><span style="color:green; font-weight:normal;">Great pics (1)</span></a>
+   	 </nobr>
+         <div id="divRatings_pic_396952_3" style="position:absolute; top:0; right:0; display:none;"></div>
+      </div>
+   </td>
+
+<td>
+	      <nobr>&nbsp;2010-12-10 1:28&nbsp;</nobr>
+	   </td>
+      </tr>
+   <tr bgcolor="beige" valign="top"> 
+	   <td>Journal pic</td>
+	   <td>
+	      <table cellpadding="0" cellspacing="4">
+		    <tbody><tr valign="top">
+	       	       <td><a href="http://www.crazyguyonabike.com/doc/page/?o=RpmwT&page_id=96937&v=Zt#pic_394926"><img src="./HomePage_files/lojjdhu" border="0"></a></td>
+		       	  <td>A longhouse.<p>Pic on journal page: <a href="http://www.crazyguyonabike.com/doc/page/?o=RpmwT&page_id=96937&v=Zt#pic_394926">Sibu</a> in journal <a href="http://www.crazyguyonabike.com/doc/?o=RpmwT&doc_id=4242&v=1pd">Go West</a><a href="http://www.crazyguyonabike.com/doc/featured/?o=RpmwT&feature_id=331#331"><img src="./HomePage_files/gold_star.gif" alt="Featured Journal #331" title="Featured Journal #331" width="12" height="12" border="0"></a> by <nobr><a href="http://www.crazyguyonabike.com/directory/?o=RpmwT&user=leonwhiteley&v=0">Leon Whiteley</a></nobr> (Work&nbsp;in&nbsp;progress)</p></td>
+		       </tr>
+		 </tbody></table>
+	      </td>
+	   
+
+   <td valign="top" align="right">
+      <div id="divRatingsContainer_pic_394926_4" style="position:relative;">
+         <nobr id="RatingCollapsedScore_pic_394926_4">
+         <a href="http://www.crazyguyonabike.com/ajax/doRatings.html?id_field=pic_id&id=394926&counter=4&noscript=1&v=1" target="_blank" title="Rate this pic" style="text-decoration:none; color:gray;" onclick="javascript: event.returnValue = false; return toggleRatings(&#39;pic&#39;, &#39;pic_id&#39;, 394926, 1593, &#39;short&#39;, &#39;&#39;, 4);"><span style="color:green; font-weight:normal;">Interesting (1)</span></a>
+   	 </nobr>
+         <div id="divRatings_pic_394926_4" style="position:absolute; top:0; right:0; display:none;"></div>
+      </div>
+   </td>
+
+<td>
+	      <nobr>&nbsp;2010-12-10 1:04&nbsp;</nobr>
+	   </td>
+      </tr>
+   <tr bgcolor="beige" valign="top"> 
+	   <td>Journal pic</td>
+	   <td>
+	      <table cellpadding="0" cellspacing="4">
+		    <tbody><tr valign="top">
+	       	       <td><a href="http://www.crazyguyonabike.com/doc/page/?o=RpmwT&page_id=96852&v=ZP#pic_393695"><img src="./HomePage_files/masicave" border="0"></a></td>
+		       	  <td>The 'Great Cave.'<p>Pic on journal page: <a href="http://www.crazyguyonabike.com/doc/page/?o=RpmwT&page_id=96852&v=ZP#pic_393695">Day 41</a> in journal <a href="http://www.crazyguyonabike.com/doc/?o=RpmwT&doc_id=4242&v=1pd">Go West</a><a href="http://www.crazyguyonabike.com/doc/featured/?o=RpmwT&feature_id=331#331"><img src="./HomePage_files/gold_star.gif" alt="Featured Journal #331" title="Featured Journal #331" width="12" height="12" border="0"></a> by <nobr><a href="http://www.crazyguyonabike.com/directory/?o=RpmwT&user=leonwhiteley&v=0">Leon Whiteley</a></nobr> (Work&nbsp;in&nbsp;progress)</p></td>
+		       </tr>
+		 </tbody></table>
+	      </td>
+	   
+
+   <td valign="top" align="right">
+      <div id="divRatingsContainer_pic_393695_5" style="position:relative;">
+         <nobr id="RatingCollapsedScore_pic_393695_5">
+         <a href="http://www.crazyguyonabike.com/ajax/doRatings.html?id_field=pic_id&id=393695&counter=5&noscript=1&v=1" target="_blank" title="Rate this pic" style="text-decoration:none; color:gray;" onclick="javascript: event.returnValue = false; return toggleRatings(&#39;pic&#39;, &#39;pic_id&#39;, 393695, 1599, &#39;short&#39;, &#39;&#39;, 5);"><span style="color:green; font-weight:normal;">Great pics (1)</span></a>
+   	 </nobr>
+         <div id="divRatings_pic_393695_5" style="position:absolute; top:0; right:0; display:none;"></div>
+      </div>
+   </td>
+
+<td>
+	      <nobr>&nbsp;2010-12-10 0:45&nbsp;</nobr>
+	   </td>
+      </tr>
+   </tbody></table>
+
+<b><a href="http://www.crazyguyonabike.com/ratings/?o=RpmwT">More ratings...</a></b>
+	       <br>
+	       <br>
+	       <br>
+	    </td>
+      </tr>
+   </tbody></table>
+
+</td>
+   </tr>
+   </tbody></table>
+
+   <p>
+
+   
+
+   
+</p><p>
+   </p><hr>
+   <table width="100%" id="bottom">
+      <tbody><tr>
+	<td align="LEFT">Website Copyright ©
+2000-2010
+by Neil Gunton
+Fri Dec 10 03:50:51 2010
+PST
+&nbsp;&nbsp;&nbsp;&nbsp;
+<a href="http://www.crazyguyonabike.com/?o=RpmwT#top">Top</a>
+&nbsp;&nbsp;
+<a href="http://www.crazyguyonabike.com/link/">Link</a>
+&nbsp;&nbsp;
+<a href="http://www.crazyguyonabike.com/report/" title="Report problems with this page to the webmaster">Report</a>
+</td>
+	<td align="RIGHT"><a href="http://www.crazyguyonabike.com/email/guestbook/message/?email=938535654" onclick="event.returnValue = false; return false;"><img src="./HomePage_files/guestbook.gif" width="1" height="1" border="0" align="RIGHT"></a></td>
+	</tr>
+   </tbody></table>
+
+
+<script language="JavaScript" type="text/javascript">
+<!--
+      function do_onload()
+      {
+        
+		if (top != window)
+		{
+			top.location.href = window.location.href;
+		}
+	        }
+
+      function do_onunload()
+      {
+	 }
+
+      ;
+
+//-->
+</script>
+
+</body></html>

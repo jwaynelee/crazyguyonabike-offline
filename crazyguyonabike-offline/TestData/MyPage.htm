@@ -1,0 +1,496 @@
+
+<!-- saved from url=(0053)http://www.crazyguyonabike.com/my/index.html?&o=RpmwT -->
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml"><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+	
+	<meta http-equiv="Pragma" content="no-cache"><title>benrowlands</title>
+<script language="JavaScript" type="text/javascript">
+<!--
+      function el(x)
+      {
+         return (typeof x == "string") ? document.getElementById(x) : x;
+      }
+      
+
+   
+
+   
+
+   var request = null;
+
+      function createRequest()
+      {
+	request = null;
+	try
+	{
+		request = new XMLHttpRequest();
+	}
+	catch (trymicrosoft)
+	{
+		try
+		{
+			request = new ActiveXObject("Msxm12.XMLHTTP");
+		}
+		catch (othermicrosoft)
+		{
+			try
+			{
+				request = new ActiveXObject("Microsoft.XMLHTTP");
+			}
+			catch (failed)
+			{
+				request = null;
+			}
+		}
+	}
+      }
+
+      var context = '';
+   var type = '';
+   var id = 0;
+   var id_field = '';
+   var action = '';
+   var rating = '';
+   var counter = 0;
+
+   function doRatingsCallback()
+   {
+	if (request.readyState == 4)
+	{
+		var result = request.responseText;
+		if (result.substring(0,5) == 'Error')
+		{
+			if (result.indexOf ('logged in') > -1)
+			{
+				window.location = '/login/?referer=' + escape(window.location);
+			}
+			else
+			{
+				alert (result);
+			}
+		}
+		else
+		{
+			document.getElementById ('divRatings_' + type + '_' + id + '_' + counter).innerHTML = result;
+			if (action == 'toggle')
+			{
+				document.getElementById('RatingCollapsedScore_' + type + '_' + id + '_' + counter).innerHTML = 'Score';
+				document.getElementById('divRatings_' + type + '_' + id + '_' + counter).style.display = 'block';
+				document.getElementById('divRatingsContainer_' + type + '_' + id + '_' + counter).style.zIndex = 100;
+				document.getElementById('divRatings_' + type + '_' + id + '_' + counter).style.zIndex = 50;
+			}
+		}
+		action = '';
+	}
+   }
+
+   function closeRatingsMenu ()
+   {
+	if (id > 0 && action == '')
+	{
+		document.getElementById('RatingCollapsedScore_' + type + '_' + id + '_' + counter).innerHTML = 
+		    document.getElementById('RatingScore_' + type + '_' + id + '_' + counter).innerHTML;
+		document.getElementById('divRatings_' + type + '_' + id + '_' + counter).style.display = 'none';
+		document.getElementById('divRatingsContainer_' + type + '_' + id + '_' + counter).style.zIndex = 1;
+		document.getElementById('divRatings_' + type + '_' + id + '_' + counter).style.zIndex = 1;
+		id = 0;
+	}
+	var old_context = context;
+	context = '';
+	return (old_context == '') ? true : false;
+   }
+
+   function toggleRatings (the_type, the_id_field, the_id, version, format, filter, the_counter)
+   {
+	createRequest();
+	if (request == null)
+	{
+		return true;
+	}
+	else
+	{
+		context = 'toggleRatings';
+		action = '';
+		if (the_id == id)
+		{
+			closeRatingsMenu ();
+			context = 'toggleRatings';
+		}
+		else
+		{
+			closeRatingsMenu ();
+			context = 'toggleRatings';
+			type = the_type;
+			id = the_id;
+			id_field = the_id_field;
+			counter = the_counter;
+			action = 'toggle';
+			var url = "/ajax/doRatings.html?id_field=" + the_id_field + "&id=" + the_id + "&counter=" + counter + "&v=" + version + "&format=" + format + "&filter=" + filter;
+			request.open("GET", url, true);
+			request.onreadystatechange = doRatingsCallback;
+			var result = request.send(null);
+		}
+		return false;
+	}
+   }
+
+   function doRating (the_type, the_id_field, the_id, the_counter, the_rating, the_delta, version, format, filter, do_confirm)
+   {
+	context = 'doRating';
+	type = the_type;
+	id = the_id;
+	id_field = the_id_field;
+	rating = the_rating;
+	counter = the_counter;
+	createRequest();
+	if (request == null)
+	{
+		return true;
+	}
+	else
+	{
+		if ((do_confirm == 1 && (( the_rating != 'miscategorized' && the_rating != 'troll' && the_rating != 'abuse' && the_rating != 'spam' && the_rating != 'offtopic' ) || confirm ("Are you sure you want to use this rating? It should not be used lightly. If you click 'Ok' then the webmaster will be notified so further action can be taken.") )) || do_confirm == 0)
+		{
+			action = 'do_rating';
+			var url = "/ajax/doRatings.html?id_field=" + the_id_field + "&id=" + the_id + "&counter=" + counter + "&rating=" + the_rating + "&filter=" + filter + "&delta=" + the_delta + "&v=" + version + "&format=" + format;
+			request.open("GET", url, true);
+			request.onreadystatechange = doRatingsCallback;
+			var result = request.send(null);
+		}
+		return false;
+	}
+   }
+
+
+
+   
+
+   var bookmark_type;
+   var bookmark_id;
+   var bookmark_counter;
+
+   function doBookmark_callback()
+   {
+	if (request.readyState == 4)
+	{
+		var result = request.responseText;
+
+		if (result == 'OK')
+		{
+			var element = document.getElementById ('bookmark_' + bookmark_type + '_' + bookmark_id + '_' + bookmark_counter);
+			//element.innerHTML = 'Bookmark&#10003;';
+			element.innerHTML = 'BOOKMARK';
+		}
+		else
+		{
+			alert(result);
+		}
+	}
+   }
+
+   function doBookmark (type, id, counter)
+   {
+        bookmark_type = type;
+	bookmark_id = id;
+	bookmark_counter = counter;
+	createRequest();
+	if (request == null)
+	{
+		return true;
+	}
+	else
+	{
+		var url = '/ajax/bookmark.html?type=' + type + '&id=' + id;
+		request.open("GET", url, true);
+		request.onreadystatechange = doBookmark_callback;
+		var result = request.send(null);
+		return false;
+	}
+   }
+
+//-->
+</script>
+<style type="text/css">
+	   </style>
+
+</head>
+
+<body bgcolor="beige" onload="do_onload();" onunload="do_onunload();" onclick="javascript:closeRatingsMenu();"><a name="top"></a>
+<a href="http://www.crazyguyonabike.com/email/guestbook/message/?email=496585680" onclick="event.returnValue = false; return false;"></a>
+   <a href="http://www.crazyguyonabike.com/email/guestbook/post/?email=496585680" onclick="event.returnValue = false; return false;"><img src="./MyPage_files/guestbook.gif" width="1" height="1" border="0" align="RIGHT"></a>
+
+
+	<table cellpadding="1" width="100%">
+		<tbody><tr>
+			<td bgcolor="white" width="5%">
+				<nobr>&nbsp;
+				        <a href="http://www.crazyguyonabike.com/?o=RpmwT" alt="" style="text-decoration:none;" title=""><big><b>crazyguyonabike</b></big></a>&nbsp;</nobr>
+				</td>
+			<td width="25%" align="LEFT">
+			   <table cellpadding="1">
+			      <tbody><tr>
+			 	<td>
+				   <nobr>
+					Topic: <b>Bicycle Touring</b>
+					[<a href="http://www.topicwise.com/?o=RpmwT">change</a>]
+					</nobr>
+				   </td>
+			      </tr>
+			   </tbody></table>
+			</td>
+			<td align="RIGHT" width="70%">
+				<table cellpadding="1">
+				   <tbody><tr>
+					<td><a href="http://www.crazyguyonabike.com/website/about/?o=RpmwT">About</a>&nbsp;</td>
+					   <td><a href="http://www.crazyguyonabike.com/website/help/?o=RpmwT">Help</a>&nbsp;</td>
+					      <td><a href="http://www.crazyguyonabike.com/website/faq/?o=RpmwT">FAQ</a>&nbsp;</td>
+					   <td><a href="http://www.crazyguyonabike.com/website/sitemap/?o=RpmwT">Sitemap</a>&nbsp;</td>
+					   <td><a href="http://www.crazyguyonabike.com/website/options/?o=RpmwT">Options</a>&nbsp;</td>
+					   <td><a href="http://www.crazyguyonabike.com/website/sponsors/?o=RpmwT">Sponsors</a>&nbsp;</td>
+					   <td><a href="http://www.crazyguyonabike.com/website/sponsors/donate/?o=RpmwT">Donate</a>&nbsp;</td>
+					   <form action="http://www.crazyguyonabike.com/search/" method="GET" style="margin-bottom: 0"></form>
+					         <td><input type="TEXT" name="term" size="10" maxlength="60" value=""></td>
+					         <td><input type="SUBMIT" value="Search"></td>
+					         <input type="HIDDEN" name="expand" value="auto">
+					      
+					   </tr>
+				</tbody></table>
+			</td>
+		</tr>
+	</tbody></table>
+
+	<hr>
+
+
+
+   <table border="0" cellpadding="3" cellspacing="0"><tbody><tr><td bgcolor="beige">&nbsp;<a href="http://www.crazyguyonabike.com/?o=RpmwT">Home</a></td>
+<td bgcolor="#00ccff">&nbsp;<big><b>My</b></big>&nbsp;</td>
+<td bgcolor="beige">&nbsp;<a href="http://www.crazyguyonabike.com/doc/?o=RpmwT&doctype=journal">Journals</a><font color="red">*</font></td>
+<td bgcolor="beige">&nbsp;<a href="http://www.crazyguyonabike.com/doc/?o=RpmwT&doctype=article">Articles</a><font color="red">*</font></td>
+<td bgcolor="beige">&nbsp;<a href="http://www.crazyguyonabike.com/forum/?o=RpmwT">Forums</a><font color="red">*</font></td>
+<td bgcolor="beige">&nbsp;<a href="http://www.crazyguyonabike.com/reviews/?o=RpmwT">Reviews</a><font color="red">*</font></td>
+<td bgcolor="beige">&nbsp;<a href="http://www.crazyguyonabike.com/resources/?o=RpmwT">Resources</a><font color="green">*</font></td>
+<td bgcolor="beige">&nbsp;<a href="http://www.crazyguyonabike.com/classifieds/?o=RpmwT">Classifieds</a><font color="green">*</font></td>
+<td bgcolor="beige">&nbsp;<a href="http://www.crazyguyonabike.com/serendipity/?o=RpmwT">Serendipity</a></td>
+<td bgcolor="beige">&nbsp;<a href="http://www.crazyguyonabike.com/ratings/?o=RpmwT">Ratings</a><font color="red">*</font></td>
+<td bgcolor="beige">&nbsp;<a href="http://www.crazyguyonabike.com/directory/?o=RpmwT">Directory</a></td>
+<td bgcolor="beige">&nbsp;<a href="http://www.crazyguyonabike.com/search/?o=RpmwT">Search</a></td>
+<td bgcolor="beige">&nbsp;<a href="http://www.crazyguyonabike.com/website/?o=RpmwT">Website</a></td>
+</tr><tr>
+<td bgcolor="#00ccff" colspan="14"><table border="0" cellpadding="3" cellspacing="0"><tbody><tr><td bgcolor="white">&nbsp;<a href="http://www.crazyguyonabike.com/my/account/?o=RpmwT">Account</a></td>
+<td bgcolor="white">&nbsp;<a href="http://www.crazyguyonabike.com/my/topics/?o=RpmwT">Topics</a></td>
+<td bgcolor="white">&nbsp;<a href="http://www.crazyguyonabike.com/my/options/?o=RpmwT">Options</a></td>
+<td bgcolor="white">&nbsp;<a href="http://www.crazyguyonabike.com/my/replies/?o=RpmwT">Replies</a></td>
+<td bgcolor="white">&nbsp;<a href="http://www.crazyguyonabike.com/my/reviews/?o=RpmwT">Reviews</a></td>
+<td bgcolor="white">&nbsp;<a href="http://www.crazyguyonabike.com/my/resources/?o=RpmwT">Resources</a></td>
+<td bgcolor="white">&nbsp;<a href="http://www.crazyguyonabike.com/my/classifieds/?o=RpmwT">Classifieds</a></td>
+<td bgcolor="white">&nbsp;<a href="http://www.crazyguyonabike.com/my/relations/?o=RpmwT">Relations</a></td>
+<td bgcolor="white">&nbsp;<a href="http://www.crazyguyonabike.com/my/bookmarks/?o=RpmwT">Bookmarks</a></td>
+<td bgcolor="white">&nbsp;<a href="http://www.crazyguyonabike.com/my/ratings/?o=RpmwT">Ratings</a></td>
+<td bgcolor="white">&nbsp;<a href="http://www.crazyguyonabike.com/my/downloads/?o=RpmwT">Downloads</a></td>
+<td bgcolor="white">&nbsp;<a href="http://www.crazyguyonabike.com/my/donations/?o=RpmwT">Donations</a></td>
+<td bgcolor="white">&nbsp;<a href="http://www.crazyguyonabike.com/my/ads/?o=RpmwT">Ads</a></td>
+</tr>
+</tbody></table>
+</td>
+</tr>
+
+</tbody></table>
+<hr>
+
+
+
+   
+
+   <table>
+   <tbody><tr>
+      <td>
+      <form action="http://www.crazyguyonabike.com/my/new/" method="POST" style="margin-bottom: 0">
+            <input type="SUBMIT" value="Create new journal or article ">
+         </form>
+      </td>
+      <td>&nbsp;&nbsp;&nbsp;</td>
+         <td>
+            <form action="http://www.crazyguyonabike.com/directory/edit/" method="GET" style="margin-bottom: 0">
+	       <input type="submit" value="Edit Profile ">
+	       <input type="HIDDEN" name="user" value="benrowlands">
+	       <input type="HIDDEN" name="command" value="update">
+	    </form>
+         </td>
+         <td>
+            <form action="http://www.crazyguyonabike.com/directory/" method="GET" style="margin-bottom: 0">
+	       <input type="submit" value="View Profile ">
+	       <input type="HIDDEN" name="user" value="benrowlands">
+	       <input type="HIDDEN" name="v" value="I">
+	    </form>
+         </td>
+	 <td>&nbsp;&nbsp;&nbsp;</td>
+      <td>
+         <form action="http://www.crazyguyonabike.com/my/account/" method="GET" style="margin-bottom: 0">
+	    <input type="submit" value="Change email or password ">
+         </form>
+	 </td><td>&nbsp;&nbsp;&nbsp;</td>
+      
+      <td>
+            <form action="http://www.crazyguyonabike.com/logout/" method="GET" style="margin-bottom: 0">
+	       <input type="submit" value="Logout ">
+            </form>
+      </td>
+   </tr>
+   </tbody></table>
+
+   <hr>
+      
+
+   <table>
+        <tbody><tr>
+	  <td>
+            <form action="http://www.crazyguyonabike.com/website/sponsors/donate/" method="GET" style="margin-bottom: 0">
+	       <input type="submit" value="Donate or Subscribe ">
+	       <input type="HIDDEN" name="from" value="my">
+            </form>
+	  </td>
+          <td>
+	    &nbsp;&nbsp;<a href="http://www.crazyguyonabike.com/website/faq/#why_donate">Why donate?</a>
+	    |
+	    <b>Your last donation was:</b>
+	    [No donations recorded]
+	    </td>
+	  <td>
+		</td>
+	</tr>
+      </tbody></table>
+
+   <hr>
+
+
+
+   
+
+   <ol>
+   </ol>
+
+   
+
+   <table cellpadding="0">
+      <tbody><tr>
+         <td bgcolor="gainsboro">
+	 <table border="0" cellspacing="1" cellpadding="1">
+
+	    <tbody><tr bgcolor="gainsboro">
+	       <th align="LEFT">Sequence</th>
+	       <th align="LEFT">Type</th>
+	       <th align="LEFT">Title</th>
+	       <th align="LEFT">Updated</th>
+	       <th align="LEFT">Status</th>
+	       <th align="RIGHT">Hits</th>
+	    </tr>
+
+	    <tr>
+		  <th align="CENTER" bgcolor="beige">
+		     <img src="./MyPage_files/arrow_up_white.gif" width="12" height="12" border="0" alt="First">
+		     1 <a href="http://www.crazyguyonabike.com/my/?o=RpmwT&doc_id=7953&doc_sequence=1&command=move_down&t=1"><img src="./MyPage_files/arrow_down_gray.gif" width="12" height="12" border="0" alt="Move down"></a>
+		     </th>
+		  <td align="LEFT" valign="TOP" bgcolor="beige">
+		     &nbsp;Journal&nbsp;
+		  </td>
+		  <td align="LEFT" valign="TOP" bgcolor="beige">
+		     <a href="http://www.crazyguyonabike.com/doc/?o=RpmwT&doc_id=7953&v=14">TEST Journal</a>
+		     <font color="green">*</font>
+		     </td>
+		  <td align="LEFT" valign="TOP" bgcolor="beige">
+		      Tue 7 Dec 2010 06:13 PST </td>
+		  <td align="LEFT" valign="TOP" bgcolor="beige">
+		      <table cellpadding="0" cellspacing="0"><tbody><tr><td><b>Not&nbsp;yet&nbsp;published</b></td></tr></tbody></table> </td>
+		  <td align="RIGHT" valign="TOP" bgcolor="beige">
+		      <nobr>&nbsp;0&nbsp;</nobr>
+		  </td>
+	       </tr>
+
+	       <tr>
+		  <th align="CENTER" bgcolor="beige">
+		     <a href="http://www.crazyguyonabike.com/my/?o=RpmwT&doc_id=5221&doc_sequence=2&command=move_up&t=1"><img src="./MyPage_files/arrow_up_gray.gif" width="12" height="12" border="0" alt="Move up"></a>
+		     2 <a href="http://www.crazyguyonabike.com/my/?o=RpmwT&doc_id=5221&doc_sequence=2&command=move_down&t=1"><img src="./MyPage_files/arrow_down_gray.gif" width="12" height="12" border="0" alt="Move down"></a>
+		     </th>
+		  <td align="LEFT" valign="TOP" bgcolor="beige">
+		     &nbsp;Journal&nbsp;
+		  </td>
+		  <td align="LEFT" valign="TOP" bgcolor="beige">
+		     <a href="http://www.crazyguyonabike.com/doc/?o=RpmwT&doc_id=5221&v=1Zn">Ben Voyage</a>
+		     </td>
+		  <td align="LEFT" valign="TOP" bgcolor="beige">
+		      Fri 5 Nov 2010 09:55 PST </td>
+		  <td align="LEFT" valign="TOP" bgcolor="beige">
+		      <table cellpadding="0" cellspacing="0"><tbody><tr><td><b>542&nbsp;of&nbsp;???&nbsp;days</b></td><td><a href="http://www.crazyguyonabike.com/doc/featured/?o=RpmwT&feature_id=367#367"><img src="./MyPage_files/gold_star.gif" alt="Featured Journal #367" title="Featured Journal #367" width="12" height="12" border="0"></a></td></tr></tbody></table> </td>
+		  <td align="RIGHT" valign="TOP" bgcolor="beige">
+		      <nobr>&nbsp;317,710&nbsp;</nobr>
+		  </td>
+	       </tr>
+
+	       <tr>
+		  <th align="CENTER" bgcolor="beige">
+		     <a href="http://www.crazyguyonabike.com/my/?o=RpmwT&doc_id=5192&doc_sequence=3&command=move_up&t=1"><img src="./MyPage_files/arrow_up_gray.gif" width="12" height="12" border="0" alt="Move up"></a>
+		     3 <img src="./MyPage_files/arrow_down_white.gif" width="12" height="12" border="0" alt="Last">
+		     </th>
+		  <td align="LEFT" valign="TOP" bgcolor="beige">
+		     &nbsp;Journal&nbsp;
+		  </td>
+		  <td align="LEFT" valign="TOP" bgcolor="beige">
+		     <a href="http://www.crazyguyonabike.com/doc/?o=RpmwT&doc_id=5192&v=32">Dublin to Cork the Long Way</a>
+		     </td>
+		  <td align="LEFT" valign="TOP" bgcolor="beige">
+		      Wed 3 Nov 2010 01:32 PST </td>
+		  <td align="LEFT" valign="TOP" bgcolor="beige">
+		      <table cellpadding="0" cellspacing="0"><tbody><tr><td><b>Not&nbsp;yet&nbsp;published</b></td></tr></tbody></table> </td>
+		  <td align="RIGHT" valign="TOP" bgcolor="beige">
+		      <nobr>&nbsp;0&nbsp;</nobr>
+		  </td>
+	       </tr>
+
+	       </tbody></table>
+	 </td>
+      </tr>
+      </tbody></table>
+
+   
+<p>
+   </p><hr>
+   <table width="100%" id="bottom">
+      <tbody><tr>
+	<td align="LEFT">Website Copyright ©
+2000-2010
+by Neil Gunton
+Fri Dec 10 03:50:14 2010
+PST
+&nbsp;&nbsp;&nbsp;&nbsp;
+<a href="http://www.crazyguyonabike.com/my/index.html?&o=RpmwT#top">Top</a>
+&nbsp;&nbsp;
+<a href="http://www.crazyguyonabike.com/link/">Link</a>
+&nbsp;&nbsp;
+<a href="http://www.crazyguyonabike.com/report/" title="Report problems with this page to the webmaster">Report</a>
+</td>
+	<td align="RIGHT"><a href="http://www.crazyguyonabike.com/email/guestbook/message/?email=154320566" onclick="event.returnValue = false; return false;"><img src="./MyPage_files/guestbook.gif" width="1" height="1" border="0" align="RIGHT"></a></td>
+	</tr>
+   </tbody></table>
+
+
+<script language="JavaScript" type="text/javascript">
+<!--
+      function do_onload()
+      {
+        
+		if (top != window)
+		{
+			top.location.href = window.location.href;
+		}
+	        }
+
+      function do_onunload()
+      {
+	 }
+
+      ;
+
+//-->
+</script>
+
+</body></html>
