@@ -1,0 +1,47 @@
+--------------------- done ---------------------------
+Persist model using Files
+Load from files
+link page/journal models
+use background thread for Operations, flesh out callbacks
+MockOperations implementation
+implement bold/italic style in tree view
+check for modification when saving to file (and re-loading?)
+binding of params
+Sort thumbnail view
+DND image
+Disable drag & drop when in readonly mode
+Detect invalid images (ie, deleted between opens)
+Status display in thumbnail view
+add logging
+detect when target file disappears
+Review cancellation of tasks in thumbnail view
+Cancellation in upload view
+------------------------------------------------------
+
+Add photos to journal and auto-assign to days -- NOT DONE
+undo support throughout UI
+cleanup menus
+detect when photos date different to page date -- NOT DONE; complexity involved when date changes (re-order?)
+
+-- Text Editor --
+Spell checker integration
+Copy/Past/Cut/DND in text editor
+Undo support
+Integrate Document object model
+
+Upload sequence tracker & error handling (retry?) - dump script on failure
+
+-- Thumbnail View --
+Drag/Drop image from thumbnail view into text
+Show images in text
+Animation when thumbnails/EXIF loading
+Filter thumbnail view to show unreferenced images
+Hover text
+Properties/preferences to set size & quality options
+
+-- Polish --
+Clean up new journal page, add xml extension automatically, trim from name
+Preview pane (turn into to html & view in browser)
+Persist location of shells between execution
+Resize photos before upload
+Implement EXIF features
