@@ -63,7 +63,7 @@ public class Preferences {
 	}
 
 	public void removeValue(String path) {
-		Nodes nodes = root.query(strip(path));
+		Nodes nodes = root.getRootElement().query(strip(path));
 		if (nodes.size() == 0) {
 			return;
 		} else {
@@ -117,7 +117,7 @@ public class Preferences {
 			return;
 		}
 		FileOutputStream fos = null;
-		LOG.debug("Saving preferences to [" + preferencesFile.getName() + "]");
+		LOG.debug("Saving preferences to [" + preferencesFile.getAbsolutePath() + "]");
 		try {
 			fos = new FileOutputStream(preferencesFile);
 			Serializer serializer = new Serializer(fos);
@@ -141,7 +141,7 @@ public class Preferences {
 		if (preferencesFile == null) {
 			return;
 		}
-		LOG.debug("Refreshing preferences from [" + preferencesFile.getName() + "]");
+		LOG.debug("Refreshing preferences from [" + preferencesFile.getAbsolutePath() + "]");
 		try {
 			if (preferencesFile.exists()) {
 				root = new Builder(false).build(preferencesFile);

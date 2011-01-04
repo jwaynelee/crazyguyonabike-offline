@@ -5,6 +5,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -34,6 +35,35 @@ import com.cgoab.offline.util.StringUtils;
  */
 public class JournalXmlLoader {
 
+	/* data format version */
+	public enum Version {
+
+		V1("1.0");
+
+		private String versionString;
+
+		public static Version parse(String s) {
+			for (Version v : Version.values()) {
+				if (v.versionString.equals(s)) {
+					return v;
+				}
+			}
+			throw new IllegalArgumentException("Unsupported data version [" + s + "]");
+		}
+
+		private Version(String verstionString) {
+			this.versionString = verstionString;
+		}
+
+		@Override
+		public String toString() {
+			return versionString;
+		}
+	};
+
+	private static final Version CURRENT_VERSION = Version.V1;
+
+	private static final String VERSION_ATTR = "version";
 	private static final String JOURNAL_EL = "journal";
 	private static final String DOC_ID_HINT_ATTR = "docIdHint";
 	private static final String RESIZE_PHOTOS_ATTR = "resizeBeforeUpload";
@@ -67,6 +97,8 @@ public class JournalXmlLoader {
 
 	public static Journal open(File file) throws ValidityException, ParsingException, IOException {
 		Document xml = new Builder(false).build(file);
+		String version = xml.getRootElement().getAttributeValue(VERSION_ATTR);
+		Assert.isTrue(Version.parse(version) == CURRENT_VERSION);
 		String name = xml.getRootElement().getAttributeValue(NAME_ATTR);
 		Journal journal = new Journal(file, name);
 		journal.setLastModifiedWhenLoaded(file.lastModified());
@@ -92,24 +124,35 @@ public class JournalXmlLoader {
 			newPage.setHeadline(StringUtils.trimToNull(elPage.getFirstChildElement(HEADLINE_EL).getValue()));
 			newPage.setDistance(Float.parseFloat(elPage.getFirstChildElement(DISTANCE_EL).getValue()));
 			newPage.setDate(new LocalDate(elPage.getFirstChildElement(DATE_EL).getValue()));
-			newPage.setText(StringUtils.trimToNull(elPage.getFirstChildElement(TEXT_EL).getValue()));
+
+			Element textXml = elPage.getFirstChildElement(TEXT_EL);
+			if (textXml != null) {
+				newPage.setText(textXml.getValue());
+			}
 
 			// photos
 			Element photosElem = elPage.getFirstChildElement(PHOTOS_EL);
 			newPage.setPhotosOrder(PhotosOrder.valueOf(photosElem.getAttributeValue(PHOTOS_ORDER_ATTR)));
-			Elements photos = photosElem.getChildElements(PHOTO_EL);
-
-			for (int j = 0; j < photos.size(); ++j) {
-				Element elPhoto = photos.get(j);
+			Elements photosXml = photosElem.getChildElements(PHOTO_EL);
+			List<Photo> photos = new ArrayList<Photo>(photosXml.size());
+			for (int j = 0; j < photosXml.size(); ++j) {
+				Element elPhoto = photosXml.get(j);
 				Photo newPhoto = new Photo();
 				newPhoto.setFile(new File(elPhoto.getAttributeValue(FILE_ATTR)));
 				newPhoto.setState(UploadState.valueOf(elPhoto.getAttributeValue(UPLOAD_STATE_ATTR)));
 				// newPhoto.setImageName(StringUtils.trimToNull(elPhoto.getAttributeValue(IMAGENAME_ATTR)));
-				newPhoto.setCaption(StringUtils.trimToNull(elPhoto.getFirstChildElement(CAPTION_EL).getValue()));
-				newPage.addPhoto(newPhoto);
+				Element captionXml = elPhoto.getFirstChildElement(CAPTION_EL);
+				if (captionXml != null) {
+					newPhoto.setCaption(captionXml.getValue());
+				}
+				photos.add(newPhoto);
 			}
+			newPage.setPhotos(photos);
 			journal.addPage(newPage);
 		}
+
+		// journal may become dirty as we add pages to it, mark "clean"
+		journal.setDirty(false);
 		return journal;
 	}
 
@@ -264,6 +307,7 @@ public class JournalXmlLoader {
 			XMLStreamWriter xml = xof.createXMLStreamWriter(tempWriter);
 			xml.writeStartDocument();
 			xml.writeStartElement(JOURNAL_EL);
+			xml.writeAttribute(VERSION_ATTR, CURRENT_VERSION.toString());
 			xml.writeAttribute(NAME_ATTR, journal.getName());
 			xml.writeAttribute(DOC_ID_HINT_ATTR, Integer.toString(journal.getDocIdHint()));
 			if (journal.isResizeImagesBeforeUpload() != null) {
@@ -280,13 +324,14 @@ public class JournalXmlLoader {
 				xml.writeAttribute(ITALIC_ATTR, Boolean.toString(page.isItalic()));
 				xml.writeAttribute(BOLD_ATTR, Boolean.toString(page.isBold()));
 				xml.writeAttribute(INDENT_ATTR, Integer.toString(page.getIndent()));
-
 				writeElement(xml, TITLE_EL, StringUtils.nullToEmpty(page.getTitle()));
 				writeElement(xml, HEADLINE_EL, StringUtils.nullToEmpty(page.getHeadline()));
 				writeElement(xml, DISTANCE_EL, Float.toString(page.getDistance()));
 				writeElement(xml, DATE_EL, page.getDate().toString());
-				writeElementWithCData(xml, TEXT_EL, StringUtils.nullToEmpty(page.getText()));
-
+				String text = page.getText();
+				if (text != null) {
+					writeElementWithCData(xml, TEXT_EL, text);
+				}
 				xml.writeStartElement(PHOTOS_EL);
 				xml.writeAttribute(PHOTOS_ORDER_ATTR, page.getPhotosOrder().name());
 				for (Photo p : page.getPhotos()) {
@@ -295,7 +340,10 @@ public class JournalXmlLoader {
 					xml.writeAttribute(UPLOAD_STATE_ATTR, p.getState().toString());
 					// xml.writeAttribute(IMAGENAME_ATTR,
 					// StringUtils.nullToEmpty(p.getImageName()));
-					writeElementWithCData(xml, CAPTION_EL, StringUtils.nullToEmpty(p.getCaption()));
+					String caption = p.getCaption();
+					if (caption != null) {
+						writeElementWithCData(xml, CAPTION_EL, caption);
+					}
 					xml.writeEndElement(); // </photo>
 				}
 				xml.writeEndElement(); // </photos>

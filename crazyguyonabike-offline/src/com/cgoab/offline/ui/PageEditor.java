@@ -2,7 +2,9 @@ package com.cgoab.offline.ui;
 
 import static com.cgoab.offline.util.StringUtils.nullToEmpty;
 
+import java.awt.Desktop;
 import java.io.File;
+import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -17,8 +19,11 @@ import org.eclipse.jface.action.IAction;
 import org.eclipse.jface.action.IMenuListener;
 import org.eclipse.jface.action.IMenuManager;
 import org.eclipse.jface.action.MenuManager;
+import org.eclipse.jface.action.Separator;
 import org.eclipse.jface.dialogs.ProgressMonitorDialog;
+import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.jface.text.Document;
+import org.eclipse.jface.text.IDocument;
 import org.eclipse.jface.text.ITextListener;
 import org.eclipse.jface.text.TextEvent;
 import org.eclipse.jface.text.TextViewer;
@@ -93,16 +98,17 @@ import com.cgoab.offline.model.Page.PhotosOrder;
 import com.cgoab.offline.model.Photo;
 import com.cgoab.offline.model.UploadState;
 import com.cgoab.offline.ui.JournalContentProvider.JournalHolder;
+import com.cgoab.offline.ui.thumbnailviewer.CachingThumbnailProvider;
+import com.cgoab.offline.ui.thumbnailviewer.CachingThumbnailProviderFactory;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailProvider;
-import com.cgoab.offline.ui.thumbnailviewer.ThumbnailProviderFactory;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailViewer;
 import com.cgoab.offline.util.Assert;
 import com.cgoab.offline.util.JobListener;
 import com.cgoab.offline.util.StringUtils;
 import com.cgoab.offline.util.Utils;
+import com.cgoab.offline.util.resizer.ImageMagickResizeTask.MagicNotAvailableException;
+import com.cgoab.offline.util.resizer.ImageMagickResizerServiceFactory;
 import com.cgoab.offline.util.resizer.ResizerService;
-import com.cgoab.offline.util.resizer.ResizerServiceFactory;
-import com.cgoab.offline.util.resizer.ResizerServiceFactory.UnableToCreateResizerException;
 import com.drew.metadata.Metadata;
 import com.drew.metadata.MetadataException;
 import com.drew.metadata.jpeg.JpegDirectory;
@@ -112,8 +118,136 @@ public class PageEditor {
 	private static final Logger LOG = LoggerFactory.getLogger(PageEditor.class);
 	private static final String OPENJOURNALS_PREFERENCE_PATH = "/openjournals";
 
-	private Map<Page, Document> documentCache = new HashMap<Page, Document>();
-	private ResizerServiceFactory resizerServiceFactory;
+	// private Map<Page, Document> documentCache = new HashMap<Page,
+	// Document>();
+	private ImageMagickResizerServiceFactory resizerServiceFactory;
+
+	private Journal getCurrentJournal() {
+		IStructuredSelection selection = (IStructuredSelection) treeViewer.getSelection();
+		if (selection.size() != 1) {
+			return null;
+		}
+		Object first = selection.getFirstElement();
+		if (first instanceof Journal) {
+			return (Journal) first;
+		}
+		if (first instanceof Page) {
+			return ((Page) first).getJournal();
+		}
+		return null;
+	}
+
+	abstract class ActionWithJournal extends Action {
+
+		public ActionWithJournal() {
+			super();
+		}
+
+		public ActionWithJournal(String text, ImageDescriptor image) {
+			super(text, image);
+		}
+
+		public ActionWithJournal(String text, int style) {
+			super(text, style);
+		}
+
+		public ActionWithJournal(String text) {
+			super(text);
+		}
+
+		@Override
+		public final void run() {
+			Journal journal = getCurrentJournal();
+			if (journal == null) {
+				return;
+			}
+			run(journal);
+		}
+
+		protected abstract void run(Journal currentJournal);
+	}
+
+	private IAction openResizedPhotosFolder = new ActionWithJournal("View resized photos") {
+		{
+			setEnabled(Desktop.isDesktopSupported());
+		}
+
+		public void run(Journal journal) {
+			File folder = resizerServiceFactory.getOrCreateResizerFor(journal).getPhotoFolder();
+			try {
+				Desktop.getDesktop().open(folder);
+			} catch (IOException e) {
+				/* ignore */
+				LOG.debug("Failed to browse folder " + folder);
+			}
+		}
+	};
+
+	private IAction purgeResizedPhotos = new ActionWithJournal("Purge resized photos") {
+		public void run(Journal journal) {
+			ResizerService service = resizerServiceFactory.getOrCreateResizerFor(journal);
+			long bytes = service.purge();
+			if (bytes > 0) {
+				MessageBox box = new MessageBox(shell, SWT.ICON_INFORMATION | SWT.OK);
+				box.setText("Photos purged");
+				box.setMessage(Utils.formatBytes(bytes) + " of resized photos deleted");
+				box.open();
+			}
+		}
+	};
+
+	private IAction purgeThumbnailCache = new Action("Purge thumbnail cache") {
+		public void run() {
+			Journal journal = getCurrentJournal();
+			if (journal == null) {
+				return;
+			}
+			CachingThumbnailProvider provider = thumbnailProviderFactory.getThumbnailProvider(journal);
+			if (provider == null) {
+				return;
+			}
+			// TODO progress bar?
+			long bytes = provider.purge();
+			if (bytes > 0) {
+				MessageBox box = new MessageBox(shell, SWT.ICON_INFORMATION | SWT.OK);
+				box.setText("Thumbnails purged");
+				box.setMessage(Utils.formatBytes(bytes) + " of thumbnails deleted");
+				box.open();
+			}
+		}
+	};
+
+	IAction toggleResizePhotos = new ActionWithJournal("Resize photos", Action.AS_CHECK_BOX) {
+		public void run(Journal journal) {
+			Boolean currentSetting = journal.isResizeImagesBeforeUpload();
+			if (currentSetting == null || currentSetting != isChecked()) {
+				if (isChecked()) {
+					if (!registerPhotoResizer(journal, false)) {
+						return;
+					}
+				} else {
+					// first cancel all pending work
+					ResizerService resizer = resizerServiceFactory.getResizerFor(journal);
+					if (resizer != null) {
+						resizer.cancelAll();
+					}
+					unregisterPhotoResizer(journal);
+				}
+				journal.setResizeImagesBeforeUpload(isChecked());
+				journal.setDirty(true);
+			}
+		}
+	};
+
+	private IAction toggleUseExifThumbnailAction = new ActionWithJournal("Use EXIF thumbnail", Action.AS_CHECK_BOX) {
+		@Override
+		public void run(Journal journal) {
+			CachingThumbnailProvider provider = thumbnailProviderFactory.getOrCreateThumbnailProvider(journal);
+			provider.setUseExifThumbnail(isChecked());
+			// trigger a refresh of thumbnails in viewer
+			thumbViewer.refresh();
+		}
+	};
 
 	private IAction addPhotosAction = new Action("Add Photos") {
 		public void run() {
@@ -135,8 +269,8 @@ public class PageEditor {
 				files[i] = new File(dialog.getFilterPath() + File.separator + fileStrings[i]);
 			}
 
-			// update the model via controller to get same error handling for
-			// duplicates etc..
+			// update the model via view controller to apply the same error
+			// handling for duplicates etc..
 			((PhotosContentProvider) thumbViewer.getContentProvider()).addPhotosRetryIfDuplicates(files, -1);
 		}
 	};
@@ -232,7 +366,7 @@ public class PageEditor {
 					parent.mkdirs();
 				}
 				Journal newJournal = new Journal(file, dialog.getName());
-				doSave(newJournal, false);
+				saveJournal(newJournal, false);
 				treeViewer.setInput(new JournalHolder(newJournal));
 				treeViewer.setSelection(new StructuredSelection(newJournal));
 			}
@@ -269,7 +403,9 @@ public class PageEditor {
 			fd.setFilterExtensions(new String[] { "*" + NewJournalDialog.EXTENSION });
 			String path = fd.open();
 			if (path != null) {
-				openJournal(path, false);
+				if (closeCurrentJournal()) {
+					openJournal(path, false);
+				}
 			}
 		}
 	};
@@ -314,7 +450,7 @@ public class PageEditor {
 				return;
 			}
 
-			doSave(journal, false);
+			saveJournal(journal, false);
 		}
 	};
 
@@ -346,10 +482,8 @@ public class PageEditor {
 
 	private TextViewerUndoManager undoManager;
 
-	private ThumbnailProvider thumbnailService;
-
 	private StatusUpdater statusListener;
-	private ThumbnailProviderFactory thumbnailProviderFactory;
+	private CachingThumbnailProviderFactory thumbnailProviderFactory;
 
 	public PageEditor(Shell shell) {
 		this.shell = shell;
@@ -388,8 +522,10 @@ public class PageEditor {
 		bindToCurrentPage(headlineInput, SWT.Modify, "headline", true);
 		bindToCurrentPage(dateInput, SWT.FocusOut, "date", false);
 		bindToCurrentPage(distanceInput, SWT.FocusOut, "distance", false);
-		bindToCurrentPage(textInput.getControl(), SWT.FocusOut, "text", false);
-		bindToCurrentPhoto(captionText.getControl(), SWT.FocusOut, "caption");
+		// bindToCurrentPage(textInput.getControl(), SWT.FocusOut, "text",
+		// false);
+		// bindToCurrentPhoto(captionText.getControl(), SWT.FocusOut,
+		// "caption");
 
 		btnSortSelectionListener = new Listener() {
 			@Override
@@ -458,15 +594,10 @@ public class PageEditor {
 			dateInput.setDate(date.getYear(), date.getMonthOfYear() - 1, date.getDayOfMonth());
 
 			// TODO stick a limit on caching, close when no longer used.
-			Document document = documentCache.get(pageToShow);
-			if (document == null) {
-				document = new Document(pageToShow.getText());
-				documentCache.put(pageToShow, document);
-				// keep track of undo/redo on this document
-				DocumentUndoManagerRegistry.connect(document);
-				IDocumentUndoManager m = DocumentUndoManagerRegistry.getDocumentUndoManager(document);
-				m.connect(this);
-			}
+			IDocument document = pageToShow.getOrCreateTextDocument();
+			DocumentUndoManagerRegistry.connect(document);
+			IDocumentUndoManager m = DocumentUndoManagerRegistry.getDocumentUndoManager(document);
+			m.connect(this);
 			textInput.setDocument(document);
 			captionText.setDocument(null); // no photo is selected by default
 			selectOrderByButton(orderByButtonMap.get(pageToShow.getPhotosOrder()));
@@ -476,12 +607,8 @@ public class PageEditor {
 		currentPage = pageToShow;
 
 		if (pageToShow == null) {
-			thumbViewer.setThumbnailProvider(null);
 			thumbViewer.setInput(null);
 		} else {
-			ThumbnailProvider provider = thumbnailProviderFactory.getOrCreateThumbnailProvider(pageToShow.getJournal());
-			provider.addJobListener(statusListener.thumnailListener);
-			thumbViewer.setThumbnailProvider(provider);
 			thumbViewer.setInput(pageToShow);
 		}
 		statusListener.updateStatusBar(); // HACK to avoid leaving old page
@@ -510,35 +637,6 @@ public class PageEditor {
 				@Override
 				protected Object getTarget() {
 					return currentPage;
-				}
-			});
-		} catch (SecurityException e) {
-			e.printStackTrace();
-		}
-	}
-
-	private void bindToCurrentPhoto(Control c, int callback, String property) {
-		Method method;
-		try {
-			String name = "set" + property.substring(0, 1).toUpperCase() + property.substring(1);
-			method = Utils.getFirstMethodWithName(name, Photo.class);
-			if (method == null) {
-				throw new IllegalArgumentException("No method " + name);
-			}
-			if (method.getParameterTypes().length != 1) {
-				throw new IllegalArgumentException("Setter must accept 1 argument");
-			}
-
-			c.addListener(callback, new MyBinder(c, method, false) {
-				@Override
-				protected Object getTarget() {
-					if (currentPage != null) {
-						Object[] thumbs = thumbViewer.getSelection();
-						if (thumbs.length == 1) {
-							return thumbs[0];
-						}
-					}
-					return null;
 				}
 			});
 		} catch (SecurityException e) {
@@ -810,7 +908,6 @@ public class PageEditor {
 
 	private void createThumbnailViewer(Shell shell) {
 		thumbViewer = new ThumbnailViewer(shell);
-		thumbViewer.setThumbnailProvider(thumbnailService);
 		// thumbViewer.setCache(thumbnailCache);
 		thumbViewer.setLayoutData(new GridData(SWT.FILL, SWT.BOTTOM, true, false));
 		thumbViewer.setContentProvider(new PhotosContentProvider(this));
@@ -1023,6 +1120,14 @@ public class PageEditor {
 				manager.add(openJournalAction);
 				manager.add(newJournalAction);
 				manager.add(newPageAction);
+				manager.add(new Separator());
+				manager.add(toggleResizePhotos);
+				manager.add(openResizedPhotosFolder);
+				manager.add(purgeResizedPhotos);
+				manager.add(new Separator());
+				manager.add(toggleUseExifThumbnailAction);
+				manager.add(purgeThumbnailCache);
+				manager.add(new Separator());
 
 				if (treeViewer.getSelection().isEmpty()) {
 					return;
@@ -1070,7 +1175,7 @@ public class PageEditor {
 
 		// caption text is enabled/disabled when thumbnails are selected,
 		// default to off
-		captionText.getControl().setEnabled(false);
+		// captionText.getControl().setEnabled(false);
 	}
 
 	/**
@@ -1082,7 +1187,7 @@ public class PageEditor {
 	 *            suppress warning dialog if file cannot be saved
 	 * @return true if the file was saved, false if not.
 	 */
-	boolean doSave(Journal journal, boolean silent) {
+	boolean saveJournal(Journal journal, boolean silent) {
 		if (journal.getFile().exists() && journal.getLastModifiedWhenLoaded() != Journal.NEVER_SAVED_TIMESTAMP
 				&& journal.getFile().lastModified() > journal.getLastModifiedWhenLoaded()) {
 			MessageBox box = new MessageBox(shell, SWT.ICON_WARNING | SWT.NO | SWT.YES);
@@ -1151,7 +1256,7 @@ public class PageEditor {
 		}
 		Journal journal = holder.getJournal();
 		if (journal.isDirty()) {
-			if (!promptAndSave(journal)) {
+			if (!promptAndSaveJournal(journal)) {
 				return false;
 			}
 		}
@@ -1159,9 +1264,10 @@ public class PageEditor {
 		treeViewer.setInput(null);
 
 		// unregister thumbnail factory
-		ThumbnailProvider thumbnailProvider = thumbnailProviderFactory.getThumbnailProvider(journal);
+		CachingThumbnailProvider thumbnailProvider = thumbnailProviderFactory.getThumbnailProvider(journal);
 		if (thumbnailProvider != null) {
 			thumbnailProvider.removeJobListener(statusListener.thumnailListener);
+			thumbnailProvider.close();
 		}
 
 		// wait for completion of photo resize tasks...
@@ -1245,14 +1351,17 @@ public class PageEditor {
 
 		treeViewer.setInput(new JournalHolder(journal));
 
-		// link to image resizer
+		// wire up image resizer service
 		if (journal.isResizeImagesBeforeUpload() == Boolean.TRUE) {
-			try {
-				registerPhotoResizer(journal);
-			} catch (UnableToCreateResizerException e) {
-				LOG.warn("Failed to create photo resizer", e);
-			}
+			registerPhotoResizer(journal, true);
 		}
+
+		// update action state
+		CachingThumbnailProvider provider = thumbnailProviderFactory.getOrCreateThumbnailProvider(journal);
+		toggleUseExifThumbnailAction.setChecked(provider.isUseExifThumbnail());
+		toggleResizePhotos.setChecked(journal.isResizeImagesBeforeUpload() == Boolean.TRUE);
+		provider.addJobListener(statusListener.thumnailListener);
+		thumbViewer.setThumbnailProvider(provider);
 
 		return true;
 	}
@@ -1282,18 +1391,18 @@ public class PageEditor {
 		 * together
 		 */
 		pageEditorWidgets = Arrays.asList(btnItalic, btnBold, cmbFormat, cmbIndent, cmbHeadingStyle, titleInput,
-				headlineInput, distanceInput, dateInput,/* textInput, */thumbViewer, btnSortByDate, btnSortByName,
-				btnSortManual);
+				headlineInput, distanceInput, dateInput, textInput.getTextWidget(), thumbViewer, btnSortByDate,
+				btnSortByName, btnSortManual);
 
 		setEditorControlsState(EditorState.DISABLED);
 
 		shell.pack();
 		shell.open();
 
-		// TODO load on a background thread?
+		// TODO load on background thread?
 		String journalToOpen = preferences.getValue(OPENJOURNALS_PREFERENCE_PATH);
 		if (journalToOpen != null && !openJournal(journalToOpen, true)) {
-			// update preferences
+			// update preferences if last journal failed to load
 			preferences.removeValue(OPENJOURNALS_PREFERENCE_PATH);
 			preferences.save();
 		}
@@ -1310,17 +1419,17 @@ public class PageEditor {
 	 * 
 	 * @param journal
 	 *            journal to save
-	 * @return <tt>true</tt> if the operation was cancelled.
+	 * @return <tt>false</tt> if the operation was cancelled.
 	 */
-	private boolean promptAndSave(Journal journal) {
+	private boolean promptAndSaveJournal(Journal journal) {
 		MessageBox box = new MessageBox(shell, SWT.ICON_WARNING | SWT.CANCEL | SWT.YES | SWT.NO);
 		box.setText("Confirm save");
-		box.setMessage("Save changes to journal before closing?");
+		box.setMessage("Save changes to [" + journal.getName() + "] before closing?");
 		switch (box.open()) {
 		case SWT.CANCEL:
 			return false;
 		case SWT.YES:
-			doSave(journal, false);
+			saveJournal(journal, false);
 			break;
 		case SWT.NO:
 			// changes will be lost
@@ -1349,17 +1458,28 @@ public class PageEditor {
 		resizeListener = null;
 	}
 
-	// TODO stash in a journal data?
+	// TODO stash in a generica journal data map?
 	private JournalAdapter resizeListener;
 
 	/**
 	 * Registers a listener to resize photos when they are added journal.
 	 * 
 	 * @param journal
+	 * @param b
 	 */
-	void registerPhotoResizer(Journal journal) throws UnableToCreateResizerException {
-		// 1) resize photos already in the journal
-		final ResizerService imageService = resizerServiceFactory.getOrCreateResizerFor(journal);
+	boolean registerPhotoResizer(Journal journal, boolean quiet) {
+		final ResizerService imageService;
+		try {
+			imageService = resizerServiceFactory.getOrCreateResizerFor(journal);
+		} catch (MagicNotAvailableException e) {
+			LOG.info("Failed to start photo reszier", e);
+			if (!quiet) {
+				MessageBox error = new MessageBox(shell, SWT.ICON_ERROR | SWT.OK);
+				error.setText("Error");
+				error.setMessage("Failed to start photo resizer: " + e.getMessage());
+			}
+			return false;
+		}
 
 		// 1) update status bar when resizes occur
 		imageService.addJobListener(statusListener.resizeListener);
@@ -1397,6 +1517,7 @@ public class PageEditor {
 			}
 		};
 		journal.addListener(resizeListener);
+		return true;
 	}
 
 	/**
@@ -1465,7 +1586,7 @@ public class PageEditor {
 		this.preferences = preferences;
 	}
 
-	public void setResizerServiceFactory(ResizerServiceFactory resizerServiceFactory) {
+	public void setResizerServiceFactory(ImageMagickResizerServiceFactory resizerServiceFactory) {
 		this.resizerServiceFactory = resizerServiceFactory;
 	}
 
@@ -1556,13 +1677,10 @@ public class PageEditor {
 			if (target == null) {
 				return;
 			}
-			// copy value from control to model property
+			// copy value from control to model
 			try {
 				if (c instanceof Text) {
 					String value = ((Text) c).getText();
-					property.invoke(target, convert(value, property.getParameterTypes()[0]));
-				} else if (c instanceof StyledText) {
-					String value = ((StyledText) c).getText();
 					property.invoke(target, convert(value, property.getParameterTypes()[0]));
 				} else if (c instanceof Button) {
 					property.invoke(target, ((Button) c).getSelection());
@@ -1693,21 +1811,19 @@ public class PageEditor {
 				currentPage = null;
 				if (selected.length == 1) {
 					// load new comment
-					Photo photo = (Photo) selected[0];
+					Photo currentPhoto = (Photo) selected[0];
 
 					// allow selection & copy from the caption after upload
-					if (photo.getState() == UploadState.UPLOADED) {
+					if (currentPhoto.getState() == UploadState.UPLOADED) {
 						captionText.setEditable(false);
 					} else {
 						captionText.setEditable(true);
 					}
 					captionText.getTextWidget().setEnabled(true);
-
-					String txt = StringUtils.nullToEmpty(photo.getCaption());
-					captionText.setDocument(new Document(txt));
+					captionText.setDocument(currentPhoto.getOrCreateCaptionDocument());
 				} else {
 					// 0 or > 1
-					captionText.setDocument(null);
+					captionText.setDocument(new Document(""));
 					captionText.getTextWidget().setEnabled(false);
 				}
 			} finally {
@@ -1718,7 +1834,7 @@ public class PageEditor {
 		}
 	}
 
-	public void setThumbnailProviderFactory(ThumbnailProviderFactory thumbnailFactory) {
+	public void setThumbnailProviderFactory(CachingThumbnailProviderFactory thumbnailFactory) {
 		thumbnailProviderFactory = thumbnailFactory;
 	}
 

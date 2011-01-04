@@ -20,9 +20,9 @@ public class FitWithinResizeStrategy implements ResizeStrategy {
 		float scaleX = (float) bounds.x / origional.x;
 		float scaleY = (float) bounds.y / origional.y;
 
-		if (scaleX >= 1 && scaleY >= 1) {
-			return origional; // fits already
-		}
+		// if (scaleX >= 1 && scaleY >= 1) {
+		// return origional; // fits already
+		// }
 
 		if (scaleX * origional.y < bounds.y) {
 			return new Point(round(scaleX * origional.x), round(scaleX * origional.y));

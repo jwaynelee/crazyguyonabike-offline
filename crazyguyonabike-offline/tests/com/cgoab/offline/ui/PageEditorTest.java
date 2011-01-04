@@ -17,7 +17,7 @@ import org.junit.Test;
 import com.cgoab.offline.model.Journal;
 import com.cgoab.offline.model.JournalXmlLoader;
 import com.cgoab.offline.ui.thumbnailviewer.FitWithinResizeStrategy;
-import com.cgoab.offline.ui.thumbnailviewer.ThumbnailProviderFactory;
+import com.cgoab.offline.ui.thumbnailviewer.CachingThumbnailProviderFactory;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailViewer;
 
 public class PageEditorTest {
@@ -25,7 +25,7 @@ public class PageEditorTest {
 	private Display display;
 	private Shell rootShell;
 	private PageEditor editor;
-	private ThumbnailProviderFactory thumbnailFactory;
+	private CachingThumbnailProviderFactory thumbnailFactory;
 
 	static {
 		BasicConfigurator.configure();
@@ -43,7 +43,7 @@ public class PageEditorTest {
 				editor.setPreferences(new Preferences());
 				FitWithinResizeStrategy resizer = new FitWithinResizeStrategy(new Point(
 						ThumbnailViewer.THUMBNAIL_WIDTH, ThumbnailViewer.THUMBNAIL_HEIGHT));
-				thumbnailFactory = new ThumbnailProviderFactory(display, resizer);
+				thumbnailFactory = new CachingThumbnailProviderFactory(display, resizer, ".thumbnails");
 				editor.setThumbnailProviderFactory(thumbnailFactory);
 				latch.countDown();
 				try {

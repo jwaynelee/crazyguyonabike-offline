@@ -1,12 +1,12 @@
 package com.cgoab.offline.ui.thumbnailviewer;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -14,6 +14,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
 
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.SWTException;
@@ -32,11 +33,12 @@ import com.cgoab.offline.util.CompletedFuture;
 import com.cgoab.offline.util.FutureCompletionListener;
 import com.cgoab.offline.util.JobListener;
 import com.cgoab.offline.util.ListenableCancellableTask;
-import com.cgoab.offline.util.Utils;
 import com.drew.imaging.jpeg.JpegMetadataReader;
 import com.drew.imaging.jpeg.JpegProcessingException;
 import com.drew.metadata.Metadata;
+import com.drew.metadata.MetadataException;
 import com.drew.metadata.exif.ExifDirectory;
+import com.drew.metadata.jpeg.JpegDirectory;
 
 /**
  * Thumbnail provider that caches images both on disk (all thumbnails) and in
@@ -44,7 +46,15 @@ import com.drew.metadata.exif.ExifDirectory;
  */
 public class CachingThumbnailProvider implements ThumbnailProvider, FutureCompletionListener<Thumbnail> {
 
+	private enum ThumbnailSource {
+		RESIZED, EXIF
+	};
+
+	private static final String THUMBNAIL_EXTENSION = ".png";
+
 	private static Logger LOG = LoggerFactory.getLogger(ThumbnailProvider.class);
+
+	private boolean useExifThumbnail = true;
 
 	private final File cacheDirectory;
 
@@ -83,7 +93,7 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 			// remove ".jpeg" or ".jpg"
 			name = name.substring(0, id);
 		}
-		return new File(cacheDirectory + File.separator + name + ".png");
+		return new File(cacheDirectory + File.separator + name + THUMBNAIL_EXTENSION);
 	}
 
 	public void addJobListener(JobListener listener) {
@@ -94,6 +104,46 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 
 	public void removeJobListener(JobListener listener) {
 		listeners.remove(listener);
+	}
+
+	public long purge() {
+		SWTUtils.assertOnUIThread();
+		long bytesDeleted = 0;
+		for (File f : cacheDirectory.listFiles()) {
+			if (f.getName().endsWith(THUMBNAIL_EXTENSION)) {
+				bytesDeleted += f.length();
+				if (!f.delete()) {
+					LOG.debug("Failed to delete {} from file cache", f.getName());
+				}
+			}
+		}
+		cache.clear();
+		return bytesDeleted;
+	}
+
+	public boolean isUseExifThumbnail() {
+		return useExifThumbnail;
+	}
+
+	public void setUseExifThumbnail(boolean useExif) {
+		useExifThumbnail = useExif;
+		cache.clear();// AllFrom(source);
+	}
+
+	/**
+	 * Free up resources
+	 */
+	public void close() {
+		SWTUtils.assertOnUIThread();
+
+		// cancel any pending tasks
+		if (tasks.size() > 0) {
+			for (Future<Thumbnail> f : tasks.values()) {
+				f.cancel(true);
+			}
+		}
+		
+		cache.clear();
 	}
 
 	@Override
@@ -129,11 +179,23 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 		// 2) create a job to check file cache or create a thumbnail
 		File destination = getNameInCache(source);
 		GetThumbnailTask task = new GetThumbnailTask(source, destination, resizer, SWT.HIGH, display, this,
-				new Object[] { source, listener, data });
+				new CallbackHolder(source, listener, data));
 		Future<Thumbnail> future = executor.submit(task);
 		tasks.put(source, future);
 		fireStatusChanged();
 		return future;
+	}
+
+	private static class CallbackHolder {
+		final File source;
+		final FutureCompletionListener<Thumbnail> listener;
+		final Object data;
+
+		public CallbackHolder(File source, FutureCompletionListener<Thumbnail> callback, Object data) {
+			this.source = source;
+			this.listener = callback;
+			this.data = data;
+		}
 	}
 
 	private void fireStatusChanged() {
@@ -149,33 +211,32 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 			public void run() {
 				/*
 				 * Run callback on UI thread to avoid synchronisation of
-				 * internal data structures.
+				 * internal data structures (and UI updates will move onto UI
+				 * thread anyway).
 				 */
 
-				Object[] da = (Object[]) data;
-				File source = (File) da[0];
+				CallbackHolder holder = (CallbackHolder) data;
 
 				// 1) update internal state
-				tasks.remove(source);
+				tasks.remove(holder.source);
 				fireStatusChanged();
 
 				// 2) cache thumbnail
 				try {
 					Thumbnail thumb = result.get();
-					cache.add(source, thumb.imageData, thumb.meta);
+					cache.add(holder.source, thumb);
 				} catch (InterruptedException e) {
 					/* can't happen, future is already done */
 				} catch (CancellationException e) {
-					/* ignore */
+					/* ignore, client listener should handle logging */
 				} catch (ExecutionException e) {
-					/* ignore, client listener will take care of logging */
+					/* ignore, client listener should handle logging */
 				}
 
-				// 3) invoke client listener
-				FutureCompletionListener<Thumbnail> realListener = (FutureCompletionListener<Thumbnail>) da[1];
-				Object realData = da[2];
-				if (realListener != null) {
-					realListener.onCompletion(result, realData);
+				// 3) invoke clients listener
+				FutureCompletionListener<Thumbnail> delegateListener = holder.listener;
+				if (delegateListener != null) {
+					delegateListener.onCompletion(result, holder.data);
 				}
 			}
 		});
@@ -312,40 +373,121 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 			return SWT.NONE;
 		}
 
-		private ImageData loadImage(File file) {
+		private ImageData getThumbFromMeta(Metadata meta) {
 			try {
-				return new ImageData(destination.getAbsolutePath());
-			} catch (SWTException e) {
-				// failed to load, continue to (re)create the thumbnail
-				LOG.info("Failed to load image [" + file.getName() + "]", e);
-				return null;
+				ExifDirectory dir = (ExifDirectory) meta.getDirectory(ExifDirectory.class);
+				ImageData d = new ImageData(new ByteArrayInputStream(dir.getThumbnailData()));
+				LOG.debug("THUMBNAIL: {}x{}", d.width, d.height);
+				return d;
+			} catch (Exception e) {
+				LOG.warn("", e);
 			}
+			return null;
 		}
 
 		public Thumbnail doCall() {
-			// 1) check cache, if file can be loaded we are done
-			if (destination.exists() && destination.lastModified() >= source.lastModified()) {
-				// load from file
-				ImageData image = loadImage(destination);
-				if (image != null) {
-					// TODO cache meta in cache directory?
-					return new Thumbnail(loadMeta(), image);
+			Metadata meta = loadMeta();
+
+			// 1) check for embedded thumbnail
+			if (useExifThumbnail) {
+				ImageData exifThumb = getThumbFromMeta(meta);
+				if (exifThumb != null) {
+					try {
+						int rotation = detectRotation(meta);
+						return new Thumbnail(meta, resizeThumbnailFromExif(exifThumb, meta, rotation),
+								ThumbnailSource.EXIF);
+					} catch (Exception e) {
+						LOG.warn("Failed to create thumnail from embedded thumbnail", e);
+					}
 				}
 			}
 
-			// 2) create a new thumbnail
-			Metadata meta = loadMeta();
-			int rotation = detectRotation(meta);
-			ImageData data = createThumbnail(rotation);
-			Thumbnail result = new Thumbnail(meta, data);
+			// 2) check file cache, if file can be loaded we are done
+			if (destination.exists() && destination.lastModified() >= source.lastModified()) {
+				// load from file
+				LOG.debug("Thumbnail exists in file cache [{}]", destination.getName());
+				try {
+					// TODO cache meta in cache directory?
+					// TODO check dimensions of file are suitable
+					ImageData data = new ImageData(destination.getAbsolutePath());
+					return new Thumbnail(loadMeta(), data, ThumbnailSource.RESIZED);
+				} catch (SWTException e) {
+					// failed to load, continue to (re)create the thumbnail
+					LOG.info("Failed to load thumbnail [" + destination.getName() + "]", e);
+				}
+			}
 
-			// 3) add a task to save the thumbnail to disk
+			int rotation = detectRotation(meta);
+
+			// 3) resize image to create thumbnail
+			ImageData data = createThumbnail(rotation);
+			Thumbnail result = new Thumbnail(meta, data, ThumbnailSource.RESIZED);
+
+			// 4) finally add a new task to write the thumbnail to disk
 			//
 			// A race is created. If the "save" task does not complete
 			// before another request is made to load the same thumbnail we'll
 			// recreate it all over and add another save task.
-			executor.submit(new SaveThumbnailTask(data, destination));
+			try {
+				executor.submit(new SaveThumbnailTask(data, destination));
+			} catch (RejectedExecutionException e) {
+				/* thrown if thumbnails still loading during shutdown, ignore */
+			}
 			return result;
+		}
+
+		private ImageData resizeThumbnailFromExif(ImageData exifThumbData, Metadata meta, int rotation)
+				throws MetadataException {
+			// resize & rotate using actual photo dimensions
+			JpegDirectory jpegDir = (JpegDirectory) meta.getDirectory(JpegDirectory.class);
+			Point imageSize = new Point(jpegDir.getImageWidth(), jpegDir.getImageHeight());
+			if (rotation != SWT.NONE) {
+				exifThumbData = SWTUtils.rotate(exifThumbData, rotation);
+				if (rotation == SWT.LEFT || rotation == SWT.RIGHT) {
+					imageSize = swapXAndY(imageSize);
+				}
+			}
+
+			/*
+			 * LX3 produces thumbnails with black bars when the aspect ratio not
+			 * 3:2, correct by copying only a portion of thumbnail to copy
+			 */
+
+			Point idealThumbSize = resizer.resize(imageSize);
+			Point currentThumbSize = new Point(exifThumbData.width, exifThumbData.height);
+			float sourceAspect = (float) imageSize.x / imageSize.y;
+
+			// if the image is portrait then we need to scale y to fit
+			int marginX;
+			int marginY;
+			if (rotation == SWT.LEFT || rotation == SWT.RIGHT) {
+				float expectedThumbWidth = (float) currentThumbSize.y * sourceAspect;
+				marginX = Math.round((currentThumbSize.x - expectedThumbWidth) / 2);
+				marginY = 0;
+			} else {
+				float expectedThumbHeight = (float) currentThumbSize.x / sourceAspect;
+				marginX = 0;
+				marginY = Math.round((currentThumbSize.y - expectedThumbHeight) / 2); // centre
+			}
+
+			GC gc = null;
+			Image newThumb = null, exifThumb = null;
+			try {
+				newThumb = new Image(display, idealThumbSize.x, idealThumbSize.y);
+				exifThumb = new Image(display, exifThumbData);
+				gc = new GC(newThumb);
+				gc.setInterpolation(SWT.HIGH);
+				gc.drawImage(exifThumb, marginX, marginY, exifThumbData.width - (2 * marginX), exifThumbData.height
+						- (2 * marginY), 0, 0, idealThumbSize.x, idealThumbSize.y);
+				return newThumb.getImageData();
+			} finally {
+				if (exifThumb != null)
+					exifThumb.dispose();
+				if (newThumb != null)
+					newThumb.dispose();
+				if (gc != null)
+					gc.dispose();
+			}
 		}
 
 		@Override
@@ -392,115 +534,6 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 		@Override
 		public String toString() {
 			return String.format("Save thumbnail to [%s]", destination.getName());
-		}
-	}
-
-	private static class ThumbnailCache {
-
-		private static final Logger LOG = LoggerFactory.getLogger(ThumbnailCache.class);
-
-		private final int maxSizeInBytes;
-
-		private int bytes;
-
-		private LinkedHashMap<File, CacheEntry> lruMap = new LinkedHashMap<File, CacheEntry>(64, 0.75f, true) {
-			private static final long serialVersionUID = 1L;
-
-			@Override
-			protected boolean removeEldestEntry(Map.Entry<File, CacheEntry> eldest) {
-				// delete oldest entry
-				if (bytes > maxSizeInBytes) {
-					LOG.debug("Expiring eldest entry [{}] as cache size {}kb exceeded limit {}kb)", new Object[] {
-							eldest.getKey(), Utils.formatBytes(bytes), Utils.formatBytes(maxSizeInBytes) });
-					entryRemoved(eldest.getValue().thumb.imageData);
-					return true;
-				}
-				return false;
-			}
-		};
-
-		public ThumbnailCache(int capacityInBytes) {
-			this.maxSizeInBytes = capacityInBytes;
-		}
-
-		public CacheEntry remove(File file) {
-			LOG.debug("Removing thumnail for [{}]", file);
-			CacheEntry result = lruMap.remove(file);
-			if (result != null) {
-				entryRemoved(result.thumb.imageData);
-			}
-			return result;
-		}
-
-		private void entryRemoved(ImageData data) {
-			bytes -= sizeof(data);
-		}
-
-		/**
-		 * Saves the image data in the cache.
-		 * 
-		 * @param file
-		 * @param image
-		 */
-		public void add(File file, ImageData image, Metadata meta) {
-			CacheEntry entry = new CacheEntry();
-			// entry.ref= new SoftReference<ImageAndMetaDataPair>(new
-			// ImageAndMetaDataPair(image, meta));
-			LOG.debug("Caching thumbnail for [{}] in [{}]", file.getName(), this);
-			entry.thumb = new Thumbnail(meta, image);
-			entry.timestamp = file.lastModified();
-			bytes += sizeof(image);
-			CacheEntry old = lruMap.put(file, entry);
-			if (old != null) {
-				bytes -= sizeof(old.thumb.imageData);
-			}
-		}
-
-		private static int sizeof(byte[] array) {
-			return array == null ? 0 : array.length;
-		}
-
-		private static int sizeof(ImageData image) {
-			return sizeof(image.data) + sizeof(image.alphaData) + sizeof(image.maskData);
-		}
-
-		/**
-		 * Retrieves the image data associated with the given file name.
-		 * 
-		 * Null will be returned if the cache has expired the item (low memory)
-		 * or if the file was changed since it was last cached.
-		 * 
-		 * @param file
-		 * @return
-		 */
-		public Thumbnail get(File file) {
-			CacheEntry entry = lruMap.get(file);
-			if (entry != null) {
-				Thumbnail thumb = entry.thumb;
-				if (entry.timestamp == file.lastModified()) {
-					LOG.debug("Cache hit for [{}]", file.getName());
-					return thumb;
-				} else {
-					LOG.debug("Removed cache entry for [{}] as timestamps don't match", file.getName());
-					entryRemoved(entry.thumb.imageData);
-					lruMap.remove(file);
-					return null;
-				}
-			} else {
-				LOG.debug("Cache miss for [{}]", file.getName());
-				return null;
-			}
-		}
-
-		@Override
-		public String toString() {
-			return String.format("%s - %s (of %s) used for %d images", getClass().getSimpleName(),
-					Utils.formatBytes(bytes), Utils.formatBytes(maxSizeInBytes), lruMap.size());
-		}
-
-		private static class CacheEntry {
-			long timestamp;
-			Thumbnail thumb;
 		}
 	}
 }

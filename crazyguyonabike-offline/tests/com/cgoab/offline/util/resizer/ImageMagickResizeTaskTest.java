@@ -12,6 +12,7 @@ import testdata.photos.TestPhotos;
 
 import com.cgoab.offline.util.Which;
 import com.cgoab.offline.util.resizer.ImageMagickResizeTask.MagickException;
+import com.cgoab.offline.util.resizer.ImageMagickResizeTask.MagickVersion;
 import com.drew.imaging.jpeg.JpegMetadataReader;
 import com.drew.metadata.Metadata;
 import com.drew.metadata.jpeg.JpegDirectory;
@@ -20,6 +21,18 @@ public class ImageMagickResizeTaskTest {
 
 	static {
 		BasicConfigurator.configure();
+	}
+
+	@Test
+	public void testMagickVersion() {
+		MagickVersion v6667 = new MagickVersion(6, 6, 6, 7);
+		MagickVersion v6388 = new MagickVersion(6, 3, 8, 8);
+
+		// like with like
+		Assert.assertTrue(v6667.isAtLeast(v6667));
+		
+		Assert.assertTrue(v6667.isAtLeast(v6388));
+		Assert.assertFalse(v6388.isAtLeast(v6667));
 	}
 
 	private void execute(File source, File target) throws Exception {

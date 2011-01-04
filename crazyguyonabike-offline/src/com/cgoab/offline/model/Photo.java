@@ -2,20 +2,25 @@ package com.cgoab.offline.model;
 
 import java.io.File;
 
+import org.eclipse.jface.text.Document;
+import org.eclipse.jface.text.IDocument;
+
 import com.cgoab.offline.util.Assert;
 
 public class Photo implements Cloneable {
 
-	private String caption;
+	private IDocument captionDocument;
 
 	private File file;
-
-	// private String imageName;
 
 	private UploadState state = UploadState.NEW;
 
 	public String getCaption() {
-		return caption;
+		return captionDocument == null ? null : captionDocument.get();
+	}
+
+	public IDocument getOrCreateCaptionDocument() {
+		return captionDocument == null ? (captionDocument = new Document()) : captionDocument;
 	}
 
 	public UploadState getState() {
@@ -36,7 +41,7 @@ public class Photo implements Cloneable {
 	// }
 
 	public void setCaption(String caption) {
-		this.caption = caption;
+		getOrCreateCaptionDocument().set(caption);
 	}
 
 	public void setFile(File file) {
@@ -59,5 +64,16 @@ public class Photo implements Cloneable {
 	@Override
 	public String toString() {
 		return String.format("Photo [%s]", file.getName());
+	}
+
+	/**
+	 * Equality defined by file name of the photo.
+	 */
+	@Override
+	public boolean equals(Object obj) {
+		if (obj instanceof Photo) {
+			return file.getName().equals(((Photo) obj).getFile().getName());
+		}
+		return false;
 	}
 }

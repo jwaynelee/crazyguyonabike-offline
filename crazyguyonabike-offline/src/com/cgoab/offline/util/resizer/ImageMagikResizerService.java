@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -21,26 +23,20 @@ import com.cgoab.offline.ui.util.SWTUtils;
 import com.cgoab.offline.ui.util.UIExecutor;
 import com.cgoab.offline.util.FutureCompletionListener;
 import com.cgoab.offline.util.JobListener;
-import com.cgoab.offline.util.Which;
-import com.cgoab.offline.util.resizer.ResizerServiceFactory.UnableToCreateResizerException;
 
-/**
- * An asynchronous photo resizing service that saves resized photos in a local
- * folder.
- * <p>
- * This implementation invokes a new ImageMagick sub-process per resize
- * operation. As such ImageMagik must be installed prior to running this
- * application, if not {@link UnableToCreateResizerException} will be thrown.
- */
 public class ImageMagikResizerService implements FutureCompletionListener<Object>, ResizerService {
-
-	// TODO tune
-	private static final int RESIZE_PHOTOS_SYNCHRONOUS_LIMIT = 10;
 
 	private static final Logger LOG = LoggerFactory.getLogger(ImageMagikResizerService.class);
 
-	// modified by UI thread only (not locking needed)
-	private final Map<Photo, Future<Object>> tasks = new HashMap<Photo, Future<Object>>(64);
+	/*
+	 * File limit above which we will do the check for existing resized photo on
+	 * a background thread.
+	 */
+	// TODO tune
+	private static final int RESIZE_PHOTOS_SYNCHRONOUS_LIMIT = 10;
+
+	// modified by UI thread only (so not locked)
+	private final Map<Photo, Future<Object>> tasks = new HashMap<Photo, Future<Object>>(32);
 
 	private final List<JobListener> listeners = new ArrayList<JobListener>();
 
@@ -50,20 +46,13 @@ public class ImageMagikResizerService implements FutureCompletionListener<Object
 
 	private final Executor uiExecutor;
 
-	private String cmdPath;
+	private final String magickPath;
 
-	public ImageMagikResizerService(File photoFolder, ExecutorService taskExecutor, Display display)
-			throws UnableToCreateResizerException {
+	public ImageMagikResizerService(File photoFolder, ExecutorService taskExecutor, Display display, String magickPath) {
 		this.photoFolder = photoFolder;
 		this.taskExecutor = taskExecutor;
 		this.uiExecutor = new UIExecutor(display);
-
-		// check if we can find ImageMagick on the path
-		String path = Which.find(ImageMagickResizeTask.MAGICK_COMMAND);
-		if (path == null) {
-			throw new UnableToCreateResizerException("ImageMagick not found on PATH, install ImageMagick and restart");
-		}
-		cmdPath = path;
+		this.magickPath = magickPath;
 	}
 
 	@Override
@@ -73,6 +62,30 @@ public class ImageMagikResizerService implements FutureCompletionListener<Object
 			return f;
 		}
 		return null;
+	}
+
+	@Override
+	public File getPhotoFolder() {
+		return photoFolder;
+	}
+
+	private boolean hasJpegExtension(File f) {
+		String name = f.getName().toLowerCase();
+		return name.endsWith(".jpg") || name.endsWith(".jpeg");
+	}
+
+	@Override
+	public long purge() {
+		long bytes = 0;
+		for (File f : photoFolder.listFiles()) {
+			if (hasJpegExtension(f)) {
+				bytes += f.length();
+				if (!f.delete()) {
+					LOG.debug("Failed to delete resized photo {}", f.getName());
+				}
+			}
+		}
+		return bytes;
 	}
 
 	@Override
@@ -99,8 +112,7 @@ public class ImageMagikResizerService implements FutureCompletionListener<Object
 			if (tasks.containsKey(photo)) {
 				continue;
 			}
-			String name = photo.getFile().getName().toLowerCase();
-			if (!name.endsWith(".jpg") && !name.endsWith(".jpeg")) {
+			if (!hasJpegExtension(photo.getFile())) {
 				LOG.debug("Ignoring image [{}] as it does not end '.jpeg' or '.jpg'", photo.getFile().getAbsolutePath());
 				continue;
 			}
@@ -131,16 +143,18 @@ public class ImageMagikResizerService implements FutureCompletionListener<Object
 
 	@Override
 	public void onCompletion(final Future<Object> result, final Object data) {
-		// callback on executor thread during normal completion -> move
-		// callback on UI thread if Future cancelled -> don't move
 		uiExecutor.execute(new Runnable() {
 			@Override
 			public void run() {
 				try {
 					result.get();
-				} catch (Exception e) {
+				} catch (InterruptedException e) {
+					/* ignore */
+				} catch (CancellationException e) {
+					/* ignore */
+				} catch (ExecutionException e) {
 					// log here otherwise we'll miss the exception
-					LOG.info("Failed to resize image", e);
+					LOG.warn("Failed to resize image", e);
 				}
 				tasks.remove((Photo) data);
 				fireUpdate();
@@ -220,7 +234,7 @@ public class ImageMagikResizerService implements FutureCompletionListener<Object
 			for (Photo photo : files) {
 				File sourceFile = photo.getFile();
 				File targetFile = getFileInCache(sourceFile);
-				ImageMagickResizeTask task = new ImageMagickResizeTask(cmdPath, sourceFile, targetFile,
+				ImageMagickResizeTask task = new ImageMagickResizeTask(magickPath, sourceFile, targetFile,
 						ImageMagikResizerService.this, photo);
 				tasks.put(photo, taskExecutor.submit(task));
 				fireUpdate();

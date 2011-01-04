@@ -11,9 +11,9 @@ import org.eclipse.swt.widgets.Display;
 import com.cgoab.offline.model.Journal;
 import com.cgoab.offline.util.ListenableThreadPoolExecutor;
 
-public class ThumbnailProviderFactory {
+public class CachingThumbnailProviderFactory {
 
-	private final Map<Journal, ThumbnailProvider> providers = new HashMap<Journal, ThumbnailProvider>();
+	private final Map<Journal, CachingThumbnailProvider> providers = new HashMap<Journal, CachingThumbnailProvider>();
 
 	private final ExecutorService executor;
 
@@ -21,19 +21,22 @@ public class ThumbnailProviderFactory {
 
 	private ResizeStrategy resizer;
 
-	public ThumbnailProviderFactory(Display display, ResizeStrategy resizer) {
+	private final String folderExtension;
+
+	public CachingThumbnailProviderFactory(Display display, ResizeStrategy resizer, String folderExtension) {
 		this.executor = ListenableThreadPoolExecutor.newOptimalSizedExecutorService("ThumbnailProvider",
 				Thread.NORM_PRIORITY);
 		this.display = display;
 		this.resizer = resizer;
+		this.folderExtension = folderExtension;
 	}
 
-	public ThumbnailProvider getThumbnailProvider(Journal journal) {
+	public CachingThumbnailProvider getThumbnailProvider(Journal journal) {
 		return providers.get(journal);
 	}
 
-	public ThumbnailProvider getOrCreateThumbnailProvider(Journal journal) {
-		ThumbnailProvider service = providers.get(journal);
+	public CachingThumbnailProvider getOrCreateThumbnailProvider(Journal journal) {
+		CachingThumbnailProvider service = providers.get(journal);
 		if (service == null) {
 			File thumbFolder = getOrCreateThumbnailsFolder(journal);
 			service = new CachingThumbnailProvider(executor, thumbFolder, display, resizer);
@@ -43,7 +46,7 @@ public class ThumbnailProviderFactory {
 	}
 
 	public File getOrCreateThumbnailsFolder(Journal journal) {
-		File file = new File(journal.getFile().getParent() + File.separator + journal.getName() + "_thumbnails");
+		File file = new File(journal.getFile().getParent() + File.separator + journal.getName() + folderExtension);
 		if (!file.exists()) {
 			file.mkdirs();
 		}

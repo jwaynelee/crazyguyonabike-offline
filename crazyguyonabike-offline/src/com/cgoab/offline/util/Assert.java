@@ -32,7 +32,7 @@ public class Assert {
 
 	public static void notNull(Object o, String msg) {
 		if (o == null) {
-			throw new AssertionError(msg);
+			throw new AssertionError("Assertion Failed: " + (msg == null ? "expected non-null" : msg));
 		}
 	}
 
@@ -46,5 +46,9 @@ public class Assert {
 		if (o1 != o2) {
 			throw new AssertionError(msg);
 		}
+	}
+
+	public static void notNull(Object o) {
+		notNull(o, null);
 	}
 }

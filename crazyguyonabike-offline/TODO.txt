@@ -16,12 +16,18 @@ add logging
 detect when target file disappears
 Review cancellation of tasks in thumbnail view
 Cancellation in upload view
+Detect old version of ImageMagic (version with ^ resize)
+Clean up new journal page, add xml extension automatically, trim from name
+Resize photos before upload
 ------------------------------------------------------
 
 Add photos to journal and auto-assign to days -- NOT DONE
 undo support throughout UI
 cleanup menus
 detect when photos date different to page date -- NOT DONE; complexity involved when date changes (re-order?)
+
+OSX bug, CMD > CTRL swap
+Improve thumbnail extraction code to include EXIF thumbnail
 
 -- Text Editor --
 Spell checker integration
@@ -40,8 +46,6 @@ Hover text
 Properties/preferences to set size & quality options
 
 -- Polish --
-Clean up new journal page, add xml extension automatically, trim from name
 Preview pane (turn into to html & view in browser)
 Persist location of shells between execution
-Resize photos before upload
 Implement EXIF features
