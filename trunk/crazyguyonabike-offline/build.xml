@@ -26,12 +26,12 @@
 
 	<target name="compile-main">
 		<mkdir dir="${main.classes.dir}" />
-		<javac srcdir="${src.dir}" destdir="${main.classes.dir}" debug="yes" classpathref="classpath" target="1.5"/>
+		<javac srcdir="${src.dir}" destdir="${main.classes.dir}" debug="yes" classpathref="classpath" target="1.5" />
 	</target>
 
 	<target name="compile-boot">
 		<mkdir dir="${boot.classes.dir}" />
-		<javac srcdir="${boot.dir}" destdir="${boot.classes.dir}" debug="yes" target="1.5"/>
+		<javac srcdir="${boot.dir}" destdir="${boot.classes.dir}" debug="yes" target="1.5" />
 	</target>
 
 	<target name="jar-main" depends="compile-main">
@@ -64,6 +64,8 @@
 		</jar>
 	</target>
 
-	<target name="main" depends="clean,jar-boot" />
+	<target name="main" depends="clean,jar-boot">
+		<copy file="scripts/cgoab-offline" tofile="${jar.dir}/cgoab-offline.${version}"/>
+	</target>
 
 </project>

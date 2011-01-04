@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 
 import com.cgoab.offline.util.FutureCompletionListener;
 import com.cgoab.offline.util.ListenableCancellableTask;
+import com.cgoab.offline.util.OS;
 import com.cgoab.offline.util.StringUtils;
 import com.cgoab.offline.util.Which;
 
@@ -22,6 +23,9 @@ public class ImageMagickResizeTask extends ListenableCancellableTask<Object> {
 	private static final Logger LOG = LoggerFactory.getLogger(ImageMagickResizeTask.class);
 
 	public static final String MAGICK_COMMAND = "convert";
+
+	/* windows provides a "convert" command, mogrify is less common */
+	private static final String MAGICK_COMMAND_TO_CHECK_INSTALLATION = "mogrify";
 
 	/*
 	 * Version with "Fill Area Flag ('^' flag)"
@@ -145,15 +149,25 @@ public class ImageMagickResizeTask extends ListenableCancellableTask<Object> {
 	 *             if the correct version of ImageMagic cannot be found
 	 */
 	static String findMagickAndCheckVersionOrThrow() throws MagicNotAvailableException {
-		// check if we can find ImageMagick on the path
-		String magickPath = Which.find(MAGICK_COMMAND);
-		if (magickPath == null) {
-			throw new MagicNotAvailableException("ImageMagick not found on PATH; install ImageMagick and restart");
+		String testMagickPath = Which.find(MAGICK_COMMAND_TO_CHECK_INSTALLATION);
+		if (testMagickPath == null) {
+			throw new MagicNotAvailableException(
+					"ImageMagick not found on system path. Install ImageMagick (at least version " + REQUIRED_VERSION
+							+ ") and restart.");
+		}
+		String magickPath = new File(testMagickPath).getParent() + File.separator + MAGICK_COMMAND;
+		if (!new File(magickPath).exists()) {
+			if (OS.isWindows() && new File(magickPath + ".exe").exists()) {
+				// ok
+			} else {
+				throw new MagicNotAvailableException("ImageMagick was found, but '" + MAGICK_COMMAND
+						+ "' binary does not exist!");
+			}
 		}
 
 		MagickVersion currentVersion = getCurrentMagickVersion(magickPath);
 		if (currentVersion == null) {
-			throw new MagicNotAvailableException("Unable to check ImageMagick version");
+			throw new MagicNotAvailableException("Unable to check ImageMagick version\n\n" + magickPath);
 		}
 
 		if (!currentVersion.isAtLeast(REQUIRED_VERSION)) {
