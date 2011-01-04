@@ -26,11 +26,11 @@ public class NewFileAppender extends RollingFileAppender {
 			String instanceFileName = defaulFile + "_" + System.currentTimeMillis();
 			try {
 				setFile(instanceFileName, fileAppend, bufferedIO, bufferSize);
+				deleteOldFiles(defaulFile);
 			} catch (java.io.IOException e) {
 				errorHandler.error("setFile(" + instanceFileName + "," + fileAppend + ") call failed.", e,
 						ErrorCode.FILE_OPEN_FAILURE);
 			}
-			deleteOldFiles(defaulFile);
 		} else {
 			// LogLog.error("File option not set for appender ["+name+"].");
 			LogLog.warn("File option not set for appender [" + name + "].");

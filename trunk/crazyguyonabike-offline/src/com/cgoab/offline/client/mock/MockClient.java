@@ -1,10 +1,11 @@
 package com.cgoab.offline.client.mock;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import com.cgoab.offline.client.AbstractUploadClient;
 import com.cgoab.offline.client.CompletionCallback;
@@ -19,9 +20,9 @@ public class MockClient extends AbstractUploadClient {
 
 	private int nextPageID;
 
-	private Map<Integer, Page> uploadedPages = new HashMap<Integer, Page>();
+	private Set<Integer> uploadedPages = new HashSet<Integer>();
 
-	private Map<String, Photo> uploadedPhotos = new HashMap<String, Photo>();
+	private Set<String> uploadedPhotos = new HashSet<String>();
 
 	private Map<Integer, DocumentDescription> documents = new HashMap<Integer, DocumentDescription>();
 
@@ -92,7 +93,7 @@ public class MockClient extends AbstractUploadClient {
 
 				int pageId = nextPageID++;
 				Thread.sleep(delay);
-				uploadedPages.put(pageId, (Page) page.clone());
+				uploadedPages.add(pageId);
 				return pageId;
 			}
 		});
@@ -117,13 +118,13 @@ public class MockClient extends AbstractUploadClient {
 			@Override
 			public Void doRun() throws Exception {
 				// check page id is valid...
-				Page page = uploadedPages.get(new Integer(pageId));
-				if (page == null) {
+				boolean contains = uploadedPages.contains(new Integer(pageId));
+				if (!contains) {
 					/* don't throw, might have restarted */
 					// error("Unknown PageID");
 				}
 				String name = getImageName(photo);
-				if (uploadedPhotos.containsKey(name)) {
+				if (uploadedPhotos.contains(name)) {
 					error("Existing photo with name " + name);
 				}
 				String caption = photo.getCaption();
@@ -136,7 +137,7 @@ public class MockClient extends AbstractUploadClient {
 					}
 					progressListener.uploadPhotoProgress(photo, i * 10, 100);
 				}
-				uploadedPhotos.put(name, photo);
+				uploadedPhotos.add(name);
 				return null;
 			}
 

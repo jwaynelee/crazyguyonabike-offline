@@ -173,7 +173,11 @@ public class PageEditor {
 		}
 
 		public void run(Journal journal) {
-			File folder = resizerServiceFactory.getOrCreateResizerFor(journal).getPhotoFolder();
+			ResizerService resizer = resizerServiceFactory.getResizerFor(journal);
+			if (resizer == null) {
+				return;
+			}
+			File folder = resizer.getPhotoFolder();
 			try {
 				Desktop.getDesktop().open(folder);
 			} catch (IOException e) {
@@ -358,18 +362,17 @@ public class PageEditor {
 
 			// 2) create new journal
 			NewJournalDialog dialog = new NewJournalDialog(shell);
-			if (dialog.open() == SWT.OK) {
-				File file = new File(dialog.getLocation());
-				// create file first...
-				File parent = file.getParentFile();
-				if (parent != null && !parent.exists()) {
-					parent.mkdirs();
-				}
-				Journal newJournal = new Journal(file, dialog.getName());
-				saveJournal(newJournal, false);
-				treeViewer.setInput(new JournalHolder(newJournal));
-				treeViewer.setSelection(new StructuredSelection(newJournal));
+			if (dialog.open() != SWT.OK) {
+				return;
 			}
+			File file = new File(dialog.getLocation());
+			File parent = file.getParentFile();
+			if (parent != null && !parent.exists()) {
+				parent.mkdirs();
+			}
+			Journal newJournal = new Journal(file, dialog.getName());
+			saveJournal(newJournal, false);
+			bindJournal(newJournal);
 		}
 	};
 
@@ -1349,21 +1352,35 @@ public class PageEditor {
 			return false;
 		}
 
-		treeViewer.setInput(new JournalHolder(journal));
+		// finally load journal into UI
+		bindJournal(journal);
+		return true;
+	}
 
+	private void bindJournal(Journal journal) {
 		// wire up image resizer service
 		if (journal.isResizeImagesBeforeUpload() == Boolean.TRUE) {
 			registerPhotoResizer(journal, true);
 		}
-
-		// update action state
 		CachingThumbnailProvider provider = thumbnailProviderFactory.getOrCreateThumbnailProvider(journal);
 		toggleUseExifThumbnailAction.setChecked(provider.isUseExifThumbnail());
 		toggleResizePhotos.setChecked(journal.isResizeImagesBeforeUpload() == Boolean.TRUE);
 		provider.addJobListener(statusListener.thumnailListener);
 		thumbViewer.setThumbnailProvider(provider);
 
-		return true;
+		treeViewer.setInput(new JournalHolder(journal));
+
+		// s the last page non uploaded page, or the journal
+		List<Page> pages = journal.getPages();
+		Object newSelection = journal;
+		if (pages.size() > 0) {
+			Page lastPage = pages.get(pages.size() - 1);
+			if (lastPage.getState() != UploadState.UPLOADED) {
+				newSelection = lastPage;
+			}
+		}
+
+		treeViewer.setSelection(new StructuredSelection(newSelection));
 	}
 
 	private boolean onClose() {
@@ -1477,6 +1494,7 @@ public class PageEditor {
 				MessageBox error = new MessageBox(shell, SWT.ICON_ERROR | SWT.OK);
 				error.setText("Error");
 				error.setMessage("Failed to start photo resizer: " + e.getMessage());
+				error.open();
 			}
 			return false;
 		}
