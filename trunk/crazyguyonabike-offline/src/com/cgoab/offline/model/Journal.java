@@ -11,7 +11,14 @@ import java.util.regex.Pattern;
 
 import com.cgoab.offline.util.Assert;
 
-// TOP level journal node
+/**
+ * A Journal holds the pages to to be uploaded to the server.
+ * 
+ * The name of this journal has no correlation to the journal (document) to
+ * which pages are added too. The actual document is resolved at upload time.
+ * Once an upload occurs id of the document (doc_id) to which the pages were
+ * added is available from {@link #getDocIdHint()}.
+ */
 public class Journal {
 
 	private static final Pattern DAY_PATTERN = Pattern.compile("^[dD]ay (\\d+)");
@@ -34,13 +41,19 @@ public class Journal {
 		this.file = file;
 	}
 
+	/**
+	 * Configures if this journal should resize images before they are sent to
+	 * the server, default is <tt>null</tt>.
+	 * 
+	 * @param resizeImagesBeforeUpload
+	 */
 	public void setResizeImagesBeforeUpload(Boolean resizeImagesBeforeUpload) {
 		this.resizeImagesBeforeUpload = resizeImagesBeforeUpload;
 	}
 
 	/**
-	 * Returns if images should be resized before upload, <tt>null</tt> if
-	 * unset.
+	 * Returns if images should be resized before upload, <tt>null</tt> if not
+	 * yet set.
 	 * 
 	 * @return
 	 */
@@ -70,8 +83,9 @@ public class Journal {
 	}
 
 	/**
-	 * Creates a new page at the end of this journal, the page inherits settings
-	 * from the previous page and has its date set to the following day.
+	 * Creates a new page at the end of this journal, the new page will inherit
+	 * settings from the previous page, have its date set to the following day
+	 * and it's title set the the next day in sequence (if it matches "day \d").
 	 * 
 	 * @return
 	 */
@@ -93,7 +107,7 @@ public class Journal {
 				Matcher m = DAY_PATTERN.matcher(previousTitle);
 				if (m.matches()) {
 					try {
-						title = "Day " + (Integer.parseInt(m.group(1)) + 1);
+						title = previousTitle.charAt(0) + "ay " + (Integer.parseInt(m.group(1)) + 1);
 					} catch (NumberFormatException e) {
 						// ignore
 					}
@@ -168,6 +182,9 @@ public class Journal {
 	public void addPage(Page newPage) {
 		Assert.isTrue(newPage.getJournal() == this);
 		Assert.isTrue(newPage.getLocalId() != Page.UNSET_LOCAL_ID);
+		if (pages.contains(newPage)) {
+			throw new IllegalArgumentException("Page is already added to journal!");
+		}
 		if (nextLocalPageId <= newPage.getLocalId()) {
 			nextLocalPageId = newPage.getLocalId() + 1;
 		}
@@ -176,9 +193,7 @@ public class Journal {
 				throw new AssertionError("Duplicate local page id");
 			}
 		}
-		if (!pages.contains(newPage)) {
-			pages.add(newPage);
-		}
+		pages.add(newPage);
 		firePageAdded(newPage);
 		setDirty(true);
 	}
@@ -200,17 +215,19 @@ public class Journal {
 
 	void photosAdded(List<Photo> photos, Page page) {
 		for (Photo photo : photos) {
-			loadedPhotos.put(photo.getFile().getName(), page);
+			Page duplicate = loadedPhotos.put(photo.getFile().getName(), page);
+			// should already be checked in Page, check for sanity
+			Assert.isNull(duplicate, "Photo " + photo + " already exists on page " + duplicate);
 		}
 		firePhotosAdded(photos, page);
 	}
 
-	void checkForDuplicatePhotoInJournal(Photo photo) {
-		Page page = loadedPhotos.get(photo.getFile().getName());
-		if (page != null) {
-			throw new IllegalStateException();
-		}
-	}
+	// void checkForDuplicatePhotoInJournal(Photo photo) {
+	// Page page = loadedPhotos.get(photo.getFile().getName());
+	// if (page != null) {
+	// throw new IllegalStateException();
+	// }
+	// }
 
 	public void setLastModifiedWhenLoaded(long lastModifiedTimestamp) {
 		this.lastModifiedTimestamp = lastModifiedTimestamp;

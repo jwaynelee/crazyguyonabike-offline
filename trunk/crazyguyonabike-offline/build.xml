@@ -26,12 +26,12 @@
 
 	<target name="compile-main">
 		<mkdir dir="${main.classes.dir}" />
-		<javac srcdir="${src.dir}" destdir="${main.classes.dir}" debug="yes" classpathref="classpath" />
+		<javac srcdir="${src.dir}" destdir="${main.classes.dir}" debug="yes" classpathref="classpath" target="1.5"/>
 	</target>
 
 	<target name="compile-boot">
 		<mkdir dir="${boot.classes.dir}" />
-		<javac srcdir="${boot.dir}" destdir="${boot.classes.dir}" debug="yes" />
+		<javac srcdir="${boot.dir}" destdir="${boot.classes.dir}" debug="yes" target="1.5"/>
 	</target>
 
 	<target name="jar-main" depends="compile-main">

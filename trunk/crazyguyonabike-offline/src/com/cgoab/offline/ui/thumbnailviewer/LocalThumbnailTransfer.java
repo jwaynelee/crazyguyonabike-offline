@@ -3,6 +3,9 @@ package com.cgoab.offline.ui.thumbnailviewer;
 import org.eclipse.swt.dnd.ByteArrayTransfer;
 import org.eclipse.swt.dnd.TransferData;
 
+/**
+ * Used to transfer Thumbnails within the same VM (usually same widget).
+ */
 public class LocalThumbnailTransfer extends ByteArrayTransfer {
 
 	private static final LocalThumbnailTransfer INSTANCE = new LocalThumbnailTransfer();

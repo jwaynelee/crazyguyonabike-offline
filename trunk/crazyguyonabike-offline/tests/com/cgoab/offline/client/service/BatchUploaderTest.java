@@ -49,8 +49,7 @@ public class BatchUploaderTest {
 		final Page page = newPage(journal);
 		final Photo photo1 = newPhoto();
 		final Photo photo2 = newPhoto();
-		page.addPhoto(photo1);
-		page.addPhoto(photo2);
+		page.addPhotos(Arrays.asList(photo1, photo2), -1);
 
 		final UploadClient client = context.mock(UploadClient.class);
 		context.checking(new Expectations() {
@@ -117,9 +116,8 @@ public class BatchUploaderTest {
 		final Photo photo1 = newPhoto();
 		final Photo photo2 = newPhoto();
 		final Photo photo3 = newPhoto();
-		page.addPhoto(photo1);
-		page.addPhoto(photo2);
-		page.addPhoto(photo3);
+		page.addPhotos(Arrays.asList(photo1, photo2, photo3), -1);
+
 		final Throwable exception = new Exception("MockException");
 
 		final UploadClient client = context.mock(UploadClient.class);
@@ -187,8 +185,7 @@ public class BatchUploaderTest {
 		final Page page = newPage(journal);
 		final Photo photo1 = newPhoto();
 		final Photo photo2 = newPhoto();
-		page.addPhoto(photo1);
-		page.addPhoto(photo2);
+		page.addPhotos(Arrays.asList(photo1, photo2), -1);
 
 		page.setState(UploadState.PARTIALLY_UPLOAD);
 		page.setServerId(pageId);

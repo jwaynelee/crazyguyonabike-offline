@@ -1,0 +1,53 @@
+java.runtime.name >> Java(TM) SE Runtime Environment
+sun.boot.library.path >> C:\Program Files\Java\jdk1.6.0_16\jre\bin
+java.vm.version >> 14.2-b01
+java.vm.vendor >> Sun Microsystems Inc.
+java.vendor.url >> http://java.sun.com/
+path.separator >> ;
+java.vm.name >> Java HotSpot(TM) Client VM
+file.encoding.pkg >> sun.io
+user.country >> GB
+sun.java.launcher >> SUN_STANDARD
+sun.os.patch.level >> 
+java.vm.specification.name >> Java Virtual Machine Specification
+user.dir >> C:\Users\ben\workspace\CGOABOffline
+java.runtime.version >> 1.6.0_16-b01
+java.awt.graphicsenv >> sun.awt.Win32GraphicsEnvironment
+java.endorsed.dirs >> C:\Program Files\Java\jdk1.6.0_16\jre\lib\endorsed
+os.arch >> x86
+java.io.tmpdir >> C:\Users\ben\AppData\Local\Temp\
+line.separator >> 
+
+java.vm.specification.vendor >> Sun Microsystems Inc.
+user.variant >> 
+os.name >> Windows 7
+sun.jnu.encoding >> Cp1252
+java.library.path >> C:\Program Files\Java\jdk1.6.0_16\bin;.;C:\Windows\Sun\Java\bin;C:\Windows\system32;C:\Windows;C:\Program Files\Java\jdk1.6.0_16\jre\bin;C:/Program Files/Java/jre6/bin/client;C:/Program Files/Java/jre6/bin;C:/Program Files/Java/jre6/lib/i386;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;C:\Program Files\QuickTime\QTSystem\;C:\Program Files\Subversion\bin
+java.specification.name >> Java Platform API Specification
+java.class.version >> 50.0
+sun.management.compiler >> HotSpot Client Compiler
+os.version >> 6.1
+user.home >> C:\Users\ben
+user.timezone >> 
+java.awt.printerjob >> sun.awt.windows.WPrinterJob
+file.encoding >> Cp1252
+java.specification.version >> 1.6
+user.name >> ben
+java.class.path >> C:\Users\ben\workspace\CGOABOffline\bin;C:\Program Files\Eclipse\plugins\org.junit_4.8.1.v4_8_1_v20100427-1100\junit.jar;C:\Program Files\Eclipse\plugins\org.hamcrest.core_1.1.0.v20090501071000.jar;C:\Users\ben\workspace\CGOABOffline\libs\apache-mime4j-0.6.jar;C:\Users\ben\workspace\CGOABOffline\libs\commons-codec-1.3.jar;C:\Users\ben\workspace\CGOABOffline\libs\commons-logging-1.1.1.jar;C:\Users\ben\workspace\CGOABOffline\libs\httpclient-4.0.3.jar;C:\Users\ben\workspace\CGOABOffline\libs\httpcore-4.0.1.jar;C:\Users\ben\workspace\CGOABOffline\libs\httpmime-4.0.3.jar;C:\Users\ben\workspace\CGOABOffline\libs\joda-time-1.6.2.jar;C:\Users\ben\workspace\CGOABOffline\libs\log4j-1.2.16.jar;C:\Users\ben\workspace\CGOABOffline\libs\metadata-extractor-2.3.1.jar;C:\Users\ben\workspace\CGOABOffline\libs\xom-1.2.6.jar;C:\Users\ben\workspace\CGOABOffline\libs\htmlcleaner2_1.jar;C:\Users\ben\workspace\CGOABOffline\libsswt\swt-3.6.1-win32.jar;C:\Users\ben\workspace\CGOABOffline\libs\org.eclipse.core.commands_3.6.0.I20100512-1500.jar;C:\Users\ben\workspace\CGOABOffline\libs\org.eclipse.equinox.common_3.6.0.v20100503.jar;C:\Users\ben\workspace\CGOABOffline\libs\org.eclipse.jface_3.6.1.M20100825-0800.jar;C:\Users\ben\workspace\CGOABOffline\libs\org.eclipse.jface.databinding_1.4.0.I20100601-0800.jar;C:\Users\ben\workspace\CGOABOffline\libs\org.eclipse.core.databinding_1.3.100.I20100601-0800.jar;C:\Users\ben\workspace\CGOABOffline\libs\org.eclipse.core.databinding.beans_1.2.100.I20100601-0800.jar;C:\Users\ben\workspace\CGOABOffline\libs\org.eclipse.core.databinding.observable_1.3.0.I20100601-0800.jar;C:\Users\ben\workspace\CGOABOffline\libs\org.eclipse.core.databinding.property_1.3.0.I20100601-0800.jar;C:\Users\ben\workspace\CGOABOffline\libs\org.eclipse.core.runtime_3.6.0.v20100505.jar;C:\Users\ben\workspace\CGOABOffline\libs\org.eclipse.jface.text_3.6.1.r361_v20100825-0800.jar;C:\Users\ben\workspace\CGOABOffline\libs\org.eclipse.osgi_3.6.1.R36x_v20100806.jar;C:\Users\ben\workspace\CGOABOffline\libs\org.eclipse.osgi.util_3.2.100.v20100503.jar;C:\Users\ben\workspace\CGOABOffline\libs\org.eclipse.text_3.5.0.v20100601-1300.jar
+java.vm.specification.version >> 1.0
+sun.arch.data.model >> 32
+java.home >> C:\Program Files\Java\jdk1.6.0_16\jre
+java.specification.vendor >> Sun Microsystems Inc.
+user.language >> en
+awt.toolkit >> sun.awt.windows.WToolkit
+java.vm.info >> mixed mode
+java.version >> 1.6.0_16
+java.ext.dirs >> C:\Program Files\Java\jdk1.6.0_16\jre\lib\ext;C:\Windows\Sun\Java\lib\ext
+sun.boot.class.path >> C:\Program Files\Java\jdk1.6.0_16\jre\lib\resources.jar;C:\Program Files\Java\jdk1.6.0_16\jre\lib\rt.jar;C:\Program Files\Java\jdk1.6.0_16\jre\lib\sunrsasign.jar;C:\Program Files\Java\jdk1.6.0_16\jre\lib\jsse.jar;C:\Program Files\Java\jdk1.6.0_16\jre\lib\jce.jar;C:\Program Files\Java\jdk1.6.0_16\jre\lib\charsets.jar;C:\Program Files\Java\jdk1.6.0_16\jre\classes
+java.vendor >> Sun Microsystems Inc.
+file.separator >> \
+java.vendor.url.bug >> http://java.sun.com/cgi-bin/bugreport.cgi
+sun.cpu.endian >> little
+sun.io.unicode.encoding >> UnicodeLittle
+sun.desktop >> windows
+sun.cpu.isalist >> pentium_pro+mmx pentium_pro pentium+mmx pentium i486 i386 i86

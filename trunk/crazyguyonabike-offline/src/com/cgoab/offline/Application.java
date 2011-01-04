@@ -7,6 +7,9 @@ import java.util.Properties;
 
 import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.PropertyConfigurator;
+import org.eclipse.core.runtime.IStatus;
+import org.eclipse.jface.util.ILogger;
+import org.eclipse.jface.util.Policy;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Shell;
@@ -15,11 +18,11 @@ import org.slf4j.LoggerFactory;
 
 import com.cgoab.offline.ui.PageEditor;
 import com.cgoab.offline.ui.Preferences;
+import com.cgoab.offline.ui.thumbnailviewer.CachingThumbnailProviderFactory;
 import com.cgoab.offline.ui.thumbnailviewer.FitWithinResizeStrategy;
 import com.cgoab.offline.ui.thumbnailviewer.ResizeStrategy;
-import com.cgoab.offline.ui.thumbnailviewer.ThumbnailProviderFactory;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailViewer;
-import com.cgoab.offline.util.resizer.ResizerServiceFactory;
+import com.cgoab.offline.util.resizer.ImageMagickResizerServiceFactory;
 
 public class Application implements Runnable {
 	public static final File SETTINGS_DIR = new File(System.getProperty("user.home") + File.separator + ".cgoaboffline"
@@ -27,23 +30,25 @@ public class Application implements Runnable {
 	public static final ResizeStrategy THUMBNAIL_RESIZER = new FitWithinResizeStrategy(new Point(
 			ThumbnailViewer.THUMBNAIL_WIDTH, ThumbnailViewer.THUMBNAIL_HEIGHT));
 	private static final String LOG_FILE = "log.properties";
+	private static final String THUMNAILS_FOLDER = ".thumbnails";
+	private static final String RESIZED_FOLDER = ".resized";
 	private static Logger LOG = LoggerFactory.getLogger(Application.class);
 	private Preferences preferences;
-	private ThumbnailProviderFactory thumbnailFactory;
-	private ResizerServiceFactory resizerFactory;
+	private CachingThumbnailProviderFactory thumbnailFactory;
+	private ImageMagickResizerServiceFactory resizerFactory;
 	private Display display;
 	private boolean configuredLogging;
 
-	public void setThumbnailFactory(ThumbnailProviderFactory thumbnailFactory) {
+	public void setThumbnailFactory(CachingThumbnailProviderFactory thumbnailFactory) {
 		this.thumbnailFactory = thumbnailFactory;
 	}
 
-	public void setResizerFactory(ResizerServiceFactory resizerFactory) {
+	public void setResizerFactory(ImageMagickResizerServiceFactory resizerFactory) {
 		this.resizerFactory = resizerFactory;
 	}
 
 	/**
-	 * Constructs a new application with default values.
+	 * Constructs a new application with default settings.
 	 * 
 	 * @return
 	 */
@@ -51,8 +56,8 @@ public class Application implements Runnable {
 		Application app = new Application();
 		InputStream logConfigStream = Application.class.getResourceAsStream(LOG_FILE);
 		if (logConfigStream != null) {
-			Properties config = new Properties();
 			try {
+				Properties config = new Properties();
 				config.load(logConfigStream);
 				app.setLogConfiguration(config);
 			} catch (IOException e) {
@@ -63,8 +68,8 @@ public class Application implements Runnable {
 		Display display = new Display();
 		app.setDisplay(display);
 
-		app.setThumbnailFactory(new ThumbnailProviderFactory(display, THUMBNAIL_RESIZER));
-		app.setResizerFactory(new ResizerServiceFactory(display));
+		app.setThumbnailFactory(new CachingThumbnailProviderFactory(display, THUMBNAIL_RESIZER, THUMNAILS_FOLDER));
+		app.setResizerFactory(new ImageMagickResizerServiceFactory(display, RESIZED_FOLDER));
 
 		Preferences preferences = new Preferences(new File(SETTINGS_DIR + File.separator + "preferences"));
 		app.setPreferences(preferences);
@@ -88,24 +93,21 @@ public class Application implements Runnable {
 		this.preferences = preferences;
 	}
 
-	private PageEditor createEditor() {
-		PageEditor editor = new PageEditor(new Shell(display));
-		editor.setThumbnailProviderFactory(thumbnailFactory);
-		editor.setResizerServiceFactory(resizerFactory);
-		editor.setPreferences(preferences);
-		return editor;
-	}
-
 	public void run() {
 		startLogging();
+		Shell shell = null;
 		try {
-			PageEditor editor = createEditor();
+			shell = new Shell(display);
+			PageEditor editor = new PageEditor(shell);
+			editor.setThumbnailProviderFactory(thumbnailFactory);
+			editor.setResizerServiceFactory(resizerFactory);
+			editor.setPreferences(preferences);
 			editor.open();
 		} catch (Throwable t) {
 			LOG.error("Unhandled exception, application will terminate", t);
 		} finally {
 			if (resizerFactory != null) {
-				LOG.info("Dispoising resizer factory");
+				LOG.info("Disposing resizer factory");
 				resizerFactory.dispose();
 			}
 			if (thumbnailFactory != null) {
@@ -121,9 +123,36 @@ public class Application implements Runnable {
 		if (!configuredLogging) {
 			BasicConfigurator.configure();
 		}
+
+		// install JFace ILogger bridge
+		Policy.setLog(new ILogger() {
+			@Override
+			public void log(IStatus status) {
+				switch (status.getSeverity()) {
+				case IStatus.OK:
+					LOG.debug(status.getMessage(), status.getException());
+					break;
+				case IStatus.INFO:
+					LOG.info(status.getMessage(), status.getException());
+					break;
+				case IStatus.WARNING:
+					LOG.warn(status.getMessage(), status.getException());
+					break;
+				case IStatus.CANCEL:
+					LOG.info(status.getMessage(), status.getException());
+					break;
+				default: // IStatus.ERROR
+					LOG.error(status.getMessage(), status.getException());
+				}
+			}
+		});
 	}
 
 	public static void main(String[] args) {
-		defaultApplication().run();
+		try {
+			defaultApplication().run();
+		} catch (Throwable e) {
+			e.printStackTrace();
+		}
 	}
 }

@@ -57,7 +57,7 @@ import com.drew.metadata.Metadata;
 public class ThumbnailViewer extends Canvas {
 
 	public static final int THUMBNAIL_HEIGHT = 120;
-	public static final int THUMBNAIL_WIDTH = 180;
+	public static final int THUMBNAIL_WIDTH = 200;
 	private static final Collection<String> extensions;
 	static final int PADDING_BETWEEN_THUMNAIL = 5;
 	static final int PADDING_INSIDE = 5;
@@ -116,7 +116,7 @@ public class ThumbnailViewer extends Canvas {
 		@Override
 		public void onCompletion(final Future<Thumbnail> result, final Object data) {
 			/* callback already on UI thread */
-			handleImageResizeCompletion(result, (ThumbnailHolder) data);
+			handleThumbnailReady(result, (ThumbnailHolder) data);
 		}
 	};
 
@@ -186,6 +186,7 @@ public class ThumbnailViewer extends Canvas {
 			}
 		});
 
+		// redraw selection with active/inactive colour
 		addFocusListener(new FocusListener() {
 			@Override
 			public void focusGained(FocusEvent e) {
@@ -212,7 +213,6 @@ public class ThumbnailViewer extends Canvas {
 		addMouseListener(new MouseListener() {
 			@Override
 			public void mouseDoubleClick(MouseEvent e) {
-
 			}
 
 			@Override
@@ -227,24 +227,20 @@ public class ThumbnailViewer extends Canvas {
 		});
 
 		setDragDetect(true);
-
 		DragSource ds = new DragSource(this, DND.DROP_MOVE);
 		ds.addDragListener(new DragSourceAdapter() {
 			@Override
 			public void dragFinished(DragSourceEvent event) {
-				// System.out.println("dragFinished");
 				LocalThumbnailTransfer.getInstance().setSelectedPhoto(null);
 			}
 
 			@Override
 			public void dragSetData(DragSourceEvent e) {
-				// System.out.println("dragSetData");
 			}
 
 			@Override
 			public void dragStart(DragSourceEvent e) {
 				ThumbnailHolder toDrag = getThumbnailAt(e.x, e.y);
-				// ////System.out.printlnm.out.println("dragStart");
 				if (selected.contains(toDrag)) {
 					e.doit = true;
 					e.image = toDrag.getImage();
@@ -268,9 +264,32 @@ public class ThumbnailViewer extends Canvas {
 			}
 		});
 
+		/* dispose() not called recursively, listen instead */
 		addDisposeListener(new DisposeListener() {
 			@Override
 			public void widgetDisposed(DisposeEvent e) {
+				/*
+				 * Make sure the ThumbnailProvider doesn't keep creating
+				 * thumbnails and updating the UI once it is disposed.
+				 */
+				for (Iterator<ThumbnailHolder> i = thumbnails.iterator(); i.hasNext();) {
+					ThumbnailHolder th = i.next();
+					Future<Thumbnail> f = th.getFuture();
+					if (f != null) {
+						if (!f.isDone()) {
+							f.cancel(true);
+						}
+						// wait until it finishes
+						try {
+							f.get();
+						} catch (Exception ex) {
+							/* ignore */
+						}
+					}
+					th.dispose();
+					i.remove();
+				}
+
 				if (contentProvider != null) {
 					contentProvider.dispose();
 				}
@@ -469,7 +488,7 @@ public class ThumbnailViewer extends Canvas {
 	}
 
 	/**
-	 * Returns the thumbnail found at the given location, null if none.
+	 * Returns the thumbnail at the given location, null if none.
 	 * 
 	 * @param x
 	 *            relative to origin of the page (not canvas)
@@ -489,7 +508,7 @@ public class ThumbnailViewer extends Canvas {
 		return null;
 	}
 
-	private void handleImageResizeCompletion(Future<Thumbnail> future, ThumbnailHolder holder) {
+	private void handleThumbnailReady(Future<Thumbnail> future, ThumbnailHolder holder) {
 		if (holder.isDisposed()) {
 			return;
 		}
@@ -527,12 +546,11 @@ public class ThumbnailViewer extends Canvas {
 				updateXValues();
 			}
 		}
-		
+
 		if (isThumbnailVisible(holder)) {
 			// TODO clip redraw?
 			redraw();
 		}
-		
 
 		// /* TODO call back into controller to notify it that we now have
 		// meta-data that can be inspected */
@@ -541,135 +559,155 @@ public class ThumbnailViewer extends Canvas {
 		// }
 	}
 
-	private void handleKeyPressed(KeyEvent e) {
-		if (e.keyCode == SWT.DEL) {
-			deleteCurrentSelection();
-			return;
-		}
+	private void handleDeleteKey() {
+		deleteCurrentSelection();
+		return;
+	}
 
-		if (e.keyCode == SWT.END || e.keyCode == SWT.HOME) {
-			if (thumbnails.size() > 0) {
-				int newId = e.keyCode == SWT.END ? thumbnails.size() - 1 : 0;
-				ThumbnailHolder newItem = thumbnails.get(newId);
-				selected.clear();
-				selected.add(newItem);
-				fireSelectionListener();
-				scrollToDisplay(newItem);
-				redraw();
-			}
-			return;
+	private void handleEndOrHomeKey(KeyEvent e) {
+		if (thumbnails.size() > 0) {
+			int newId = e.keyCode == SWT.END ? thumbnails.size() - 1 : 0;
+			ThumbnailHolder newItem = thumbnails.get(newId);
+			selected.clear();
+			selected.add(newItem);
+			fireSelectionListener();
+			scrollToDisplay(newItem);
+			redraw();
 		}
+		return;
+	}
 
-		if (getAccelerator(e) == 'A' + SWT.CONTROL) {
-			// select all
-			if (thumbnails.size() > 0) {
-				selected.clear();
-				selected.addAll(thumbnails);
-				fireSelectionListener();
-				redraw();
-			}
-			return;
+	// select all
+	private void handleCtrlAKey() {
+		if (thumbnails.size() > 0) {
+			selected.clear();
+			selected.addAll(thumbnails);
+			fireSelectionListener();
+			redraw();
 		}
+		return;
+	}
 
+	// move (or grow selection) to the right (starting from far left if no
+	// selection)
+	private void handleArrowRightKey(KeyEvent e) {
 		int totalThumbnails = thumbnails.size();
-
-		// points to the newest item to be selected (far left or
-		// right when multiple)
 		ThumbnailHolder newItem = null;
-		boolean change = false;
-		if (e.keyCode == SWT.ARROW_LEFT) {
-
-			// 1) if nothing selected then start from far right
-			// 2) if multiple selection select one left
-			// 3) if single selection select one left
-
-			if (selected.size() == 0) {
-				if (totalThumbnails == 0) {
-					return; // noting we can do
-				}
-				newItem = thumbnails.get(totalThumbnails - 1);
-				selected.add(newItem);
-				change = true;
-			} else {
-				ThumbnailHolder firstInSelection = selected.get(0);
-				int iFirstInSelection = thumbnails.indexOf(firstInSelection);
-				if (isShiftKeyOn(e.stateMask)) {
-					// expand selection
-					if (iFirstInSelection == 0) {
-						// selection already up against edge
-						return;
-					}
-					newItem = thumbnails.get(iFirstInSelection - 1);
-					selected.add(0, newItem); // add to begining to
-												// maintain order
-					change = true;
-				} else {
-					// clear selection, and move left
-					if (iFirstInSelection == 0) {
-						// end of the list - beep?
-						newItem = firstInSelection;
-					} else {
-						newItem = thumbnails.get(iFirstInSelection - 1);
-					}
-					selected.clear();
-					selected.add(newItem);
-					change = true;
-				}
+		if (selected.size() == 0) {
+			if (totalThumbnails == 0) {
+				return;
 			}
-		} else if (e.keyCode == SWT.ARROW_RIGHT) {
-			if (selected.size() == 0) {
-				if (totalThumbnails == 0) {
+			newItem = thumbnails.get(0);
+			selected.add(newItem);
+		} else {
+			ThumbnailHolder lastInSelection = selected.get(selected.size() - 1);
+			int iLastInSelection = thumbnails.indexOf(lastInSelection);
+			if (isShiftKeyOn(e.stateMask)) {
+				// expand selection
+				if (iLastInSelection + 1 == totalThumbnails) {
+					// selection already up against edge
 					return;
 				}
-				newItem = thumbnails.get(0);
+				newItem = thumbnails.get(iLastInSelection + 1);
 				selected.add(newItem);
-				change = true;
 			} else {
-				ThumbnailHolder lastInSelection = selected.get(selected.size() - 1);
-				int iLastInSelection = thumbnails.indexOf(lastInSelection);
-				if (isShiftKeyOn(e.stateMask)) {
-					// expand selection
-					if (iLastInSelection + 1 == totalThumbnails) {
-						// selection already up against edge
-						return;
-					}
-					newItem = thumbnails.get(iLastInSelection + 1);
-					selected.add(newItem);
-					change = true;
+				if (iLastInSelection + 1 >= totalThumbnails) {
+					newItem = lastInSelection;
 				} else {
-					if (iLastInSelection + 1 >= totalThumbnails) {
-						newItem = lastInSelection;
-					} else {
-						newItem = thumbnails.get(iLastInSelection + 1);
-					}
-					selected.clear();
-					selected.add(newItem);
-					change = true;
+					newItem = thumbnails.get(iLastInSelection + 1);
 				}
+				selected.clear();
+				selected.add(newItem);
 			}
 		}
 
 		fireSelectionListener();
-
-		if (newItem != null) {
-			scrollToDisplay(newItem);
-		}
+		scrollToDisplay(newItem);
 		redraw();
 	}
 
+	// move (or grow selection) to the left (starting from far right if no
+	// selection)
+	private void handleArrowLeftKey(KeyEvent e) {
+		int totalThumbnails = thumbnails.size();
+		ThumbnailHolder newItem = null;
+
+		// 1) if nothing selected then start from far right
+		// 2) if multiple selection select one left
+		// 3) if single selection select one left
+
+		if (selected.size() == 0) {
+			if (totalThumbnails == 0) {
+				return; // noting we can do
+			}
+			newItem = thumbnails.get(totalThumbnails - 1);
+			selected.add(newItem);
+		} else {
+			ThumbnailHolder firstInSelection = selected.get(0);
+			int iFirstInSelection = thumbnails.indexOf(firstInSelection);
+			if (isShiftKeyOn(e.stateMask)) {
+				// expand selection
+				if (iFirstInSelection == 0) {
+					// selection already up against edge
+					return;
+				}
+				newItem = thumbnails.get(iFirstInSelection - 1);
+				// prepend to maintain order
+				selected.add(0, newItem);
+			} else {
+				// clear selection, and move left
+				if (iFirstInSelection == 0) {
+					// end of the list - beep?
+					newItem = firstInSelection;
+				} else {
+					newItem = thumbnails.get(iFirstInSelection - 1);
+				}
+				selected.clear();
+				selected.add(newItem);
+			}
+		}
+
+		fireSelectionListener();
+		scrollToDisplay(newItem);
+		redraw();
+	}
+
+	private void handleKeyPressed(KeyEvent e) {
+		if (getAccelerator(e) == 'A' + SWT.CONTROL) {
+			handleCtrlAKey();
+		} else {
+			switch (e.keyCode) {
+			case SWT.DEL:
+				handleDeleteKey();
+				break;
+			case SWT.END:
+				/* fall through */
+			case SWT.HOME:
+				handleEndOrHomeKey(e);
+				break;
+			case SWT.ARROW_LEFT:
+				handleArrowLeftKey(e);
+				break;
+			case SWT.ARROW_RIGHT:
+				handleArrowRightKey(e);
+				break;
+			}
+		}
+	}
+
 	private void handleMouseDown(MouseEvent e) {
-		// System.out.println("MouseDown");
 		setFocus();
 		ThumbnailHolder newSelected = getThumbnailAt(e.x, e.y);
 
-		boolean redraw = false;
+		boolean changed = false;
 		boolean shiftKeyOn = isShiftKeyOn(e.stateMask);
 		boolean controlKeyOn = isControlKeyOn(e.stateMask);
 
 		if (selected.contains(newSelected) && e.button == 3) {
+			// TODO remove explicit menu button check
 			// no-op as this is a context menu request
 		} else if (newSelected == null) {
-			// clicked outside thumbnails
+			// clicked outside a thumbnail
 			if (selected.size() == 0) {
 				// nothing selected before so nothing to do
 			} else {
@@ -677,14 +715,14 @@ public class ThumbnailViewer extends Canvas {
 				// else clear
 				if (!shiftKeyOn && !controlKeyOn) {
 					selected.clear();
-					redraw = true;
+					changed = true;
 				}
 			}
 		} else {
 			// 1) if control key add to selection
 			// 2) if shift grow selection
 			// 3) else unselect old and select new
-			redraw = true;
+			changed = true;
 			if (controlKeyOn) {
 				if (selected.remove(newSelected)) {
 					// already in the list, it is now removed
@@ -702,7 +740,6 @@ public class ThumbnailViewer extends Canvas {
 						for (int i = iFirstSelected; i <= iNewSelected; ++i) {
 							selected.add(thumbnails.get(i));
 						}
-
 					} else if (iNewSelected < iFirstSelected) {
 						// add to front of list
 						for (int i = iFirstSelected - 1; i >= iNewSelected; --i) {
@@ -719,11 +756,11 @@ public class ThumbnailViewer extends Canvas {
 				// clear on mouse up, otherwise we'll destroy the selection
 				// before we get to dragStart() in DND
 				updateSelectionOnMouseUp = true;
-				redraw = false; // we've not done anything yet...
+				changed = false; // we've not done anything yet...
 			}
 		}
 
-		if (redraw) {
+		if (changed) {
 			fireSelectionListener();
 			redraw();
 		}
@@ -798,9 +835,6 @@ public class ThumbnailViewer extends Canvas {
 					for (ThumbnailViewerEventListener l : eventListeners) {
 						l.itemsAdded(files.toArray(new File[0]), indexToInsertAt);
 					}
-					updateScrollBars();
-					updateXValues();
-
 				}
 			}
 		});
@@ -810,16 +844,6 @@ public class ThumbnailViewer extends Canvas {
 		int leftEdge = -origin.x;
 		int rightEdge = leftEdge + getClientArea().width;
 		return h.getX() < rightEdge && h.getX() > leftEdge;
-	}
-
-	/**
-	 * Called when a thumbnail is not found in the cache
-	 * 
-	 * @param holder
-	 */
-	private void loadThumbnail(final ThumbnailHolder holder) {
-		Future<Thumbnail> future = thumbnailProvider.get(holder.getFile(), completionListener, holder);
-		holder.setFuture(future);
 	}
 
 	/**
@@ -977,7 +1001,8 @@ public class ThumbnailViewer extends Canvas {
 				thumb.setX(x);
 				thumbnails.add(thumb);
 				x += thumb.getWidth() + PADDING_INSIDE;
-				loadThumbnail(thumb);
+				Future<Thumbnail> future = thumbnailProvider.get(thumb.getFile(), completionListener, thumb);
+				thumb.setFuture(future);
 			}
 		}
 
@@ -1210,8 +1235,7 @@ public class ThumbnailViewer extends Canvas {
 			boolean needsRedraw = false;
 
 			// check if we are near an edge and sufficient time has elapsed
-			// since
-			// we last scrolled
+			// since we last scrolled
 			boolean closeToLeftEdge = pt.x < SCROLL_BOUNDARY;
 			boolean closeToRightEdge = pt.x > getClientArea().width - SCROLL_BOUNDARY;
 
@@ -1219,7 +1243,7 @@ public class ThumbnailViewer extends Canvas {
 			if (closeToLeftEdge || closeToRightEdge) {
 				// is it time to run?
 				if (scrollBeginTime == 0) {
-					// schedule the first scroll
+					// schedule the time when the first scroll will occur
 					scrollBeginTime = System.currentTimeMillis() + SCROLL_HYSTERESIS;
 				} else if (System.currentTimeMillis() > scrollBeginTime) {
 					// perform the scroll
@@ -1229,24 +1253,19 @@ public class ThumbnailViewer extends Canvas {
 							origin.x = 0;
 						}
 						getHorizontalBar().setSelection(-origin.x);
-						updateScrollBars();
 						needsRedraw = true;
 					} else if (closeToRightEdge) {
 						int totalWidth = computeImagesWidth();
 						origin.x -= SCROLL_AMOUNT;
 						int rightEdge = totalWidth + origin.x;
-						System.out.print("origin.x=" + origin.x + ", totalWidth=" + totalWidth + ", rightEdge="
-								+ rightEdge + ", ");
 						if (rightEdge < getClientArea().width) {
-							System.out.print(" -- CONSTRAINING -- ");
 							origin.x = Math.min(0, -totalWidth + getClientArea().width);
 						}
 						// System.out.println("new.origin.x" + origin.x);
 						getHorizontalBar().setSelection(-origin.x);
-						// updateScrollBars();
 						needsRedraw = true;
-						// schedule the next scroll...
 					}
+					// schedule the next scroll...
 					scrollBeginTime = System.currentTimeMillis() + SCROLL_HYSTERESIS;
 				}
 			} else {

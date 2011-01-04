@@ -1,15 +1,17 @@
 package com.cgoab.offline.model;
 
-import java.beans.PropertyChangeSupport;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.eclipse.jface.text.Document;
+import org.eclipse.jface.text.IDocument;
 import org.joda.time.LocalDate;
+
+import com.cgoab.offline.util.Assert;
 
 /**
  * A page in a journal.
@@ -58,13 +60,11 @@ public class Page implements Cloneable {
 
 	private PhotosOrder order = PhotosOrder.MANUAL;
 
-	private List<Photo> photos = new ArrayList<Photo>();
+	private final List<Photo> photos = new ArrayList<Photo>();
 
 	private int serverId = UNSET_SERVER_ID;
 
-	private PropertyChangeSupport support = new PropertyChangeSupport(this);
-
-	private String text;
+	private IDocument textDocument;
 
 	private String title;
 
@@ -79,18 +79,11 @@ public class Page implements Cloneable {
 		this.journal = journal;
 	}
 
-	public void addPhoto(Photo photo) {
-		journal.checkForDuplicatePhotoInJournal(photo);
-		journal.photosAdded(Arrays.asList(photo), this);
-		photos.add(photo);
-	}
-
 	@Override
 	public Object clone() {
 		try {
 			// perform deep copy of photos
 			Page copy = (Page) super.clone();
-			copy.photos = new ArrayList<Photo>(photos.size());
 			for (Photo p : photos) {
 				copy.photos.add(p.clone());
 			}
@@ -136,6 +129,12 @@ public class Page implements Cloneable {
 		return localId;
 	}
 
+	/**
+	 * Returns an unmodifiable copy of the photos attached to this page ordered
+	 * as specified by {@link #getPhotosOrder()}.
+	 * 
+	 * @return
+	 */
 	public List<Photo> getPhotos() {
 		// order before returning
 		Comparator<Photo> comparator = getComparator(order);
@@ -164,7 +163,7 @@ public class Page implements Cloneable {
 	}
 
 	public String getText() {
-		return text;
+		return textDocument == null ? null : textDocument.get();
 	}
 
 	public String getTitle() {
@@ -177,6 +176,16 @@ public class Page implements Cloneable {
 		}
 	}
 
+	/**
+	 * Adds one or more photos to this page at a given location in the photos
+	 * list.
+	 * 
+	 * @param toAdd
+	 *            photos to be added
+	 * @param insertionPoint
+	 *            insertion point in photos list, <tt>-1</tt> can be used to
+	 *            append to the end.
+	 */
 	public void addPhotos(List<Photo> toAdd, int insertionPoint) {
 		assertIsEditable();
 		assertValidInsertionPoint(insertionPoint);
@@ -207,7 +216,7 @@ public class Page implements Cloneable {
 		}
 
 		journal.setDirty(true);
-		journal.photosAdded(photos, this);
+		journal.photosAdded(toAdd, this);
 	}
 
 	public boolean isBold() {
@@ -230,10 +239,11 @@ public class Page implements Cloneable {
 	 * @return
 	 */
 	private void assertValidInsertionPoint(int insertionPoint) {
-		if (insertionPoint == -1) {
+		// append
+		if (insertionPoint == -1 || insertionPoint == photos.size()) {
 			return;
 		}
-		List<Photo> photos = getPhotos();
+		// check insertion point is after the last uploaded photo
 		for (int i = photos.size() - 1; i > -1; --i) {
 			Photo p = photos.get(i);
 			if (p.getState() == UploadState.UPLOADED) {
@@ -246,11 +256,18 @@ public class Page implements Cloneable {
 		return;
 	}
 
+	private void assertPageOwnsPhotos(List<Photo> photosToCheck) {
+		for (Photo photo : photosToCheck) {
+			if (!photos.contains(photo)) {
+				throw new IllegalArgumentException("Page does not own photo " + photo);
+			}
+		}
+	}
+
 	public void movePhotos(List<Photo> toMove, int insertionPoint) {
 		assertIsEditable();
 		assertValidInsertionPoint(insertionPoint);
-
-		// TODO check this page owns the photos
+		assertPageOwnsPhotos(toMove);
 
 		if (uploadState == UploadState.PARTIALLY_UPLOAD) {
 			// 1) can't move uploaded/error photo
@@ -283,17 +300,17 @@ public class Page implements Cloneable {
 
 	public void removePhotos(List<Photo> toRemove) {
 		assertIsEditable();
-
-		// TODO check this page owns photos
+		assertPageOwnsPhotos(toRemove);
 
 		// only remove NEW or ERROR photos
 		for (Photo p : toRemove) {
 			if (p.getState() != UploadState.NEW && p.getState() != UploadState.ERROR) {
-				return;
+				return; // TODO throw?
 			}
 		}
 
 		photos.removeAll(toRemove);
+		journal.setDirty(true);
 		journal.photosRemoved(toRemove, this);
 	}
 
@@ -314,6 +331,7 @@ public class Page implements Cloneable {
 	}
 
 	public void setHeadingStyle(HeadingStyle headingStyle) {
+		Assert.notNull(headingStyle);
 		this.headingStyle = headingStyle;
 	}
 
@@ -349,37 +367,41 @@ public class Page implements Cloneable {
 		return null;
 	}
 
-	public void setPhotos(List<Photo> p) {
-		photos.clear();
+	void setPhotos(List<Photo> p) {
 		photos.addAll(p);
+		journal.photosAdded(p, this);
 	}
 
 	public void setPhotosOrder(PhotosOrder order) {
-		support.firePropertyChange("photosOrder", this.order, this.order = order);
+		this.order = order;
 	}
 
 	public void setServerId(int id) {
-		support.firePropertyChange("serverId", this.serverId, this.serverId = id);
+		this.serverId = id;
 	}
 
 	public void setState(UploadState uploadState) {
-		support.firePropertyChange("state", this.uploadState, this.uploadState = uploadState);
+		this.uploadState = uploadState;
+	}
+
+	public IDocument getOrCreateTextDocument() {
+		return textDocument == null ? (textDocument = new Document()) : textDocument;
 	}
 
 	public void setText(String text) {
-		support.firePropertyChange("text", this.text, this.text = text);
+		getOrCreateTextDocument().set(text);
 	}
 
 	public void setTitle(String title) {
-		support.firePropertyChange("title", this.title, this.title = title);
+		this.title = title;
 	}
 
 	public void setVisible(boolean visible) {
-		support.firePropertyChange("visible", this.visible, this.visible = visible);
+		this.visible = visible;
 	}
 
 	@Override
 	public String toString() {
-		return String.format("Page [%s : %s] - %s ", title, headline, uploadState);
+		return String.format("Page [%s : %s] - %s", title, headline, uploadState);
 	}
 }

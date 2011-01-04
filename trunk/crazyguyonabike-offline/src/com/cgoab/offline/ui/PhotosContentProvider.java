@@ -23,7 +23,7 @@ import com.cgoab.offline.model.UploadState;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailViewer;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailViewerContentProvider;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailViewerEventListener;
-import com.cgoab.offline.util.resizer.ResizerServiceFactory.UnableToCreateResizerException;
+import com.cgoab.offline.util.resizer.ImageMagickResizeTask.MagicNotAvailableException;
 import com.drew.metadata.Metadata;
 import com.drew.metadata.exif.ExifDirectory;
 
@@ -149,7 +149,7 @@ public class PhotosContentProvider implements ThumbnailViewerContentProvider, Th
 		viewer.refresh();
 	}
 
-	public void addPhotosRetryIfDuplicates(File[] files, int absoluteInsertionPoint) {
+	public void addPhotosRetryIfDuplicates(File[] files, int insertionPoint) {
 		List<Photo> photos = new ArrayList<Photo>(files.length);
 		for (File f : files) {
 			Photo photo = new Photo();
@@ -158,14 +158,12 @@ public class PhotosContentProvider implements ThumbnailViewerContentProvider, Th
 		}
 
 		try {
-			currentPage.addPhotos(photos, absoluteInsertionPoint);
+			currentPage.addPhotos(photos, insertionPoint);
 		} catch (InvalidInsertionPointException e) {
 			// ignore operation
 			return;
 		} catch (DuplicatePhotoException e) {
-			MessageBox msg = new MessageBox(editor.getShell(), SWT.ICON_WARNING | SWT.YES | SWT.NO);
-			msg.setText("Duplicate image(s) detected");
-			StringBuilder b = new StringBuilder("The following images are already attached to this page:\n\n");
+			StringBuilder b = new StringBuilder("The following photos are already added to this journal:\n\n");
 			int i = 0;
 			Map<Photo, Page> duplicates = e.getDuplicatePhotos();
 			for (Iterator<Entry<Photo, Page>> it = duplicates.entrySet().iterator(); it.hasNext();) {
@@ -174,16 +172,30 @@ public class PhotosContentProvider implements ThumbnailViewerContentProvider, Th
 					b.append("  ").append("... ").append(duplicates.size() - i).append(" more\n");
 					break;
 				}
-				b.append("  ").append(next.getKey().getFile().getName())
-						.append(" (on page " + next.getValue().getTitle() + ")\n");
+				b.append("  ").append(next.getKey().getFile().getName());
+				if (next.getValue() == currentPage) {
+					b.append(" (this page)\n");
+				} else {
+					b.append(" (page " + next.getValue().getTitle() + ")\n");
+				}
 			}
-			b.append("\nIf you need to attach duplicate images, copy them to a new file name first. Do you want to continue with these duplicates removed?");
+			b.append("\nIf you need to attach a duplicate photo, copy to a new file first.");
+			int nonDuplicatePhotos = photos.size() - duplicates.size();
+			int style = SWT.ICON_WARNING;
+			if (nonDuplicatePhotos > 0) {
+				b.append("Do you want to continue with the duplicates removed?");
+				style |= SWT.YES | SWT.NO;
+			} else {
+				style |= SWT.OK;
+			}
+			MessageBox msg = new MessageBox(editor.getShell(), style);
+			msg.setText("Duplicate image(s) detected");
 			msg.setMessage(b.toString());
 			if (msg.open() != SWT.YES) {
 				return;
 			}
 			photos.removeAll(duplicates.keySet());
-			currentPage.addPhotos(photos, absoluteInsertionPoint);
+			currentPage.addPhotos(photos, insertionPoint);
 		}
 
 		viewer.refresh();
@@ -205,20 +217,15 @@ public class PhotosContentProvider implements ThumbnailViewerContentProvider, Th
 			if (resize != null) {
 				if (resize == Boolean.TRUE) {
 					// from no one any new photos will be auto-resized
-					try {
-						editor.registerPhotoResizer(currentPage.getJournal());
-					} catch (UnableToCreateResizerException e) {
-						LOG.info("Failed to create photo reszier", e);
-						// notify user
-						MessageBox error = new MessageBox(editor.getShell(), SWT.ICON_ERROR | SWT.OK);
-						error.setText("Error");
-						error.setMessage("Failed to create photo resizer: " + e.getMessage());
+					if (!editor.registerPhotoResizer(currentPage.getJournal(), false)) {
 						return;
 					}
+
 				}
 				Journal journal = currentPage.getJournal();
 				journal.setResizeImagesBeforeUpload(resize);
 				journal.setDirty(true);
+				editor.toggleResizePhotos.setChecked(true);
 			}
 		}
 	}

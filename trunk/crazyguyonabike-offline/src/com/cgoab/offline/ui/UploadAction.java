@@ -17,9 +17,9 @@ import com.cgoab.offline.model.Journal;
 import com.cgoab.offline.model.Page;
 import com.cgoab.offline.model.Photo;
 import com.cgoab.offline.ui.UploadDialog.UploadResult;
-import com.cgoab.offline.ui.thumbnailviewer.ThumbnailProviderFactory;
+import com.cgoab.offline.ui.thumbnailviewer.CachingThumbnailProviderFactory;
 import com.cgoab.offline.util.resizer.ResizerService;
-import com.cgoab.offline.util.resizer.ResizerServiceFactory;
+import com.cgoab.offline.util.resizer.ImageMagickResizerServiceFactory;
 
 /**
  * Opens an {@link UploadDialog} and updates the UI as appropriate.
@@ -29,8 +29,8 @@ public class UploadAction extends Action {
 	private PageEditor editor;
 	private Shell shell;
 	private Preferences preferences;
-	private ThumbnailProviderFactory thumbnailFactory;
-	private ResizerServiceFactory resizerFactory;
+	private CachingThumbnailProviderFactory thumbnailFactory;
+	private ImageMagickResizerServiceFactory resizerFactory;
 
 	public UploadAction(Shell shell, PageEditor editor) {
 		super("Upload");
@@ -38,11 +38,11 @@ public class UploadAction extends Action {
 		this.editor = editor;
 	}
 
-	public void setThumbnailFactory(ThumbnailProviderFactory thumbnailFactory) {
+	public void setThumbnailFactory(CachingThumbnailProviderFactory thumbnailFactory) {
 		this.thumbnailFactory = thumbnailFactory;
 	}
 
-	public void setResizerFactory(ResizerServiceFactory resizerFactory) {
+	public void setResizerFactory(ImageMagickResizerServiceFactory resizerFactory) {
 		this.resizerFactory = resizerFactory;
 	}
 
@@ -75,7 +75,7 @@ public class UploadAction extends Action {
 			return;
 		}
 		Journal journal = (Journal) o;
-		editor.doSave(journal, false);
+		editor.saveJournal(journal, false);
 
 		// block until all photos in journal are resized
 		if (editor.blockUntilPhotosResized(journal)) {
@@ -147,8 +147,8 @@ public class UploadAction extends Action {
 		// HACK: manually "dirty" journal, should probably be done by the model?
 		journal.setDirty(true);
 
-		// save the new upload state of the pages/photos
-		editor.doSave(journal, false);
+		// save the new upload state of pages & photos
+		editor.saveJournal(journal, false);
 
 		// notify editor: uploaded pages are removed & error labels applied
 		if (result.isComplete()) {

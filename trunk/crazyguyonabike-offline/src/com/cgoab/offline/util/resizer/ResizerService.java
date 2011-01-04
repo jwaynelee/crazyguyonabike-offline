@@ -6,6 +6,9 @@ import java.util.List;
 import com.cgoab.offline.model.Photo;
 import com.cgoab.offline.util.JobListener;
 
+/**
+ * Service to resize photos.
+ */
 public interface ResizerService {
 
 	public abstract void addJobListener(JobListener listener);
@@ -13,7 +16,8 @@ public interface ResizerService {
 	public abstract void removeJobListener(JobListener listener);
 
 	/**
-	 * Resizes the given files.
+	 * Resizes the list of photos, if a photo in the list was already resized
+	 * and the source file has not changed then nothing will be done.
 	 * 
 	 * @param photos
 	 */
@@ -28,6 +32,11 @@ public interface ResizerService {
 	 */
 	public abstract void removeAll(List<Photo> photos);
 
+	/**
+	 * Returns the number of active (running & pending) resize tasks
+	 * 
+	 * @return
+	 */
 	public abstract int activeTasks();
 
 	/**
@@ -35,5 +44,17 @@ public interface ResizerService {
 	 */
 	public abstract void cancelAll();
 
+	/**
+	 * Returns the file path to the resized photo, or <tt>null</tt> if it does
+	 * not exist.
+	 * 
+	 * @param photo
+	 *            a file holding the resized photo or null.
+	 * @return
+	 */
 	public abstract File getResizedPhotoFile(File photo);
+
+	public long purge();
+
+	public abstract File getPhotoFolder();
 }

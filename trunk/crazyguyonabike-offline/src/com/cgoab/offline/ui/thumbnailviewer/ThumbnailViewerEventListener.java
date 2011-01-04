@@ -2,8 +2,6 @@ package com.cgoab.offline.ui.thumbnailviewer;
 
 import java.io.File;
 
-import com.drew.metadata.Metadata;
-
 public interface ThumbnailViewerEventListener {
 
 	public void itemsRemoved(Object[] selection);
@@ -22,7 +20,8 @@ public interface ThumbnailViewerEventListener {
 	 * 
 	 * @param item
 	 * @param exception
-	 * @return if the image should be kept and an invalid image icon displayed.
+	 * @return if the image should be kept and an invalid image icon displayed,
+	 *         false if it should be discarded.
 	 */
 	public boolean itemFailedToLoad(Object item, Throwable exception);
 

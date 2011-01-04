@@ -100,7 +100,9 @@ public class Bootstrap {
 		if (isWindows()) {
 			swtJar += "win32";
 		} else if (isLinux()) {
-			// todo
+			swtJar += "linux";
+		} else if (isMac()) {
+			swtJar += "osx";
 		} else {
 			throw new IllegalStateException("Platform is neither Windows or Linux");
 		}
@@ -124,7 +126,6 @@ public class Bootstrap {
 	public static void main(String[] args) throws Exception {
 		// find jars
 		ClassLoader appLoader = ClassLoader.getSystemClassLoader();
-
 		URL.setURLStreamHandlerFactory(new JJFactory(appLoader));
 		URL source = Bootstrap.class.getProtectionDomain().getCodeSource().getLocation();
 		JarFile file = new JarFile(source.getFile());
@@ -150,7 +151,7 @@ public class Bootstrap {
 		ClassLoader loader = new URLClassLoader(urls, parent);
 		Thread.currentThread().setContextClassLoader(loader);
 		Class<?> klass = loader.loadClass(MAIN_KLASS);
-		Runnable app = (Runnable) klass.newInstance();
+		Runnable app = (Runnable) klass.getMethod("defaultApplication").invoke(null);
 		app.run();
 	}
 
@@ -158,11 +159,19 @@ public class Bootstrap {
 		return System.getProperty("sun.arch.data.model").equals("64");
 	}
 
-	private static boolean isLinux() {
-		return false; // TODO
+	private static final String osname = System.getProperty("os.name").toLowerCase();
+
+	public static boolean isWindows() {
+		return osname.contains("win");
+
 	}
 
-	static boolean isWindows() {
-		return System.getProperty("os.name").startsWith("Windows");
+	public static boolean isMac() {
+		return osname.contains("mac");
+
+	}
+
+	public static boolean isLinux() {
+		return osname.contains("linux");
 	}
 }

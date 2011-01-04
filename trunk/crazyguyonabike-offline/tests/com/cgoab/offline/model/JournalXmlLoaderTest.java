@@ -4,6 +4,7 @@ import static org.junit.Assert.assertEquals;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 
 import javax.xml.stream.XMLStreamException;
@@ -27,11 +28,11 @@ public class JournalXmlLoaderTest {
 		Photo photo1 = new Photo();
 		photo1.setFile(new File("C:\\foo.jpg"));
 		photo1.setCaption("Photo 1 caption");
-		p1.addPhoto(photo1);
+		p1.addPhotos(Arrays.asList(photo1), -1);
 		Photo photo2 = new Photo();
 		photo2.setFile(new File("C:\\bar.jpg"));
 		photo2.setCaption("Photo 2 caption");
-		p1.addPhoto(photo2);
+		p1.addPhotos(Arrays.asList(photo2), -1);
 		Page p2 = newPage(tj, 200);
 		tj.addPage(p1);
 		tj.addPage(p2);

@@ -53,12 +53,13 @@ public class RezierWaitTask implements IRunnableWithProgress, JobListener {
 	public void run(IProgressMonitor monitor) throws InvocationTargetException, InterruptedException {
 		SWTUtils.assertOnUIThread(); // this is designed to run on UI thread
 		tasks = service.activeTasks();
-		monitor.beginTask(
-				"Waiting for image resizer to finish resizing photos in journal [" + journal.getName() + "]", tasks);
+		monitor.beginTask("Waiting for image resizer to finish resizing photos in journal [" + journal.getName() + "]",
+				tasks);
 		service.addJobListener(this);
 		this.monitor = monitor;
 		try {
-			// run event loop, updates come via callback
+			// run event loop, updates are called via callback on UI thread (so
+			// it must be looping)
 			while (!monitor.isCanceled() && !complete) {
 				if (!display.readAndDispatch()) {
 					display.sleep();
