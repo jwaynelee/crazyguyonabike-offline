@@ -49,3 +49,4 @@ Properties/preferences to set size & quality options
 Preview pane (turn into to html & view in browser)
 Persist location of shells between execution
 Implement EXIF features
+Add launch scripts (for mac at least)

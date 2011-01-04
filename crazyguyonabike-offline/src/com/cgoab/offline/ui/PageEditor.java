@@ -1493,7 +1493,7 @@ public class PageEditor {
 			if (!quiet) {
 				MessageBox error = new MessageBox(shell, SWT.ICON_ERROR | SWT.OK);
 				error.setText("Error");
-				error.setMessage("Failed to start photo resizer: " + e.getMessage());
+				error.setMessage("Failed to start photo resizer:\n\n" + e.getMessage());
 				error.open();
 			}
 			return false;

@@ -1,0 +1,3 @@
+#!/bin/sh
+
+java -jar cgoab-offline.0.1.0.jar
