@@ -1265,6 +1265,7 @@ public class PageEditor {
 		}
 
 		treeViewer.setInput(null);
+		displayPage(null);
 
 		// unregister thumbnail factory
 		CachingThumbnailProvider thumbnailProvider = thumbnailProviderFactory.getThumbnailProvider(journal);
