@@ -1,7 +1,7 @@
 <launch4jConfig>
-  <dontWrapJar>false</dontWrapJar>
+  <dontWrapJar>true</dontWrapJar>
   <headerType>gui</headerType>
-  <jar>C:\Users\ben\workspace\crazguyonabike-offline\build\jar\cgoab-offline.0.1.0.jar</jar>
+  <jar></jar>
   <outfile>C:\Users\ben\workspace\crazguyonabike-offline\build\exe\cgoab-offline.exe</outfile>
   <errTitle></errTitle>
   <cmdLine></cmdLine>
@@ -13,6 +13,9 @@
   <stayAlive>false</stayAlive>
   <manifest></manifest>
   <icon></icon>
+  <classPath>
+    <mainClass>com.cgoab.offline.Application</mainClass>
+  </classPath>
   <jre>
     <path></path>
     <minVersion>1.6.0</minVersion>

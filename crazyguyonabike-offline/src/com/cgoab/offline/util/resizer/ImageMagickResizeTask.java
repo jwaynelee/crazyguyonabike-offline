@@ -18,6 +18,9 @@ import com.cgoab.offline.util.OS;
 import com.cgoab.offline.util.StringUtils;
 import com.cgoab.offline.util.Which;
 
+/**
+ * Wrapper task around ImageMagick "convert" process.
+ */
 public class ImageMagickResizeTask extends ListenableCancellableTask<Object> {
 
 	private static final Logger LOG = LoggerFactory.getLogger(ImageMagickResizeTask.class);
@@ -48,8 +51,8 @@ public class ImageMagickResizeTask extends ListenableCancellableTask<Object> {
 
 	private final File source, destination;
 	private final String cmdPath;
-	private Process process; /* guarded by lock */
 	private final Object lock = new Object();
+	private Process process; /* guarded by lock */
 
 	public ImageMagickResizeTask(String cmd, File source, File destination, FutureCompletionListener<Object> listener,
 			Object data) {
@@ -65,7 +68,8 @@ public class ImageMagickResizeTask extends ListenableCancellableTask<Object> {
 		args.add(cmdPath);
 		args.add(source.getAbsolutePath());
 		args.add("-resize");
-		args.add("1400x1400^"); // fit area
+		/* shrink shortest side to 1400px but don't enlarge */
+		args.add("1400x1400^>");
 		args.add("-quality");
 		args.add(String.valueOf(JPEG_QUALITY));
 		args.add(destination.getAbsolutePath());
@@ -74,7 +78,7 @@ public class ImageMagickResizeTask extends ListenableCancellableTask<Object> {
 
 		LOG.debug("Launching process [{}]", StringUtils.join(args, " "));
 		synchronized (lock) {
-			// publish the process so it can be cancelled
+			/* publish the process so it can be cancelled from another thread */
 			process = pb.start();
 		}
 		BufferedReader os = new BufferedReader(new InputStreamReader(process.getInputStream()));
@@ -111,7 +115,7 @@ public class ImageMagickResizeTask extends ListenableCancellableTask<Object> {
 
 		LOG.debug("Process returned exit code [{}]", code);
 		if (code != 0) {
-			// raise error, showing message(s) written to stdout/stderr
+			/* raise error showing message(s) written to stdout/stderr */
 			throw new MagickException("Process returned exit code " + code + ":\n\n" + buff);
 		}
 		return null;
@@ -196,13 +200,12 @@ public class ImageMagickResizeTask extends ListenableCancellableTask<Object> {
 						int patch = Integer.parseInt(match.group(4));
 						currentVersion = new MagickVersion(major, minor, rev, patch);
 						LOG.debug("Detected ImageMagick version {}", currentVersion);
-
-						/*
-						 * continue to drain I/O after match as subprocess will
-						 * block if stdout buffers fills
-						 */
 					}
 				}
+				/*
+				 * continue to drain I/O after a match as subprocess could block
+				 * if stdout buffers fills and we wait in waitFor()
+				 */
 			}
 
 			process.waitFor();
@@ -233,25 +236,25 @@ public class ImageMagickResizeTask extends ListenableCancellableTask<Object> {
 			this.patch = patch;
 		}
 
-		public boolean isAtLeast(MagickVersion toCheck) {
-			if (major < toCheck.major) {
+		public boolean isAtLeast(MagickVersion other) {
+			if (major < other.major) {
 				return false;
-			} else if (major > toCheck.major) {
+			} else if (major > other.major) {
 				return true;
 			}
-			if (minor < toCheck.minor) {
+			if (minor < other.minor) {
 				return false;
-			} else if (minor > toCheck.minor) {
+			} else if (minor > other.minor) {
 				return true;
 			}
-			if (rev < toCheck.rev) {
+			if (rev < other.rev) {
 				return false;
-			} else if (rev > toCheck.rev) {
+			} else if (rev > other.rev) {
 				return true;
 			}
-			if (patch < toCheck.patch) {
+			if (patch < other.patch) {
 				return true;
-			} else if (patch > toCheck.patch) {
+			} else if (patch > other.patch) {
 				return false;
 			}
 

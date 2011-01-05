@@ -18,6 +18,7 @@ import com.cgoab.offline.model.DuplicatePhotoException;
 import com.cgoab.offline.model.InvalidInsertionPointException;
 import com.cgoab.offline.model.Journal;
 import com.cgoab.offline.model.Page;
+import com.cgoab.offline.model.PageNotEditableException;
 import com.cgoab.offline.model.Photo;
 import com.cgoab.offline.model.UploadState;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailViewer;
@@ -145,6 +146,8 @@ public class PhotosContentProvider implements ThumbnailViewerContentProvider, Th
 		} catch (InvalidInsertionPointException e) {
 			// ignore
 			return;
+		} catch (PageNotEditableException e) {
+			// ignore
 		}
 		viewer.refresh();
 	}
@@ -220,11 +223,9 @@ public class PhotosContentProvider implements ThumbnailViewerContentProvider, Th
 					if (!editor.registerPhotoResizer(currentPage.getJournal(), false)) {
 						return;
 					}
-
 				}
 				Journal journal = currentPage.getJournal();
 				journal.setResizeImagesBeforeUpload(resize);
-				journal.setDirty(true);
 				editor.toggleResizePhotos.setChecked(true);
 			}
 		}

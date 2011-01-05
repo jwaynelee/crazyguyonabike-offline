@@ -100,7 +100,6 @@ import com.cgoab.offline.model.UploadState;
 import com.cgoab.offline.ui.JournalContentProvider.JournalHolder;
 import com.cgoab.offline.ui.thumbnailviewer.CachingThumbnailProvider;
 import com.cgoab.offline.ui.thumbnailviewer.CachingThumbnailProviderFactory;
-import com.cgoab.offline.ui.thumbnailviewer.ThumbnailProvider;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailViewer;
 import com.cgoab.offline.util.Assert;
 import com.cgoab.offline.util.JobListener;
@@ -118,8 +117,6 @@ public class PageEditor {
 	private static final Logger LOG = LoggerFactory.getLogger(PageEditor.class);
 	private static final String OPENJOURNALS_PREFERENCE_PATH = "/openjournals";
 
-	// private Map<Page, Document> documentCache = new HashMap<Page,
-	// Document>();
 	private ImageMagickResizerServiceFactory resizerServiceFactory;
 
 	private Journal getCurrentJournal() {
@@ -238,7 +235,6 @@ public class PageEditor {
 					unregisterPhotoResizer(journal);
 				}
 				journal.setResizeImagesBeforeUpload(isChecked());
-				journal.setDirty(true);
 			}
 		}
 	};
@@ -248,6 +244,7 @@ public class PageEditor {
 		public void run(Journal journal) {
 			CachingThumbnailProvider provider = thumbnailProviderFactory.getOrCreateThumbnailProvider(journal);
 			provider.setUseExifThumbnail(isChecked());
+			journal.setUseExifThumbnail(isChecked());
 			// trigger a refresh of thumbnails in viewer
 			thumbViewer.refresh();
 		}
@@ -523,8 +520,8 @@ public class PageEditor {
 		bindToCurrentPage(cmbFormat, SWT.Selection, "format", false);
 		bindToCurrentPage(titleInput, SWT.Modify, "title", true);
 		bindToCurrentPage(headlineInput, SWT.Modify, "headline", true);
-		bindToCurrentPage(dateInput, SWT.FocusOut, "date", false);
-		bindToCurrentPage(distanceInput, SWT.FocusOut, "distance", false);
+		bindToCurrentPage(dateInput, SWT.Selection, "date", false);
+		bindToCurrentPage(distanceInput, SWT.Modify, "distance", false);
 		// bindToCurrentPage(textInput.getControl(), SWT.FocusOut, "text",
 		// false);
 		// bindToCurrentPhoto(captionText.getControl(), SWT.FocusOut,
@@ -1088,7 +1085,7 @@ public class PageEditor {
 							displayPage(null);
 						}
 					} else {
-						// multiple pages
+						// multiple pages selected
 						displayPage(null);
 					}
 				}
@@ -1120,35 +1117,44 @@ public class PageEditor {
 			public void menuAboutToShow(IMenuManager manager) {
 				// add static menu items
 
-				manager.add(openJournalAction);
-				manager.add(newJournalAction);
-				manager.add(newPageAction);
-				manager.add(new Separator());
-				manager.add(toggleResizePhotos);
-				manager.add(openResizedPhotosFolder);
-				manager.add(purgeResizedPhotos);
-				manager.add(new Separator());
-				manager.add(toggleUseExifThumbnailAction);
-				manager.add(purgeThumbnailCache);
-				manager.add(new Separator());
-
-				if (treeViewer.getSelection().isEmpty()) {
-					return;
+				IStructuredSelection currentSelection = ((IStructuredSelection) treeViewer.getSelection());
+				boolean selectedPage = false, selectedJournal = false, selectedMultiple = false;
+				if (currentSelection.size() > 0) {
+					selectedPage = currentSelection.getFirstElement() instanceof Page;
+					selectedJournal = currentSelection.getFirstElement() instanceof Journal;
+					selectedMultiple = currentSelection.size() > 1;
 				}
-				if (treeViewer.getSelection() instanceof IStructuredSelection) {
-					IStructuredSelection i = (IStructuredSelection) treeViewer.getSelection();
-					final Object firstElement = i.getFirstElement();
-					if (firstElement instanceof Journal) {
-						manager.add(saveAction);
-						manager.add(closeJournalAction);
-						manager.add(renameJournalAction);
-						manager.add(uploadAction);
-					}
-					if (firstElement instanceof Page) {
+
+				manager.add(newJournalAction);
+
+				if (selectedPage || selectedJournal) {
+					manager.add(newPageAction);
+				}
+				manager.add(openJournalAction);
+				if (selectedPage || selectedJournal) {
+					manager.add(new Separator());
+					manager.add(closeJournalAction);
+					manager.add(new Separator());
+					manager.add(saveAction);
+					manager.add(new Separator());
+					manager.add(uploadAction);
+					manager.add(new Separator());
+
+					if (selectedPage) {
 						manager.add(deletePageAction);
-						manager.add(addPhotosAction);
-						manager.add(openPageInBrowserAction);
+						if (!selectedMultiple) {
+							manager.add(addPhotosAction);
+							manager.add(openPageInBrowserAction);
+						}
+						manager.add(new Separator());
 					}
+
+					manager.add(toggleResizePhotos);
+					manager.add(openResizedPhotosFolder);
+					manager.add(purgeResizedPhotos);
+					manager.add(new Separator());
+					manager.add(toggleUseExifThumbnailAction);
+					manager.add(purgeThumbnailCache);
 				}
 			}
 		});
@@ -1359,19 +1365,28 @@ public class PageEditor {
 	}
 
 	private void bindJournal(Journal journal) {
-		// wire up image resizer service
+		// wire up image resizer service if required and update action
 		if (journal.isResizeImagesBeforeUpload() == Boolean.TRUE) {
 			registerPhotoResizer(journal, true);
 		}
-		CachingThumbnailProvider provider = thumbnailProviderFactory.getOrCreateThumbnailProvider(journal);
-		toggleUseExifThumbnailAction.setChecked(provider.isUseExifThumbnail());
 		toggleResizePhotos.setChecked(journal.isResizeImagesBeforeUpload() == Boolean.TRUE);
-		provider.addJobListener(statusListener.thumnailListener);
-		thumbViewer.setThumbnailProvider(provider);
+
+		// wire up thumbnail provider (always needed)
+		CachingThumbnailProvider thumbProvider = thumbnailProviderFactory.getOrCreateThumbnailProvider(journal);
+		if (journal.isUseExifThumbnail() == null) {
+			// not set, default to provider (TODO move to question on first load
+			// of photo)
+			journal.setUseExifThumbnail(thumbProvider.isUseExifThumbnail());
+		} else {
+			thumbProvider.setUseExifThumbnail(journal.isUseExifThumbnail());
+		}
+		toggleUseExifThumbnailAction.setChecked(thumbProvider.isUseExifThumbnail());
+		thumbProvider.addJobListener(statusListener.thumnailListener);
+		thumbViewer.setThumbnailProvider(thumbProvider);
 
 		treeViewer.setInput(new JournalHolder(journal));
 
-		// s the last page non uploaded page, or the journal
+		// select the last page non-uploaded page, or the journal itself
 		List<Page> pages = journal.getPages();
 		Object newSelection = journal;
 		if (pages.size() > 0) {
