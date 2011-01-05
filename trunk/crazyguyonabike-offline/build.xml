@@ -1,23 +1,31 @@
 <project name="cgoab-offline" basedir="." default="main">
 
+	<property name="launch4j.dir" value="C:/libs/launch4j" />
+	<taskdef name="launch4j" classname="net.sf.launch4j.ant.Launch4jTask" classpath="${launch4j.dir}/launch4j.jar
+	        :${launch4j.dir}/lib/xstream.jar" />
+
 	<property name="version" value="0.1.0" />
+	<property name="main.jar.name" value="${ant.project.name}.${version}.jar" />
+	<property name="main-class" value="com.cgoab.offline.Application" />
+
 	<property name="src.dir" value="src" />
-	<property name="boot.dir" value="boot" />
+	<property name="lib.dir" value="libs" />
+	<property name="swt.dir" value="libsswt" />
+	<property name="scripts.dir" value="scripts" />
+
 	<property name="build.dir" value="build" />
 	<property name="classes.dir" value="${build.dir}/classes" />
 	<property name="main.classes.dir" value="${classes.dir}/main" />
-	<property name="boot.classes.dir" value="${classes.dir}/boot" />
 	<property name="jar.dir" value="${build.dir}/jar" />
-	<property name="main-class" value="boot.Bootstrap" />
-	<property name="main.jar.name" value="${ant.project.name}.app.${version}.jar" />
-	<property name="boot.jar.name" value="${ant.project.name}.${version}.jar" />
-	<property name="lib.dir" value="libs" />
-	<property name="swt.dir" value="libsswt" />
+	<property name="release.dir" value="${build.dir}/release" />
+	<property name="release.dir.win" value="${release.dir}/win" />
+	<property name="release.dir.linux" value="${release.dir}/linux" />
+	<property name="swt.version" value="3.6.1" />
 
 	<path id="classpath">
 		<fileset dir="${lib.dir}" includes="*.jar" />
 		<!-- for compiling it doesn't matter which SWT jar we use -->
-		<fileset dir="${swt.dir}" includes="swt-3.6.1-win32.jar" />
+		<fileset dir="${swt.dir}" includes="swt-${swt.version}-win32.jar" />
 	</path>
 
 	<target name="clean">
@@ -26,26 +34,28 @@
 
 	<target name="compile-main">
 		<mkdir dir="${main.classes.dir}" />
-		<javac srcdir="${src.dir}" destdir="${main.classes.dir}" debug="yes" classpathref="classpath" target="1.5" />
-	</target>
-
-	<target name="compile-boot">
-		<mkdir dir="${boot.classes.dir}" />
-		<javac srcdir="${boot.dir}" destdir="${boot.classes.dir}" debug="yes" target="1.5" />
+		<javac srcdir="${src.dir}" destdir="${main.classes.dir}" debug="yes" classpathref="classpath" />
 	</target>
 
 	<target name="jar-main" depends="compile-main">
 		<mkdir dir="${jar.dir}" />
+		<tstamp>
+			<format pattern="yyyy-MM-dd" property="TODAY" />
+		</tstamp>
 		<jar destfile="${jar.dir}/${main.jar.name}" basedir="${main.classes.dir}">
-			<fileset dir="${src.dir}">
-				<include name="**/*.gif" />
-				<include name="**/*.properties" />
-				<include name="**/*.log" />
-			</fileset>
+			<manifest>
+				<attribute name="Built-By" value="${user.name}" />
+				<attribute name="Specification-Title" value="${ant.project.name}" />
+				<attribute name="Specification-Version" value="${version}" />
+				<attribute name="Implementation-Title" value="${ant.project.name}" />
+				<attribute name="Implementation-Version" value="${version} ${TODAY}" />
+			</manifest>
+			<fileset dir="${src.dir}" excludes="*.java" />
+			<!-- .log, .properties etc -->
 		</jar>
 	</target>
 
-	<target name="jar-boot" depends="compile-boot,jar-main">
+	<!--<target name="jar-boot" depends="compile-boot,jar-main">
 		<mkdir dir="${jar.dir}" />
 		<jar destfile="${jar.dir}/${boot.jar.name}" basedir="${boot.classes.dir}">
 			<manifest>
@@ -62,10 +72,64 @@
 			</fileset>
 			<zipfileset dir="${jar.dir}" includes="${main.jar.name}" fullpath="libs/${main.jar.name}" />
 		</jar>
+	</target>-->
+
+	<target name="package-windows" depends="jar-main">
+		<launch4j>
+			<config headerType="gui" outfile="${jar.dir}/${ant.project.name}.exe" dontWrapJar="true" jarPath="${main.jar.name}" downloadurl="http://www.java.com/download" customprocname="true">
+				<classPath mainClass="${main-class}">
+					<cp>libs/*</cp>
+					<cp>libsswt/swt-3.6.1-win32.jar</cp>
+				</classPath>
+				<jre minVersion="1.6.0" />
+				<versionInfo fileVersion="${version}.0" txtFileVersion="${version}" fileDescription="${version}" Copyright="..." productVersion="${version}.0" txtProductVersion="${version}" productName="${ant.project.name}" internalName="${ant.project.name}" originalFilename="${ant.project.name}.exe" />
+			</config>
+		</launch4j>
+		<launch4j>
+			<config headerType="gui" outfile="${jar.dir}/${ant.project.name}_64.exe" dontWrapJar="true" jarPath="${main.jar.name}" downloadurl="http://www.java.com/download" customprocname="true">
+				<classPath mainClass="${main-class}">
+					<cp>libs/*</cp>
+					<cp>libsswt/swt-3.6.1-win32_64.jar</cp> <!-- TODO fix! -->
+				</classPath>
+				<jre minVersion="1.6.0" />
+				<versionInfo fileVersion="${version}.0" txtFileVersion="${version}" fileDescription="${version}" Copyright="..." productVersion="${version}.0" txtProductVersion="${version}" productName="${ant.project.name}" internalName="${ant.project.name}" originalFilename="${ant.project.name}.exe" />
+			</config>
+		</launch4j>
+		<mkdir dir="${release.dir.win}" />
+		<zip destfile="${release.dir.win}/${ant.project.name}.${version}-win.zip">
+			<fileset dir=".">
+				<include name="${lib.dir}/*.jar" />
+				<include name="${swt.dir}/*win32*.jar" />
+			</fileset>
+			<zipfileset dir="${jar.dir}" includes="${main.jar.name}" fullpath="${main.jar.name}" />
+			<zipfileset dir="${jar.dir}" includes="${ant.project.name}.exe" fullpath="${ant.project.name}.exe" />
+			<zipfileset dir="${jar.dir}" includes="${ant.project.name}_64.exe" fullpath="${ant.project.name}_64.exe" />
+		</zip>
 	</target>
 
-	<target name="main" depends="clean,jar-boot">
-		<copy file="scripts/cgoab-offline" tofile="${jar.dir}/cgoab-offline.${version}"/>
+	<target name="package-linux" depends="jar-main">
+		<mkdir dir="${release.dir.linux}" />
+		<copy file="${scripts.dir}/cgoab-offline" tofile="${release.dir.linux}/cgoab-offline">
+			<filterchain>
+				<replacetokens>
+					<token key="MAINJAR" value="${main.jar.name}" />
+					<token key="MAINCLASS" value="${main.class}" />
+					<token key="SWTVERSION" value="${swt.version}" />
+				</replacetokens>
+			</filterchain>
+		</copy>
+		<zip destfile="${release.dir.linux}/${ant.project.name}.${version}-linux.zip">
+			<!-- main jar in root, libs in /libs, exe in root -->
+			<fileset dir=".">
+				<include name="${lib.dir}/*.jar" />
+				<include name="${swt.dir}/*linux*.jar" />
+			</fileset>
+			<zipfileset dir="${jar.dir}" includes="${main.jar.name}" fullpath="${main.jar.name}" />
+			<zipfileset dir="${release.dir.linux}" includes="cgoab-offline" fullpath="cgoab-offline" />
+		</zip>
 	</target>
+
+
+	<target name="main" depends="clean,package-windows, package-linux" />
 
 </project>

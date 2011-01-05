@@ -35,15 +35,15 @@ import com.cgoab.offline.util.StringUtils;
  */
 public class JournalXmlLoader {
 
-	/* data format version */
-	public enum Version {
+	/* file format version */
+	public enum FileVersion {
 
 		V1("1.0");
 
 		private String versionString;
 
-		public static Version parse(String s) {
-			for (Version v : Version.values()) {
+		public static FileVersion parse(String s) {
+			for (FileVersion v : FileVersion.values()) {
 				if (v.versionString.equals(s)) {
 					return v;
 				}
@@ -51,7 +51,7 @@ public class JournalXmlLoader {
 			throw new IllegalArgumentException("Unsupported data version [" + s + "]");
 		}
 
-		private Version(String verstionString) {
+		private FileVersion(String verstionString) {
 			this.versionString = verstionString;
 		}
 
@@ -61,12 +61,14 @@ public class JournalXmlLoader {
 		}
 	};
 
-	private static final Version CURRENT_VERSION = Version.V1;
+	private static final FileVersion CURRENT_VERSION = FileVersion.V1;
 
+	private static final String SETTINGS_EL = "settings";
 	private static final String VERSION_ATTR = "version";
 	private static final String JOURNAL_EL = "journal";
 	private static final String DOC_ID_HINT_ATTR = "docIdHint";
 	private static final String RESIZE_PHOTOS_ATTR = "resizeBeforeUpload";
+	private static final String USE_EXIF_THUMBNAIL_ATTR = "useExifThumbnail";
 	private static final String NAME_ATTR = "name";
 	private static final String PAGE_EL = "page";
 	private static final String UPLOAD_STATE_ATTR = "state";
@@ -98,13 +100,29 @@ public class JournalXmlLoader {
 	public static Journal open(File file) throws ValidityException, ParsingException, IOException {
 		Document xml = new Builder(false).build(file);
 		String version = xml.getRootElement().getAttributeValue(VERSION_ATTR);
-		Assert.isTrue(Version.parse(version) == CURRENT_VERSION);
+		Assert.isTrue(FileVersion.parse(version) == CURRENT_VERSION);
 		String name = xml.getRootElement().getAttributeValue(NAME_ATTR);
 		Journal journal = new Journal(file, name);
 		journal.setLastModifiedWhenLoaded(file.lastModified());
+
+		/* parse settings (TODO move to preferences?) */
+		Elements settings = xml.getRootElement().getChildElements(SETTINGS_EL);
+		if (settings.size() > 0) {
+			Element settingsXml = settings.get(0);
+			// resize
+			String resizeStr = settingsXml.getAttributeValue(RESIZE_PHOTOS_ATTR);
+			if (resizeStr != null) {
+				journal.setResizeImagesBeforeUpload(Boolean.parseBoolean(resizeStr));
+			}
+			// use-exif
+			String useExifStr = settingsXml.getAttributeValue(USE_EXIF_THUMBNAIL_ATTR);
+			if (useExifStr != null) {
+				journal.setUseExifThumbnail(Boolean.parseBoolean(useExifStr));
+			}
+		}
+
+		/* parse pages & photos */
 		journal.setDocIdHint(getAttributeOrDefault(xml.getRootElement(), DOC_ID_HINT_ATTR, Journal.UNSET_DOC_ID));
-		String resizeStr = xml.getRootElement().getAttributeValue(RESIZE_PHOTOS_ATTR);
-		journal.setResizeImagesBeforeUpload(resizeStr == null ? null : Boolean.parseBoolean(resizeStr));
 		Elements pages = xml.getRootElement().getChildElements(PAGE_EL);
 		for (int i = 0; i < pages.size(); ++i) {
 			Element elPage = pages.get(i);
@@ -310,9 +328,18 @@ public class JournalXmlLoader {
 			xml.writeAttribute(VERSION_ATTR, CURRENT_VERSION.toString());
 			xml.writeAttribute(NAME_ATTR, journal.getName());
 			xml.writeAttribute(DOC_ID_HINT_ATTR, Integer.toString(journal.getDocIdHint()));
+
+			/* settings */
+			xml.writeStartElement(SETTINGS_EL);
 			if (journal.isResizeImagesBeforeUpload() != null) {
 				xml.writeAttribute(RESIZE_PHOTOS_ATTR, journal.isResizeImagesBeforeUpload().toString());
 			}
+			if (journal.isUseExifThumbnail() != null) {
+				xml.writeAttribute(USE_EXIF_THUMBNAIL_ATTR, journal.isUseExifThumbnail().toString());
+			}
+			xml.writeEndElement();
+
+			/* pages & photos */
 			for (Page page : journal.getPages()) {
 				xml.writeStartElement(PAGE_EL);
 				xml.writeAttribute(LOCAL_ID_ATTR, Integer.toString(page.getLocalId()));

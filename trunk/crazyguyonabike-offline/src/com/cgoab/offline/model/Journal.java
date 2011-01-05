@@ -22,64 +22,49 @@ import com.cgoab.offline.util.Assert;
 public class Journal {
 
 	private static final Pattern DAY_PATTERN = Pattern.compile("^[dD]ay (\\d+)");
-	public static final int UNSET_DOC_ID = -1;
 	public static final long NEVER_SAVED_TIMESTAMP = -1;
+	public static final int UNSET_DOC_ID = -1;
 
-	private List<JournalListener> listeners = new ArrayList<JournalListener>();
-	private String name;
-	private List<Page> pages = new ArrayList<Page>();
-	private File file;
-	private Map<String, Page> loadedPhotos = new HashMap<String, Page>();
-	private boolean isDirty;
-	private int nextLocalPageId = 0;
-	private long lastModifiedTimestamp = NEVER_SAVED_TIMESTAMP;
 	private int docIdHint = UNSET_DOC_ID;
+	private File file;
+	private boolean isDirty;
+	private long lastModifiedTimestamp = NEVER_SAVED_TIMESTAMP;
+	private List<JournalListener> listeners = new ArrayList<JournalListener>();
+	private Map<String, Page> loadedPhotos = new HashMap<String, Page>();
+	private String name;
+	private int nextLocalPageId = 0;
+	private List<Page> pages = new ArrayList<Page>();
 	private Boolean resizeImagesBeforeUpload = null; // null = unset
+	private Boolean useExifThumbnail = null; // null = unset
 
 	public Journal(File file, String name) {
 		this.name = name;
 		this.file = file;
 	}
 
-	/**
-	 * Configures if this journal should resize images before they are sent to
-	 * the server, default is <tt>null</tt>.
-	 * 
-	 * @param resizeImagesBeforeUpload
-	 */
-	public void setResizeImagesBeforeUpload(Boolean resizeImagesBeforeUpload) {
-		this.resizeImagesBeforeUpload = resizeImagesBeforeUpload;
+	public void addListener(JournalListener listener) {
+		if (!listeners.contains(listener)) {
+			listeners.add(listener);
+		}
 	}
 
-	/**
-	 * Returns if images should be resized before upload, <tt>null</tt> if not
-	 * yet set.
-	 * 
-	 * @return
-	 */
-	public Boolean isResizeImagesBeforeUpload() {
-		return resizeImagesBeforeUpload;
-	}
-
-	public void setDocIdHint(int docIdHint) {
-		this.docIdHint = docIdHint;
-	}
-
-	public int getDocIdHint() {
-		return docIdHint;
-	}
-
-	/**
-	 * Returns the file to which this journal is persisted too.
-	 * 
-	 * @return
-	 */
-	public File getFile() {
-		return file;
-	}
-
-	public String getName() {
-		return name;
+	public void addPage(Page newPage) {
+		Assert.isTrue(newPage.getJournal() == this);
+		Assert.isTrue(newPage.getLocalId() != Page.UNSET_LOCAL_ID);
+		if (pages.contains(newPage)) {
+			throw new IllegalArgumentException("Page is already added to journal!");
+		}
+		if (nextLocalPageId <= newPage.getLocalId()) {
+			nextLocalPageId = newPage.getLocalId() + 1;
+		}
+		for (Page p : pages) {
+			if (newPage.getLocalId() == p.getLocalId()) {
+				throw new AssertionError("Duplicate local page id");
+			}
+		}
+		pages.add(newPage);
+		firePageAdded(newPage);
+		setDirty(true);
 	}
 
 	/**
@@ -119,30 +104,9 @@ public class Journal {
 		return page;
 	}
 
-	public List<Page> getPages() {
-		return Collections.unmodifiableList(pages);
-	}
-
-	@Override
-	public String toString() {
-		return name + " (" + pages.size() + " pages)";
-	}
-
-	private void firePhotosAdded(List<Photo> photos, Page page) {
-		for (JournalListener listener : new ArrayList<JournalListener>(listeners)) {
-			listener.photosAdded(page.getPhotos(), page);
-		}
-	}
-
 	private void fireJournalDirtyChange() {
 		for (JournalListener listener : new ArrayList<JournalListener>(listeners)) {
 			listener.journalDirtyChange();
-		}
-	}
-
-	private void firePageRemoved(Page page) {
-		for (JournalListener listener : new ArrayList<JournalListener>(listeners)) {
-			listener.pageDeleted(page);
 		}
 	}
 
@@ -152,65 +116,77 @@ public class Journal {
 		}
 	}
 
+	private void firePageRemoved(Page page) {
+		for (JournalListener listener : new ArrayList<JournalListener>(listeners)) {
+			listener.pageDeleted(page);
+		}
+	}
+
+	private void firePhotosAdded(List<Photo> photos, Page page) {
+		for (JournalListener listener : new ArrayList<JournalListener>(listeners)) {
+			listener.photosAdded(page.getPhotos(), page);
+		}
+	}
+
 	private void firePhotosRemoved(List<Photo> photos, Page page) {
 		for (JournalListener listener : new ArrayList<JournalListener>(listeners)) {
 			listener.photosRemoved(photos, page);
 		}
 	}
 
-	public void removePage(Page page) {
-		Assert.isTrue(page.getJournal() == this);
-		isDirty = true;
-		pages.remove(page);
-		firePhotosRemoved(page.getPhotos(), page);
-		firePageRemoved(page);
+	public int getDocIdHint() {
+		return docIdHint;
 	}
 
-	public void setDirty(boolean state) {
-		isDirty = state;
-		fireJournalDirtyChange();
+	/**
+	 * Returns the file to which this journal is persisted too.
+	 * 
+	 * @return
+	 */
+	public File getFile() {
+		return file;
 	}
 
-	public void setName(String name) {
-		this.name = name;
+	/**
+	 * Provides the timestamp ({@link File#lastModified()}) of the file that
+	 * this journal was loaded from, used to detect if the underlying file was
+	 * modified since the journal was loaded.
+	 * 
+	 * @return last modified timestamp or {@value #NEVER_SAVED_TIMESTAMP} if the
+	 *         journal is new.
+	 */
+	public long getLastModifiedWhenLoaded() {
+		return lastModifiedTimestamp;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public List<Page> getPages() {
+		return Collections.unmodifiableList(pages);
+	}
+
+	public Map<String, Page> getPhotoMap() {
+		return loadedPhotos;
 	}
 
 	public boolean isDirty() {
 		return isDirty;
 	}
 
-	public void addPage(Page newPage) {
-		Assert.isTrue(newPage.getJournal() == this);
-		Assert.isTrue(newPage.getLocalId() != Page.UNSET_LOCAL_ID);
-		if (pages.contains(newPage)) {
-			throw new IllegalArgumentException("Page is already added to journal!");
-		}
-		if (nextLocalPageId <= newPage.getLocalId()) {
-			nextLocalPageId = newPage.getLocalId() + 1;
-		}
-		for (Page p : pages) {
-			if (newPage.getLocalId() == p.getLocalId()) {
-				throw new AssertionError("Duplicate local page id");
-			}
-		}
-		pages.add(newPage);
-		firePageAdded(newPage);
-		setDirty(true);
+	/**
+	 * Returns if images should be resized before upload, <tt>null</tt> if not
+	 * yet set.
+	 * 
+	 * @return
+	 */
+	public Boolean isResizeImagesBeforeUpload() {
+		return resizeImagesBeforeUpload;
 	}
 
-	// private String getImageName(Photo photo) {
-	// String name = photo.getImageName();
-	// if (!StringUtils.isEmpty(name)) {
-	// return name;
-	// }
-	// return photo.getFile().getName();
-	// }
-
-	void photosRemoved(List<Photo> photos, Page page) {
-		for (Photo photo : photos) {
-			loadedPhotos.remove(photo.getFile().getName());
-		}
-		firePhotosRemoved(photos, page);
+	public Boolean isUseExifThumbnail() {
+		return useExifThumbnail;
 	}
 
 	void photosAdded(List<Photo> photos, Page page) {
@@ -222,6 +198,33 @@ public class Journal {
 		firePhotosAdded(photos, page);
 	}
 
+	void photosRemoved(List<Photo> photos, Page page) {
+		for (Photo photo : photos) {
+			loadedPhotos.remove(photo.getFile().getName());
+		}
+		firePhotosRemoved(photos, page);
+	}
+
+	// private String getImageName(Photo photo) {
+	// String name = photo.getImageName();
+	// if (!StringUtils.isEmpty(name)) {
+	// return name;
+	// }
+	// return photo.getFile().getName();
+	// }
+
+	public void removeListener(JournalListener listener) {
+		listeners.remove(listener);
+	}
+
+	public void removePage(Page page) {
+		Assert.isTrue(page.getJournal() == this);
+		pages.remove(page);
+		firePhotosRemoved(page.getPhotos(), page);
+		firePageRemoved(page);
+		setDirty(true);
+	}
+
 	// void checkForDuplicatePhotoInJournal(Photo photo) {
 	// Page page = loadedPhotos.get(photo.getFile().getName());
 	// if (page != null) {
@@ -229,25 +232,44 @@ public class Journal {
 	// }
 	// }
 
+	public void setDirty(boolean state) {
+		isDirty = state;
+		fireJournalDirtyChange();
+	}
+
+	public void setDocIdHint(int docIdHint) {
+		this.docIdHint = docIdHint;
+		setDirty(true);
+	}
+
 	public void setLastModifiedWhenLoaded(long lastModifiedTimestamp) {
 		this.lastModifiedTimestamp = lastModifiedTimestamp;
+		setDirty(true);
 	}
 
-	public long getLastModifiedWhenLoaded() {
-		return lastModifiedTimestamp;
+	public void setName(String name) {
+		this.name = name;
+		setDirty(true);
 	}
 
-	public void addListener(JournalListener listener) {
-		if (!listeners.contains(listener)) {
-			listeners.add(listener);
-		}
+	/**
+	 * Configures if this journal should resize images before they are sent to
+	 * the server, default is <tt>null</tt>.
+	 * 
+	 * @param resizeImagesBeforeUpload
+	 */
+	public void setResizeImagesBeforeUpload(boolean resizeImagesBeforeUpload) {
+		this.resizeImagesBeforeUpload = resizeImagesBeforeUpload;
+		setDirty(true);
 	}
 
-	public void removeListener(JournalListener listener) {
-		listeners.remove(listener);
+	public void setUseExifThumbnail(boolean useExifThumbnail) {
+		this.useExifThumbnail = useExifThumbnail;
+		setDirty(true);
 	}
 
-	public Map<String, Page> getPhotoMap() {
-		return loadedPhotos;
+	@Override
+	public String toString() {
+		return name + " (" + pages.size() + " pages)";
 	}
 }
