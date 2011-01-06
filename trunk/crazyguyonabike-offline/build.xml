@@ -6,7 +6,7 @@
 
 	<property name="version" value="0.1.0" />
 	<property name="main.jar.name" value="${ant.project.name}.${version}.jar" />
-	<property name="main-class" value="com.cgoab.offline.Application" />
+	<property name="main.class" value="com.cgoab.offline.Application" />
 
 	<property name="src.dir" value="src" />
 	<property name="lib.dir" value="libs" />
@@ -16,10 +16,9 @@
 	<property name="build.dir" value="build" />
 	<property name="classes.dir" value="${build.dir}/classes" />
 	<property name="main.classes.dir" value="${classes.dir}/main" />
+	<property name="temp.dir" value="${build.dir}/temp" />
 	<property name="jar.dir" value="${build.dir}/jar" />
 	<property name="release.dir" value="${build.dir}/release" />
-	<property name="release.dir.win" value="${release.dir}/win" />
-	<property name="release.dir.linux" value="${release.dir}/linux" />
 	<property name="swt.version" value="3.6.1" />
 
 	<path id="classpath">
@@ -74,10 +73,14 @@
 		</jar>
 	</target>-->
 
+
+	<property name="release.zip.name.win" value="${ant.project.name}.${version}-win.zip" />
+	<property name="release.zip.name.linux" value="${ant.project.name}.${version}-linux.zip" />
+
 	<target name="package-windows" depends="jar-main">
 		<launch4j>
 			<config headerType="gui" outfile="${jar.dir}/${ant.project.name}.exe" dontWrapJar="true" jarPath="${main.jar.name}" downloadurl="http://www.java.com/download" customprocname="true">
-				<classPath mainClass="${main-class}">
+				<classPath mainClass="${main.class}">
 					<cp>libs/*</cp>
 					<cp>libsswt/swt-3.6.1-win32.jar</cp>
 				</classPath>
@@ -87,16 +90,17 @@
 		</launch4j>
 		<launch4j>
 			<config headerType="gui" outfile="${jar.dir}/${ant.project.name}_64.exe" dontWrapJar="true" jarPath="${main.jar.name}" downloadurl="http://www.java.com/download" customprocname="true">
-				<classPath mainClass="${main-class}">
+				<classPath mainClass="${main.class}">
 					<cp>libs/*</cp>
-					<cp>libsswt/swt-3.6.1-win32_64.jar</cp> <!-- TODO fix! -->
+					<cp>libsswt/swt-3.6.1-win32_64.jar</cp>
+					<!-- TODO fix! -->
 				</classPath>
 				<jre minVersion="1.6.0" />
 				<versionInfo fileVersion="${version}.0" txtFileVersion="${version}" fileDescription="${version}" Copyright="..." productVersion="${version}.0" txtProductVersion="${version}" productName="${ant.project.name}" internalName="${ant.project.name}" originalFilename="${ant.project.name}.exe" />
 			</config>
 		</launch4j>
-		<mkdir dir="${release.dir.win}" />
-		<zip destfile="${release.dir.win}/${ant.project.name}.${version}-win.zip">
+		<mkdir dir="${release.dir}" />
+		<zip destfile="${release.dir}/${release.zip.name.win}">
 			<fileset dir=".">
 				<include name="${lib.dir}/*.jar" />
 				<include name="${swt.dir}/*win32*.jar" />
@@ -107,9 +111,10 @@
 		</zip>
 	</target>
 
+
 	<target name="package-linux" depends="jar-main">
-		<mkdir dir="${release.dir.linux}" />
-		<copy file="${scripts.dir}/cgoab-offline" tofile="${release.dir.linux}/cgoab-offline">
+		<mkdir dir="${release.dir}" />
+		<copy file="${scripts.dir}/cgoab-offline" tofile="${temp.dir}/cgoab-offline">
 			<filterchain>
 				<replacetokens>
 					<token key="MAINJAR" value="${main.jar.name}" />
@@ -118,15 +123,22 @@
 				</replacetokens>
 			</filterchain>
 		</copy>
-		<zip destfile="${release.dir.linux}/${ant.project.name}.${version}-linux.zip">
+		<zip destfile="${release.dir}/${release.zip.name.linux}">
 			<!-- main jar in root, libs in /libs, exe in root -->
 			<fileset dir=".">
 				<include name="${lib.dir}/*.jar" />
 				<include name="${swt.dir}/*linux*.jar" />
 			</fileset>
 			<zipfileset dir="${jar.dir}" includes="${main.jar.name}" fullpath="${main.jar.name}" />
-			<zipfileset dir="${release.dir.linux}" includes="cgoab-offline" fullpath="cgoab-offline" />
+			<zipfileset dir="${temp.dir}" includes="cgoab-offline" fullpath="cgoab-offline" filemode="755" />
 		</zip>
+	</target>
+
+	<taskdef classname="net.bluecow.googlecode.ant.GoogleCodeUploadTask" classpath="C:\libs\ant-googlecode\ant-googlecode-0.0.2.jar" name="gcupload" />
+
+	<target name="upload" depends="package-windows,package-linux">
+		<gcupload username="${googlecode.user}" password="${googlecode.password}" projectname="crazyguyonabike-offline" filename="${release.dir}/${release.zip.name.linux}" targetfilename="${release.zip.name.linux}" summary="Version ${version} of ${ant.project.name}" labels="Featured, Type-Package, OpSys-Linux" />
+		<gcupload username="${googlecode.user}" password="${googlecode.password}" projectname="crazyguyonabike-offline" filename="${release.dir}/${release.zip.name.win}" targetfilename="${release.zip.name.win}" summary="Version ${version} of ${ant.project.name}" labels="Featured, Type-Package, OpSys-Windows" />
 	</target>
 
 
