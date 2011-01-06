@@ -1,0 +1,15 @@
+#!/bin/sh
+
+CLASSPATH=@MAINJAR@:libs/*
+
+MACHINE_TYPE=`uname -m`
+if [ ${MACHINE_TYPE} = "x86_64" ] 
+then
+  CLASSPATH=${CLASSPATH}:libsswt/swt-@SWTVERSION@-linux_64.jar
+else
+  CLASSPATH=${CLASSPATH}:libsswt/swt-@SWTVERSION@-linux.jar
+fi
+
+echo CLASSPATH: ${CLASSPATH}
+
+java -classpath "${CLASSPATH}" @MAINCLASS@
