@@ -10,8 +10,11 @@ import org.apache.log4j.PropertyConfigurator;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.jface.util.ILogger;
 import org.eclipse.jface.util.Policy;
+import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Event;
+import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Shell;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,7 +39,7 @@ public class Application implements Runnable {
 	private static final String RESIZED_FOLDER = ".resized";
 	private static final String COOKIES_FILE = "cookies";
 	public static final String CRAZYGUYONABIKE_HOST = "www.crazyguyonabike.com";
-	public static final int CRAZYGUYONABIKE_PORT = 1;
+	public static final int CRAZYGUYONABIKE_PORT = -1;
 	private static Logger LOG = LoggerFactory.getLogger(Application.class);
 	private Preferences preferences;
 	private CachingThumbnailProviderFactory thumbnailFactory;
@@ -73,7 +76,14 @@ public class Application implements Runnable {
 		}
 		Display display = new Display();
 		app.setDisplay(display);
-		FileCookieStore cookieStore = new FileCookieStore(SETTINGS_DIR + File.separator + COOKIES_FILE);
+		final FileCookieStore cookieStore = new FileCookieStore(SETTINGS_DIR + File.separator + COOKIES_FILE);
+		display.addListener(SWT.Dispose, new Listener() {
+			@Override
+			public void handleEvent(Event event) {
+				/* save cookies on exit */
+				cookieStore.persist();
+			}
+		});
 		DefaultWebUploadClientFactory uploadFactory = new DefaultWebUploadClientFactory();
 		uploadFactory.setCookies(cookieStore);
 		uploadFactory.setHost(System.getProperty("host", CRAZYGUYONABIKE_HOST));

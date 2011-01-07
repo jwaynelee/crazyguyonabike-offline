@@ -454,7 +454,7 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 
 		@Override
 		public Void doRun() throws ClientProtocolException, IOException {
-			post = new HttpPost(createURI("/doc/edit/page/pic/", null));
+			post = new HttpPost(createURI("doc/edit/page/pic/", null));
 			File file = photo.getResizedPhoto();
 			if (file == null) {
 				file = photo.getFile();
@@ -472,7 +472,7 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 			request.addPart("caption", new StringBody(StringUtils.nullToEmpty(photo.getCaption())));
 			request.addPart("rotate_degrees", new StringBody("auto"));
 			request.addPart("include_in_random", new StringBody("on"));
-			request.addPart("button", new StringBody("finish"));
+			request.addPart("button", new StringBody("Finish"));
 			request.addPart("command", new StringBody("do_add"));
 			request.addPart("submitted", new StringBody("1"));
 			request.addPart("doctype", new StringBody("journal"));

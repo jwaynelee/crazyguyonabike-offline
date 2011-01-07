@@ -125,7 +125,7 @@ public class PageEditor {
 
 	private ImageMagickResizerServiceFactory resizerServiceFactory;
 
-	private Journal getCurrentJournal() {
+	Journal getCurrentJournal() {
 		Object input = treeViewer.getInput();
 		return input instanceof JournalHolder ? ((JournalHolder) input).getJournal() : null;
 	}
@@ -582,8 +582,8 @@ public class PageEditor {
 			titleInput.setText("");
 			headlineInput.setText("");
 			distanceInput.setText("");
-			textInput.setDocument(null);
-			captionText.setDocument(null);
+			textInput.setDocument(new Document(""));
+			captionText.setDocument(new Document(""));
 			selectOrderByButton((Button) null);
 		} else {
 			btnBold.setSelection(pageToShow.isBold());
@@ -673,7 +673,7 @@ public class PageEditor {
 		createThumbnailViewer(thumbViewerGroup);
 		sashV.setWeights(new int[] { 4, 3 });
 		sashH.setWeights(new int[] { 1, 3 });
-		
+
 		// status & progress bar
 		statusBar = new Label(shell, SWT.NONE);
 		statusBar.setText("");
