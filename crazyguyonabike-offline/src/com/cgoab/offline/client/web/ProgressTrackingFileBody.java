@@ -1,4 +1,4 @@
-package com.cgoab.offline.client.impl;
+package com.cgoab.offline.client.web;
 
 import java.io.File;
 import java.io.FilterOutputStream;

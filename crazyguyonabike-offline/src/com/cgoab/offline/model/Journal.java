@@ -27,6 +27,7 @@ public class Journal {
 
 	private int docIdHint = UNSET_DOC_ID;
 	private File file;
+	private boolean hideUploadedContent = true;
 	private boolean isDirty;
 	private long lastModifiedTimestamp = NEVER_SAVED_TIMESTAMP;
 	private List<JournalListener> listeners = new ArrayList<JournalListener>();
@@ -175,6 +176,10 @@ public class Journal {
 		return isDirty;
 	}
 
+	public boolean isHideUploadedContent() {
+		return hideUploadedContent;
+	}
+
 	/**
 	 * Returns if images should be resized before upload, <tt>null</tt> if not
 	 * yet set.
@@ -198,13 +203,6 @@ public class Journal {
 		firePhotosAdded(photos, page);
 	}
 
-	void photosRemoved(List<Photo> photos, Page page) {
-		for (Photo photo : photos) {
-			loadedPhotos.remove(photo.getFile().getName());
-		}
-		firePhotosRemoved(photos, page);
-	}
-
 	// private String getImageName(Photo photo) {
 	// String name = photo.getImageName();
 	// if (!StringUtils.isEmpty(name)) {
@@ -213,16 +211,15 @@ public class Journal {
 	// return photo.getFile().getName();
 	// }
 
-	public void removeListener(JournalListener listener) {
-		listeners.remove(listener);
+	void photosRemoved(List<Photo> photos, Page page) {
+		for (Photo photo : photos) {
+			loadedPhotos.remove(photo.getFile().getName());
+		}
+		firePhotosRemoved(photos, page);
 	}
 
-	public void removePage(Page page) {
-		Assert.isTrue(page.getJournal() == this);
-		pages.remove(page);
-		firePhotosRemoved(page.getPhotos(), page);
-		firePageRemoved(page);
-		setDirty(true);
+	public void removeListener(JournalListener listener) {
+		listeners.remove(listener);
 	}
 
 	// void checkForDuplicatePhotoInJournal(Photo photo) {
@@ -231,6 +228,14 @@ public class Journal {
 	// throw new IllegalStateException();
 	// }
 	// }
+
+	public void removePage(Page page) {
+		Assert.isTrue(page.getJournal() == this);
+		pages.remove(page);
+		firePhotosRemoved(page.getPhotos(), page);
+		firePageRemoved(page);
+		setDirty(true);
+	}
 
 	public void setDirty(boolean state) {
 		isDirty = state;
@@ -242,9 +247,13 @@ public class Journal {
 		setDirty(true);
 	}
 
+	public void setHideUploadedContent(boolean hideUploadedContent) {
+		this.hideUploadedContent = hideUploadedContent;
+		setDirty(true);
+	}
+
 	public void setLastModifiedWhenLoaded(long lastModifiedTimestamp) {
 		this.lastModifiedTimestamp = lastModifiedTimestamp;
-		setDirty(true);
 	}
 
 	public void setName(String name) {

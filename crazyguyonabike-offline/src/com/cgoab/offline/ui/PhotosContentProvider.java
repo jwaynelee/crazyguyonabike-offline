@@ -9,8 +9,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.eclipse.jface.viewers.StructuredSelection;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.MessageBox;
+import org.omg.CORBA.UserException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -21,9 +23,11 @@ import com.cgoab.offline.model.Page;
 import com.cgoab.offline.model.PageNotEditableException;
 import com.cgoab.offline.model.Photo;
 import com.cgoab.offline.model.UploadState;
+import com.cgoab.offline.ui.thumbnailviewer.CachingThumbnailProvider;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailViewer;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailViewerContentProvider;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailViewerEventListener;
+import com.cgoab.offline.util.Assert;
 import com.cgoab.offline.util.resizer.ImageMagickResizeTask.MagicNotAvailableException;
 import com.drew.metadata.Metadata;
 import com.drew.metadata.exif.ExifDirectory;
@@ -81,7 +85,11 @@ public class PhotosContentProvider implements ThumbnailViewerContentProvider, Th
 			// remove
 			return true;
 		} else {
-			currentPage.removePhotos(Arrays.asList(photo));
+			try {
+				currentPage.removePhotos(Arrays.asList(photo));
+			} catch (PageNotEditableException e) {
+				/* ignore */
+			}
 			currentPage.getJournal().setDirty(true);
 			return false;
 		}
@@ -114,14 +122,18 @@ public class PhotosContentProvider implements ThumbnailViewerContentProvider, Th
 		if (box.open() != SWT.YES) {
 			return;
 		}
-		currentPage.removePhotos(toPhotoList(selection));
-		viewer.remove(selection);
+		try {
+			currentPage.removePhotos(toPhotoList(selection));
+			viewer.remove(selection);
+		} catch (PageNotEditableException e) {
+			return; /* ignore */
+		}
 	}
 
 	// TODO review if insertion point should be an absolute position and not
 	// from filtered list
 	private int adjustInsertionPointForHiddenPhotos(int point) {
-		if (!editor.isHideUploadedPhotosAndPages()) {
+		if (!currentPage.getJournal().isHideUploadedContent()) {
 			return point;
 		}
 
@@ -144,26 +156,28 @@ public class PhotosContentProvider implements ThumbnailViewerContentProvider, Th
 		try {
 			currentPage.movePhotos(toPhotoList(selection), adjustInsertionPointForHiddenPhotos(insertionPoint));
 		} catch (InvalidInsertionPointException e) {
-			// ignore
+			/* ignore */
 			return;
 		} catch (PageNotEditableException e) {
-			// ignore
+			/* ignore */
+			return;
 		}
+		// HACK: manually refresh the page to reflect new order
+		editor.selectOrderByButton(currentPage.getPhotosOrder());
 		viewer.refresh();
 	}
 
 	public void addPhotosRetryIfDuplicates(File[] files, int insertionPoint) {
 		List<Photo> photos = new ArrayList<Photo>(files.length);
 		for (File f : files) {
-			Photo photo = new Photo();
-			photo.setFile(f);
-			photos.add(photo);
+			photos.add(new Photo(f));
 		}
 
 		try {
 			currentPage.addPhotos(photos, insertionPoint);
 		} catch (InvalidInsertionPointException e) {
-			// ignore operation
+			return;
+		} catch (PageNotEditableException e) {
 			return;
 		} catch (DuplicatePhotoException e) {
 			StringBuilder b = new StringBuilder("The following photos are already added to this journal:\n\n");
@@ -176,7 +190,9 @@ public class PhotosContentProvider implements ThumbnailViewerContentProvider, Th
 					break;
 				}
 				b.append("  ").append(next.getKey().getFile().getName());
-				if (next.getValue() == currentPage) {
+				if (next.getValue() == null) {
+					b.append("\n");
+				} else if (next.getValue() == currentPage) {
 					b.append(" (this page)\n");
 				} else {
 					b.append(" (page " + next.getValue().getTitle() + ")\n");
@@ -198,12 +214,37 @@ public class PhotosContentProvider implements ThumbnailViewerContentProvider, Th
 				return;
 			}
 			photos.removeAll(duplicates.keySet());
-			currentPage.addPhotos(photos, insertionPoint);
+			try {
+				currentPage.addPhotos(photos, insertionPoint);
+			} catch (DuplicatePhotoException e1) {
+				return; /* can't happen! */
+			} catch (InvalidInsertionPointException e1) {
+				return; /* ignore */
+			} catch (PageNotEditableException e1) {
+				return; /* ignore */
+			}
+		}
+
+		/* before refresh, ask if EXIF thumbnails should be used */
+		Journal journal = currentPage.getJournal();
+		if (journal.isUseExifThumbnail() == null) {
+			MessageBox box = new MessageBox(editor.getShell(), SWT.ICON_QUESTION | SWT.YES | SWT.NO);
+			box.setText("Use embedded thumnails?");
+			box.setMessage("Do you want to use embedded JPEG thumbnails if available?\n\n"
+					+ "Embedded thumnbails load quicker but may be of poor quality. If you"
+					+ " don't use them a new thumbnail will be created for each photo, "
+					+ "providing crisper thumbnails but taking longer to load.");
+			CachingThumbnailProvider provider = editor.getThumbnailProviderFactory().getThumbnailProvider(journal);
+			boolean useExif = box.open() == SWT.YES;
+			provider.setUseExifThumbnail(useExif);
+			journal.setUseExifThumbnail(useExif);
+			editor.toggleUseExifThumbnailAction.setChecked(useExif);
 		}
 
 		viewer.refresh();
+		viewer.setSelection(new StructuredSelection(photos), true);
 
-		Boolean resize = currentPage.getJournal().isResizeImagesBeforeUpload();
+		Boolean resize = journal.isResizeImagesBeforeUpload();
 		if (resize == null) {
 			MessageBox box = new MessageBox(editor.getShell(), SWT.ICON_QUESTION | SWT.YES | SWT.NO | SWT.CANCEL);
 			box.setText("Resize photos?");
@@ -220,11 +261,10 @@ public class PhotosContentProvider implements ThumbnailViewerContentProvider, Th
 			if (resize != null) {
 				if (resize == Boolean.TRUE) {
 					// from no one any new photos will be auto-resized
-					if (!editor.registerPhotoResizer(currentPage.getJournal(), false)) {
+					if (!editor.registerPhotoResizer(journal, false)) {
 						return;
 					}
 				}
-				Journal journal = currentPage.getJournal();
 				journal.setResizeImagesBeforeUpload(resize);
 				editor.toggleResizePhotos.setChecked(true);
 			}
@@ -234,16 +274,6 @@ public class PhotosContentProvider implements ThumbnailViewerContentProvider, Th
 	@Override
 	public void itemsAdded(File[] newItems, int insertionPoint) {
 		addPhotosRetryIfDuplicates(newItems, adjustInsertionPointForHiddenPhotos(insertionPoint));
-	}
-
-	private Date getPhotoDateTime(Metadata meta) {
-		try {
-			return ((ExifDirectory) meta.getDirectory(ExifDirectory.class))
-					.getDate(ExifDirectory.TAG_DATETIME_ORIGINAL);
-		} catch (Exception e) {
-			/* ignore */
-			return null;
-		}
 	}
 
 	// @Override

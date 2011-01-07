@@ -68,6 +68,7 @@ public class JournalXmlLoader {
 	private static final String JOURNAL_EL = "journal";
 	private static final String DOC_ID_HINT_ATTR = "docIdHint";
 	private static final String RESIZE_PHOTOS_ATTR = "resizeBeforeUpload";
+	private static final String HIDE_UPLOADED_CONTENT_ATTR = "hideUploadedContent";
 	private static final String USE_EXIF_THUMBNAIL_ATTR = "useExifThumbnail";
 	private static final String NAME_ATTR = "name";
 	private static final String PAGE_EL = "page";
@@ -118,6 +119,11 @@ public class JournalXmlLoader {
 			String useExifStr = settingsXml.getAttributeValue(USE_EXIF_THUMBNAIL_ATTR);
 			if (useExifStr != null) {
 				journal.setUseExifThumbnail(Boolean.parseBoolean(useExifStr));
+			}
+			// hide-uploaded
+			String hideUploaded = settingsXml.getAttributeValue(HIDE_UPLOADED_CONTENT_ATTR);
+			if (useExifStr != null) {
+				journal.setHideUploadedContent(Boolean.parseBoolean(hideUploaded));
 			}
 		}
 
@@ -337,6 +343,7 @@ public class JournalXmlLoader {
 			if (journal.isUseExifThumbnail() != null) {
 				xml.writeAttribute(USE_EXIF_THUMBNAIL_ATTR, journal.isUseExifThumbnail().toString());
 			}
+			xml.writeAttribute(HIDE_UPLOADED_CONTENT_ATTR, Boolean.toString(journal.isHideUploadedContent()));
 			xml.writeEndElement();
 
 			/* pages & photos */

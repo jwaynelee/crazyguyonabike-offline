@@ -3,20 +3,26 @@ package com.cgoab.offline.model;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.eclipse.jface.text.Document;
 import org.eclipse.jface.text.IDocument;
 import org.joda.time.LocalDate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.cgoab.offline.util.Assert;
 
 /**
  * A page in a journal.
  */
-public class Page implements Cloneable {
+public class Page {
+
+	private static final Logger LOGGER = LoggerFactory.getLogger(Page.class);
 
 	public static enum EditFormat {
 		AUTO, LIST, MANUAL
@@ -27,7 +33,11 @@ public class Page implements Cloneable {
 	}
 
 	public static enum PhotosOrder {
-		DATE, MANUAL, NAME;
+		/*
+		 * DATE, -- removed as order done before meta loaded and file-mod date
+		 * is inacurate, file name is simpler way to derive order
+		 */
+		MANUAL, NAME;
 	}
 
 	public static final int INDENT_MAX = 10;
@@ -58,7 +68,7 @@ public class Page implements Cloneable {
 
 	private int localId = UNSET_LOCAL_ID;
 
-	private PhotosOrder order = PhotosOrder.MANUAL;
+	private PhotosOrder order = PhotosOrder.NAME;
 
 	private final List<Photo> photos = new ArrayList<Photo>();
 
@@ -77,20 +87,6 @@ public class Page implements Cloneable {
 
 	public Page(Journal journal) {
 		this.journal = journal;
-	}
-
-	@Override
-	public Object clone() {
-		try {
-			// perform deep copy of photos
-			Page copy = (Page) super.clone();
-			for (Photo p : photos) {
-				copy.photos.add(p.clone());
-			}
-			return copy;
-		} catch (CloneNotSupportedException e) {
-			throw new AssertionError();
-		}
 	}
 
 	public LocalDate getDate() {
@@ -136,11 +132,6 @@ public class Page implements Cloneable {
 	 * @return
 	 */
 	public List<Photo> getPhotos() {
-		// order before returning
-		Comparator<Photo> comparator = getComparator(order);
-		if (comparator != null) {
-			Collections.sort(photos, comparator);
-		}
 		return Collections.unmodifiableList(new ArrayList<Photo>(photos));
 	}
 
@@ -170,7 +161,7 @@ public class Page implements Cloneable {
 		return title;
 	}
 
-	private void assertIsEditable() {
+	private void assertIsEditable() throws PageNotEditableException {
 		if (getState() == UploadState.UPLOADED) {
 			throw new PageNotEditableException();
 		}
@@ -180,28 +171,35 @@ public class Page implements Cloneable {
 	 * Adds one or more photos to this page at a given location in the photos
 	 * list.
 	 * 
-	 * @param toAdd
+	 * @param photosToAdd
 	 *            photos to be added
 	 * @param insertionPoint
 	 *            insertion point in photos list, <tt>-1</tt> can be used to
 	 *            append to the end.
+	 * @throws DuplicatePhotoException
+	 * @throws InvalidInsertionPointException
+	 * @throws PageNotEditableException
 	 */
-	public void addPhotos(List<Photo> toAdd, int insertionPoint) {
+	public void addPhotos(List<Photo> photosToAdd, int insertionPoint) throws DuplicatePhotoException,
+			InvalidInsertionPointException, PageNotEditableException {
 		assertIsEditable();
 		assertValidInsertionPoint(insertionPoint);
 
-		// check for duplicate file names...
+		/* check for duplicates */
 		Map<Photo, Page> duplicates = new LinkedHashMap<Photo, Page>();
 		Map<String, Page> journalPhotos = journal.getPhotoMap();
-
-		for (Photo adding : toAdd) {
-			String imageName = adding.getFile().getName();
-			Page pageDuplicateFound = journalPhotos.get(imageName);
-			// compare file name as this is what becomes the
-			// image name on the server
-			if (pageDuplicateFound != null) {
-				duplicates.put(adding, pageDuplicateFound);
-				continue;
+		Set<Photo> nonDuplicatePhotos = new HashSet<Photo>();
+		for (Photo photo : photosToAdd) {
+			if (nonDuplicatePhotos.contains(photo)) {
+				duplicates.put(photo, null);
+			} else {
+				/* photos identified by local name only */
+				Page duplicate = journalPhotos.get(photo.getFile().getName());
+				if (duplicate != null) {
+					duplicates.put(photo, duplicate);
+				} else {
+					nonDuplicatePhotos.add(photo);
+				}
 			}
 		}
 
@@ -210,13 +208,23 @@ public class Page implements Cloneable {
 		}
 
 		if (insertionPoint == -1) {
-			photos.addAll(toAdd);
+			photos.addAll(photosToAdd);
 		} else {
-			photos.addAll(insertionPoint, toAdd);
+			photos.addAll(insertionPoint, photosToAdd);
+		}
+
+		// order photos if no photos have yet been uploaded
+		if (uploadState == UploadState.NEW || uploadState == UploadState.ERROR) {
+			Comparator<Photo> comparator = getComparator(order);
+			if (comparator != null) {
+				Collections.sort(photos, comparator);
+			}
+		} else {
+			LOGGER.info("Not ordering photos as page is in state {}", uploadState);
 		}
 
 		journal.setDirty(true);
-		journal.photosAdded(toAdd, this);
+		journal.photosAdded(photosToAdd, this);
 	}
 
 	public boolean isBold() {
@@ -237,8 +245,9 @@ public class Page implements Cloneable {
 	 * 
 	 * @param insertionPoint
 	 * @return
+	 * @throws InvalidInsertionPointException
 	 */
-	private void assertValidInsertionPoint(int insertionPoint) {
+	private void assertValidInsertionPoint(int insertionPoint) throws InvalidInsertionPointException {
 		// append
 		if (insertionPoint == -1 || insertionPoint == photos.size()) {
 			return;
@@ -264,7 +273,8 @@ public class Page implements Cloneable {
 		}
 	}
 
-	public void movePhotos(List<Photo> toMove, int insertionPoint) {
+	public void movePhotos(List<Photo> toMove, int insertionPoint) throws InvalidInsertionPointException,
+			PageNotEditableException {
 		assertIsEditable();
 		assertValidInsertionPoint(insertionPoint);
 		assertPageOwnsPhotos(toMove);
@@ -278,8 +288,6 @@ public class Page implements Cloneable {
 				}
 			}
 		}
-
-		journal.setDirty(true);
 
 		// walk up to the insertion point, counting how many selected
 		// items we find
@@ -295,10 +303,13 @@ public class Page implements Cloneable {
 
 		// re-insert the selection at adjusted index
 		photos.addAll(insertionPoint - found, toMove);
+
+		// manually transition to manual order
 		setPhotosOrder(PhotosOrder.MANUAL);
+		journal.setDirty(true);
 	}
 
-	public void removePhotos(List<Photo> toRemove) {
+	public void removePhotos(List<Photo> toRemove) throws PageNotEditableException {
 		assertIsEditable();
 		assertPageOwnsPhotos(toRemove);
 
@@ -361,10 +372,13 @@ public class Page implements Cloneable {
 		switch (order) {
 		case NAME:
 			return FileNameComparator.INSTANCE;
-		case DATE:
-			return FileDateComparator.INSTANCE;
+		case MANUAL:
+			return null;
+			// case DATE:
+			// return FileDateComparator.INSTANCE;
+		default:
+			throw new IllegalArgumentException("Invalid order " + order);
 		}
-		return null;
 	}
 
 	void setPhotos(List<Photo> p) {

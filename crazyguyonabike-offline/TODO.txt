@@ -19,6 +19,8 @@ Cancellation in upload view
 Detect old version of ImageMagic (version with ^ resize)
 Clean up new journal page, add xml extension automatically, trim from name
 Resize photos before upload
+Improve thumbnail extraction code to include EXIF thumbnail
+Implement EXIF features
 ------------------------------------------------------
 
 Add photos to journal and auto-assign to days -- NOT DONE
@@ -27,7 +29,6 @@ cleanup menus
 detect when photos date different to page date -- NOT DONE; complexity involved when date changes (re-order?)
 
 OSX bug, CMD > CTRL swap
-Improve thumbnail extraction code to include EXIF thumbnail
 
 -- Text Editor --
 Spell checker integration
@@ -48,5 +49,4 @@ Properties/preferences to set size & quality options
 -- Polish --
 Preview pane (turn into to html & view in browser)
 Persist location of shells between execution
-Implement EXIF features
 Add launch scripts (for mac at least)

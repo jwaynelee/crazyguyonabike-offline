@@ -142,7 +142,7 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 				f.cancel(true);
 			}
 		}
-		
+
 		cache.clear();
 	}
 
@@ -351,7 +351,13 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 				return SWT.NONE;
 			}
 
+			if (!meta.containsDirectory(ExifDirectory.class)) {
+				return SWT.NONE;
+			}
 			ExifDirectory exif = (ExifDirectory) meta.getDirectory(ExifDirectory.class);
+			if (!exif.containsTag(ExifDirectory.TAG_ORIENTATION)) {
+				return SWT.NONE;
+			}
 			Object o = exif.getObject(ExifDirectory.TAG_ORIENTATION);
 			if (o != null && o instanceof Integer) {
 				// from http://sylvana.net/jpegcrop/exif_orientation.html
@@ -374,13 +380,19 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 		}
 
 		private ImageData getThumbFromMeta(Metadata meta) {
+			if (!meta.containsDirectory(ExifDirectory.class)) {
+				return null;
+			}
+			ExifDirectory exif = (ExifDirectory) meta.getDirectory(ExifDirectory.class);
 			try {
-				ExifDirectory dir = (ExifDirectory) meta.getDirectory(ExifDirectory.class);
-				ImageData d = new ImageData(new ByteArrayInputStream(dir.getThumbnailData()));
-				LOG.debug("THUMBNAIL: {}x{}", d.width, d.height);
-				return d;
-			} catch (Exception e) {
-				LOG.warn("", e);
+				ImageData data = new ImageData(new ByteArrayInputStream(exif.getThumbnailData()));
+				LOG.debug("Found EXIF thumbnail with dimensions {}x{} in '{}'", new Object[] { data.width, data.height,
+						source.getName() });
+				return data;
+			} catch (SWTException e) {
+				LOG.warn("Failed to create image from EXIF thumbnail from '" + source.getName() + "'", e);
+			} catch (MetadataException e) {
+				LOG.warn("Failed to extract EXIF thumbnail from '" + source.getName() + "'", e);
 			}
 			return null;
 		}
@@ -389,7 +401,7 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 			Metadata meta = loadMeta();
 
 			// 1) check for embedded thumbnail
-			if (useExifThumbnail) {
+			if (useExifThumbnail && meta != null) {
 				ImageData exifThumb = getThumbFromMeta(meta);
 				if (exifThumb != null) {
 					try {

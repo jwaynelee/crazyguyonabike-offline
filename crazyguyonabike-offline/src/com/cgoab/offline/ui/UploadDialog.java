@@ -1,5 +1,6 @@
 package com.cgoab.offline.ui;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -42,8 +43,8 @@ import com.cgoab.offline.client.BatchUploader.BatchUploaderListener;
 import com.cgoab.offline.client.CompletionCallback;
 import com.cgoab.offline.client.DocumentDescription;
 import com.cgoab.offline.client.UploadClient;
-import com.cgoab.offline.client.impl.HtmlProvider;
 import com.cgoab.offline.client.mock.MockClient;
+import com.cgoab.offline.client.web.HtmlProvider;
 import com.cgoab.offline.model.Journal;
 import com.cgoab.offline.model.Page;
 import com.cgoab.offline.model.Photo;
@@ -54,6 +55,7 @@ import com.cgoab.offline.ui.thumbnailviewer.ThumbnailViewer;
 import com.cgoab.offline.ui.util.ErrorBoxWithHtml;
 import com.cgoab.offline.ui.util.UIThreadCallbackMarsheller;
 import com.cgoab.offline.util.Utils;
+import com.cgoab.offline.util.resizer.ResizerService;
 
 public class UploadDialog {
 
@@ -115,7 +117,6 @@ public class UploadDialog {
 
 	public UploadDialog(Shell parent) {
 		shell = new Shell(parent, SWT.APPLICATION_MODAL | SWT.DIALOG_TRIM);
-		shell.setText("Upload to journal");
 		shell.addListener(SWT.Close, new Listener() {
 			@Override
 			public void handleEvent(Event e) {
@@ -293,6 +294,8 @@ public class UploadDialog {
 
 	private ThumbnailProvider thumbnailProvider;
 
+	private ResizerService resizerService;
+
 	private void doUpload() {
 		// disable UI
 		setEnabledTo(false, btnUpload, btnLogout, documentTable.getTable());
@@ -328,6 +331,7 @@ public class UploadDialog {
 		uploader.setDocumentId(documentID);
 		uploader.setPages(pages);
 		uploader.setListener(UIThreadCallbackMarsheller.wrap(new UploadListener(), shell.getDisplay()));
+		log("Starting upload of " + pages.size() + " pages to " + documentID);
 		uploader.start();
 	}
 
@@ -346,6 +350,7 @@ public class UploadDialog {
 	}
 
 	public UploadResult open() {
+		shell.setText("Upload to journal to (" + client + ")");
 		GridLayout layout = new GridLayout(2, false);
 		layout.marginTop = layout.marginBottom = 5;
 		layout.marginLeft = layout.marginRight = 5;
@@ -354,9 +359,9 @@ public class UploadDialog {
 
 		// message
 		Label message = new Label(shell, SWT.NONE);
-		message.setText("Login and select a document to add these "
+		message.setText("Login and select the document to add these "
 				+ pages.size()
-				+ " page too."
+				+ " page(s)."
 				+ (client instanceof MockClient ? "\n\nWARNING USING MOCK CLIENT, NOTHING WILL BE SENT TO SERVER!!!"
 						: ""));
 		data = new GridData(SWT.FILL, SWT.TOP, true, false);
@@ -625,7 +630,7 @@ public class UploadDialog {
 		public void beforeUploadPage(Page page) {
 			overallProgressBar.setState(SWT.NORMAL);
 			photoProgressBar.setState(SWT.NORMAL);
-			log("Starting upload of page " + page.getLocalId() + " (" + page.getTitle() + ")");
+			log("Uploading page [" + page.getTitle() + "]");
 		}
 
 		@Override
@@ -643,7 +648,19 @@ public class UploadDialog {
 			overallProgressBar.setState(SWT.NORMAL);
 			photoProgressBar.setState(SWT.NORMAL);
 			photoProgressBar.setSelection(0);
-			log("Uploading " + photo.getFile().getName() + " (" + Utils.formatBytes(photo.getFile().length()) + ")");
+
+			/* duplicate logic done in web-upload-client */
+			File file = photo.getResizedPhoto();
+			boolean resized;
+			if (file == null) {
+				file = photo.getFile();
+				resized = false;
+			} else {
+				resized = true;
+			}
+
+			log("Uploading photo " + file.getName() + " (" + (resized ? "resized to " : "")
+					+ Utils.formatBytes(file.length()) + ")");
 
 		}
 
@@ -651,7 +668,7 @@ public class UploadDialog {
 		public void finished(List<Page> uploaded) {
 			log("Upload complete (" + uploaded.size() + " pages uploaded)");
 			MessageBox box = new MessageBox(shell, SWT.ICON_INFORMATION | SWT.OK);
-			box.setText("Upload complete");
+			box.setText("Upload completed");
 			box.setMessage("The upload completed sucessfully. Press OK to return");
 			box.open();
 			result = new UploadResult(true, null, null);
@@ -673,7 +690,7 @@ public class UploadDialog {
 					error);
 
 			// leave the shell open, allow user to read
-			// the upload log and then close via cancel
+			// the log and then close via cancel
 			btnCancel.removeSelectionListener(cancelCurrentOperationListener);
 			btnCancel.addSelectionListener(new SelectionAdapter() {
 				@Override

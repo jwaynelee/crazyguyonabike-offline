@@ -66,7 +66,9 @@ public interface UploadClient {
 	 * 
 	 * @param pageId
 	 * @param photo
-	 * @param photoPath
+	 * @param photoFile
+	 *            an optional photo to use for the override, default
+	 *            {@link Photo#getFile()} used if <tt>null</tt>
 	 * @param callback
 	 * @param progressListener
 	 */

@@ -16,6 +16,8 @@ import org.eclipse.swt.widgets.Shell;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.cgoab.offline.client.web.DefaultWebUploadClientFactory;
+import com.cgoab.offline.client.web.FileCookieStore;
 import com.cgoab.offline.ui.PageEditor;
 import com.cgoab.offline.ui.Preferences;
 import com.cgoab.offline.ui.thumbnailviewer.CachingThumbnailProviderFactory;
@@ -32,12 +34,16 @@ public class Application implements Runnable {
 	private static final String LOG_FILE = "log.properties";
 	private static final String THUMNAILS_FOLDER = ".thumbnails";
 	private static final String RESIZED_FOLDER = ".resized";
+	private static final String COOKIES_FILE = "cookies";
+	public static final String CRAZYGUYONABIKE_HOST = "www.crazyguyonabike.com";
+	public static final int CRAZYGUYONABIKE_PORT = 1;
 	private static Logger LOG = LoggerFactory.getLogger(Application.class);
 	private Preferences preferences;
 	private CachingThumbnailProviderFactory thumbnailFactory;
 	private ImageMagickResizerServiceFactory resizerFactory;
 	private Display display;
 	private boolean configuredLogging;
+	private DefaultWebUploadClientFactory uploadFactory;
 
 	public void setThumbnailFactory(CachingThumbnailProviderFactory thumbnailFactory) {
 		this.thumbnailFactory = thumbnailFactory;
@@ -67,13 +73,22 @@ public class Application implements Runnable {
 		}
 		Display display = new Display();
 		app.setDisplay(display);
-
+		FileCookieStore cookieStore = new FileCookieStore(SETTINGS_DIR + File.separator + COOKIES_FILE);
+		DefaultWebUploadClientFactory uploadFactory = new DefaultWebUploadClientFactory();
+		uploadFactory.setCookies(cookieStore);
+		uploadFactory.setHost(System.getProperty("host", CRAZYGUYONABIKE_HOST));
+		uploadFactory.setPort(Integer.getInteger("port", CRAZYGUYONABIKE_PORT));
+		app.setUploadFactory(uploadFactory);
 		app.setThumbnailFactory(new CachingThumbnailProviderFactory(display, THUMBNAIL_RESIZER, THUMNAILS_FOLDER));
 		app.setResizerFactory(new ImageMagickResizerServiceFactory(display, RESIZED_FOLDER));
 
 		Preferences preferences = new Preferences(new File(SETTINGS_DIR + File.separator + "preferences"));
 		app.setPreferences(preferences);
 		return app;
+	}
+
+	private void setUploadFactory(DefaultWebUploadClientFactory uploadFactory) {
+		this.uploadFactory = uploadFactory;
 	}
 
 	public void setLogConfiguration(Properties logConfiguration) {
@@ -102,6 +117,7 @@ public class Application implements Runnable {
 			editor.setThumbnailProviderFactory(thumbnailFactory);
 			editor.setResizerServiceFactory(resizerFactory);
 			editor.setPreferences(preferences);
+			editor.setUploadFactory(uploadFactory);
 			editor.open();
 		} catch (Throwable t) {
 			LOG.error("Unhandled exception, application will terminate", t);

@@ -1,9 +1,7 @@
 package com.cgoab.offline.ui;
 
 import java.awt.Desktop;
-import java.io.IOException;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.List;
 
 import org.eclipse.jface.action.Action;
@@ -29,7 +27,7 @@ public class OpenPageInBrowserAction extends Action implements ISelectionChanged
 	private Shell shell;
 
 	public OpenPageInBrowserAction(TreeViewer treeViewer, Shell shell) {
-		super("Browse");
+		super("Open in Browser");
 		treeViewer.addSelectionChangedListener(this);
 		setEnabled(false);
 		this.shell = shell;
@@ -47,7 +45,6 @@ public class OpenPageInBrowserAction extends Action implements ISelectionChanged
 		}
 
 		setEnabled(newPage != null);
-		System.out.println("Enabled : " + isEnabled());
 		browsablePage = newPage;
 	}
 

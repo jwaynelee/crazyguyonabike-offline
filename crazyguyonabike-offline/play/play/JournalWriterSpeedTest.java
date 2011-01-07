@@ -8,9 +8,12 @@ import java.util.List;
 
 import javax.xml.stream.XMLStreamException;
 
+import com.cgoab.offline.model.DuplicatePhotoException;
+import com.cgoab.offline.model.InvalidInsertionPointException;
 import com.cgoab.offline.model.Journal;
 import com.cgoab.offline.model.JournalXmlLoader;
 import com.cgoab.offline.model.Page;
+import com.cgoab.offline.model.PageNotEditableException;
 import com.cgoab.offline.model.Photo;
 
 public class JournalWriterSpeedTest {
@@ -18,7 +21,7 @@ public class JournalWriterSpeedTest {
 	public static final int NJOURNALS = 1;
 	static List<Journal> journals = new ArrayList<Journal>();
 
-	public static void main(String[] args) throws IOException, XMLStreamException {
+	public static void main(String[] args) throws IOException, XMLStreamException, Exception {
 		// create 10 journals, each with 100 pages, each page with 10 photos...
 		for (int i = 0; i < NJOURNALS; i++) {
 			Journal journal = new Journal(new File(TEST_DIR + File.separator + "test" + i + ".xml"), "Journal#" + i);

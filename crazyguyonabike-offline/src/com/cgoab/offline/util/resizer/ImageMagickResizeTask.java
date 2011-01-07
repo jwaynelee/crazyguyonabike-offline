@@ -21,7 +21,7 @@ import com.cgoab.offline.util.Which;
 /**
  * Wrapper task around ImageMagick "convert" process.
  */
-public class ImageMagickResizeTask extends ListenableCancellableTask<Object> {
+public class ImageMagickResizeTask extends ListenableCancellableTask<File> {
 
 	private static final Logger LOG = LoggerFactory.getLogger(ImageMagickResizeTask.class);
 
@@ -54,7 +54,7 @@ public class ImageMagickResizeTask extends ListenableCancellableTask<Object> {
 	private final Object lock = new Object();
 	private Process process; /* guarded by lock */
 
-	public ImageMagickResizeTask(String cmd, File source, File destination, FutureCompletionListener<Object> listener,
+	public ImageMagickResizeTask(String cmd, File source, File destination, FutureCompletionListener<File> listener,
 			Object data) {
 		super(listener, data);
 		this.cmdPath = cmd;
@@ -63,7 +63,18 @@ public class ImageMagickResizeTask extends ListenableCancellableTask<Object> {
 	}
 
 	@Override
-	public Object call() throws IOException, InterruptedException {
+	public File call() throws IOException, InterruptedException {
+		/* first check if the photo was already resized */
+		if (destination.exists()) {
+			if (destination.lastModified() >= source.lastModified()) {
+				// already resized
+				LOG.debug("Resized photo {} already exists, skipping", destination.getName());
+				return destination;
+			}
+			// delete the old resized image and start again
+			destination.delete();
+		}
+
 		List<String> args = new ArrayList<String>();
 		args.add(cmdPath);
 		args.add(source.getAbsolutePath());
@@ -118,7 +129,7 @@ public class ImageMagickResizeTask extends ListenableCancellableTask<Object> {
 			/* raise error showing message(s) written to stdout/stderr */
 			throw new MagickException("Process returned exit code " + code + ":\n\n" + buff);
 		}
-		return null;
+		return destination;
 	}
 
 	@Override

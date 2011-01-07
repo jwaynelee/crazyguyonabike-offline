@@ -21,7 +21,7 @@ import com.cgoab.offline.model.Page.HeadingStyle;
 public class JournalXmlLoaderTest {
 
 	@Test
-	public void testSaveThenLoad() throws ValidityException, ParsingException, IOException, XMLStreamException {
+	public void testSaveThenLoad() throws Exception {
 		// build test model
 		Journal tj = new Journal(new File("testfile.xml"), "testJournal");
 		Page p1 = newPage(tj, 100);

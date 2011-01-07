@@ -5,7 +5,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -29,6 +31,8 @@ import org.eclipse.swt.events.FocusEvent;
 import org.eclipse.swt.events.FocusListener;
 import org.eclipse.swt.events.KeyAdapter;
 import org.eclipse.swt.events.KeyEvent;
+import org.eclipse.swt.events.MenuEvent;
+import org.eclipse.swt.events.MenuListener;
 import org.eclipse.swt.events.MouseEvent;
 import org.eclipse.swt.events.MouseListener;
 import org.eclipse.swt.events.PaintEvent;
@@ -48,9 +52,10 @@ import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Menu;
 import org.eclipse.swt.widgets.MenuItem;
-import org.eclipse.swt.widgets.MessageBox;
 
+import com.cgoab.offline.model.Journal;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailProvider.Thumbnail;
+import com.cgoab.offline.ui.util.SWTUtils;
 import com.cgoab.offline.util.FutureCompletionListener;
 import com.drew.metadata.Metadata;
 
@@ -58,7 +63,6 @@ public class ThumbnailViewer extends Canvas {
 
 	public static final int THUMBNAIL_HEIGHT = 120;
 	public static final int THUMBNAIL_WIDTH = 200;
-	private static final Collection<String> extensions;
 	static final int PADDING_BETWEEN_THUMNAIL = 5;
 	static final int PADDING_INSIDE = 5;
 	static final int PADDING_TOP = 5;
@@ -66,30 +70,12 @@ public class ThumbnailViewer extends Canvas {
 	public static ResizeStrategy RESIZE_STRATEGY = new FitWithinResizeStrategy(new Point(THUMBNAIL_WIDTH,
 			THUMBNAIL_HEIGHT));
 
+	private static final Collection<String> extensions;
 	static {
 		extensions = new HashSet<String>();
 		extensions.add(".jpg");
 		extensions.add(".jpeg");
 		extensions.add(".gif");
-	}
-
-	private static int getAccelerator(KeyEvent event) {
-		int key = event.character;
-		if (key == 0) {
-			key = event.keyCode;
-		} else {
-			if (0 <= key && key <= 0x1F) {
-				if ((event.stateMask & SWT.CTRL) != 0) {
-					key += 0x40;
-				}
-			} else {
-				if ('a' <= key && key <= 'z') {
-					key -= 'a' - 'A';
-				}
-			}
-		}
-		int mods = event.stateMask & SWT.MODIFIER_MASK;
-		return mods + key;
 	}
 
 	private static boolean hasValidExtension(String fileName) {
@@ -164,7 +150,6 @@ public class ThumbnailViewer extends Canvas {
 	public ThumbnailViewer(Composite parent) {
 		super(parent, SWT.NO_REDRAW_RESIZE | SWT.H_SCROLL | SWT.NO_BACKGROUND | SWT.BORDER);
 
-		installDragAndDropTarget();
 		configureContextMenu();
 
 		getHorizontalBar().setEnabled(false);
@@ -240,6 +225,10 @@ public class ThumbnailViewer extends Canvas {
 
 			@Override
 			public void dragStart(DragSourceEvent e) {
+				if (!editable) {
+					e.doit = false;
+					return;
+				}
 				ThumbnailHolder toDrag = getThumbnailAt(e.x, e.y);
 				if (selected.contains(toDrag)) {
 					e.doit = true;
@@ -273,20 +262,7 @@ public class ThumbnailViewer extends Canvas {
 				 * thumbnails and updating the UI once it is disposed.
 				 */
 				for (Iterator<ThumbnailHolder> i = thumbnails.iterator(); i.hasNext();) {
-					ThumbnailHolder th = i.next();
-					Future<Thumbnail> f = th.getFuture();
-					if (f != null) {
-						if (!f.isDone()) {
-							f.cancel(true);
-						}
-						// wait until it finishes
-						try {
-							f.get();
-						} catch (Exception ex) {
-							/* ignore */
-						}
-					}
-					th.dispose();
+					i.next().dispose();
 					i.remove();
 				}
 
@@ -335,8 +311,8 @@ public class ThumbnailViewer extends Canvas {
 	private void configureContextMenu() {
 		Menu menu = new Menu(getShell(), SWT.POP_UP);
 
-		MenuItem removeItem = new MenuItem(menu, SWT.PUSH);
-		removeItem.setText("Remove selection");
+		final MenuItem removeItem = new MenuItem(menu, SWT.PUSH);
+		removeItem.setText("Remove");
 		removeItem.addSelectionListener(new SelectionAdapter() {
 			@Override
 			public void widgetSelected(SelectionEvent e) {
@@ -344,50 +320,44 @@ public class ThumbnailViewer extends Canvas {
 			}
 		});
 
-		MenuItem item = new MenuItem(menu, SWT.PUSH);
-		item.setText("Image");
-		item.addSelectionListener(new SelectionAdapter() {
-			@Override
-			public void widgetSelected(SelectionEvent e) {
-				MessageBox box = new MessageBox(getShell());
-				if (selected != null) {
-					StringBuilder buff = new StringBuilder();
-					for (ThumbnailHolder t : selected) {
-						buff.append(t.getFile().getName()).append("\n");
-					}
-					box.setMessage(buff.toString());
-				}
-				box.open();
-			}
-		});
-
-		MenuItem getInfoItem = new MenuItem(menu, SWT.PUSH);
-		getInfoItem.setText("Photo info");
+		final MenuItem getInfoItem = new MenuItem(menu, SWT.PUSH);
+		getInfoItem.setText("Image Info");
 		getInfoItem.addSelectionListener(new SelectionAdapter() {
 			@Override
 			public void widgetSelected(SelectionEvent e) {
-				MessageBox box = new MessageBox(getShell());
-				if (selected != null) {
-					StringBuilder str = new StringBuilder();
-					box.setMessage(str.toString());
+				if (selected.size() != 1) {
+					return;
 				}
-				box.open();
+				ThumbnailHolder holder = selected.get(0);
+				try {
+					Thumbnail thumb = holder.getFuture().get();
+					new ExifViewer(getShell()).open(thumb.meta, holder.getFile());
+				} catch (InterruptedException e1) {
+					/* ignore */
+				} catch (ExecutionException e1) {
+					/* ignore */
+				}
+			}
+		});
+		menu.addMenuListener(new MenuListener() {
+			@Override
+			public void menuShown(MenuEvent e) {
+				getInfoItem.setEnabled(false);
+				removeItem.setEnabled(false);
+				if (selected.size() == 1) {
+					getInfoItem.setEnabled(true);
+				}
+				if (selected.size() > 0) {
+					removeItem.setEnabled(true);
+				}
+			}
+
+			@Override
+			public void menuHidden(MenuEvent e) {
+
 			}
 		});
 
-		// MenuItem selectAll = new MenuItem(menu, SWT.PUSH);
-		// selectAll.setText("Select All\tCTRL+A");
-		// selectAll.addSelectionListener(new SelectionAdapter() {
-		// @Override
-		// public void widgetSelected(SelectionEvent e) {
-		// if (thumbnails.size() > 0) {
-		// selected.clear();
-		// selected.addAll(thumbnails);
-		// fireSelectionListener();
-		// redraw();
-		// }
-		// }
-		// });
 		setMenu(menu);
 	}
 
@@ -463,7 +433,14 @@ public class ThumbnailViewer extends Canvas {
 	public Metadata getMetaData(Object photo) {
 		for (ThumbnailHolder h : thumbnails) {
 			if (h.getData() == photo) {
-				return h.getMeta();
+				try {
+					Future<Thumbnail> future = h.getFuture();
+					return future != null && future.isDone() ? h.getFuture().get().meta : null;
+				} catch (InterruptedException e) {
+					/* ignore */
+				} catch (ExecutionException e) {
+					/* ignore */
+				}
 			}
 		}
 		return null;
@@ -530,13 +507,7 @@ public class ThumbnailViewer extends Canvas {
 
 		if (result != null) {
 			Image image = new Image(getDisplay(), result.imageData);
-			if (holder.isDisposed()) {
-				image.dispose();
-				return;
-			} else {
-				holder.setImage(image);
-				holder.setMeta(result.meta);
-			}
+			holder.setImage(image);
 		} else if (exception != null) {
 			if (onInvalidImage(holder.getData(), exception)) {
 				holder.setFailedToLoad(true);
@@ -673,7 +644,7 @@ public class ThumbnailViewer extends Canvas {
 	}
 
 	private void handleKeyPressed(KeyEvent e) {
-		if (getAccelerator(e) == 'A' + SWT.CONTROL) {
+		if (SWTUtils.getAccelerator(e) == 'A' + SWT.CONTROL) {
 			handleCtrlAKey();
 		} else {
 			switch (e.keyCode) {
@@ -961,73 +932,56 @@ public class ThumbnailViewer extends Canvas {
 		 * items so upon completion the result is discarded. Then cancel all
 		 * outstanding operations.
 		 */
+		Set<Object> oldSelection = new HashSet<Object>(selected.size());
 		for (Iterator<ThumbnailHolder> i = thumbnails.iterator(); i.hasNext();) {
 			ThumbnailHolder th = i.next();
-			i.remove();
-			// cancel pending work
-			Future<Thumbnail> future = th.getFuture();
-			if (future != null && !future.isDone()) {
-				future.cancel(true);
-			}
-			Image image = th.getImage();
-			if (image != null) {
-				image.dispose();
-			}
+			oldSelection.add(th.getData());
 			th.dispose();
-		}
-
-		boolean selectionChanged = false;
-
-		// TODO save selection?
-		// TODO share ThumbnailHolder objects from above with below?
-		List<ThumbnailHolder> oldSelection = new ArrayList<ThumbnailHolder>(selected);
-		if (oldSelection.size() > 0) {
-			selectionChanged = true;
+			i.remove();
 		}
 		selected.clear();
+
+		// holds thumbnails that were previously selected
+		List<ThumbnailHolder> newSelection = new ArrayList<ThumbnailHolder>();
+
 		if (input != null) {
 			Object[] newThumbs = contentProvider.getThumbnails(input);
 			for (ViewerFilter filter : filters) {
 				newThumbs = filter.filter(null, (Object) null, newThumbs);
 			}
+			// if anything is still selected then scroll to show the first item
 			int x = PADDING_INSIDE;
 			for (Object o : newThumbs) {
 				File file = labelProvider.getImageFile(o);
 				String text = labelProvider.getImageText(o);
-				final ThumbnailHolder thumb = new ThumbnailHolder(file, text);
-				thumb.setOpacity(labelProvider.getOpacity(o));
-				thumb.setOverlay(labelProvider.getOverlay(o));
-				thumb.setData(o);
-				thumb.setX(x);
-				thumbnails.add(thumb);
-				x += thumb.getWidth() + PADDING_INSIDE;
-				Future<Thumbnail> future = thumbnailProvider.get(thumb.getFile(), completionListener, thumb);
-				thumb.setFuture(future);
-			}
-		}
-
-		// updateXValues();
-
-		// if anything is still selected then scroll to show the first item
-		List<ThumbnailHolder> remainingSelection = new ArrayList<ThumbnailHolder>();
-		for (ThumbnailHolder old : oldSelection) {
-			for (ThumbnailHolder holder : thumbnails) {
-				if (holder.getData() == old.getData()) {
-					// bingo
-					remainingSelection.add(holder);
-					continue;
+				final ThumbnailHolder th = new ThumbnailHolder(file, text);
+				th.setOpacity(labelProvider.getOpacity(o));
+				th.setOverlay(labelProvider.getOverlay(o));
+				th.setData(o);
+				th.setX(x);
+				thumbnails.add(th);
+				x += th.getWidth() + PADDING_INSIDE;
+				Future<Thumbnail> future = thumbnailProvider.get(th.getFile(), completionListener, th);
+				th.setFuture(future);
+				if (oldSelection.contains(o)) {
+					newSelection.add(th);
 				}
 			}
 		}
 
-		if (remainingSelection.size() > 0) {
-			scrollToDisplay(remainingSelection.get(0));
-			selected.addAll(remainingSelection);
+		if (newSelection.size() > 0) {
+			scrollToDisplay(newSelection.get(0));
+			selected.addAll(newSelection);
 		} else {
 			origin.x = 0;
 			getHorizontalBar().setSelection(-origin.x);
 		}
-		if (selectionChanged) {
+
+		/*
+		 * there is edge cases where we fire a spurious selection event, but
+		 * handler will be able to deal with that
+		 */
+		if (oldSelection.size() > 0) {
 			fireSelectionListener();
 		}
 		updateScrollBars();
@@ -1041,14 +995,6 @@ public class ThumbnailViewer extends Canvas {
 			ThumbnailHolder th = findThumbnailHolder(o);
 			thumbnails.remove(th);
 			selected.remove(th);
-			Future<Thumbnail> future = th.getFuture();
-			if (future != null && !future.isDone()) {
-				future.cancel(true);
-			}
-			Image image = th.getImage();
-			if (image != null) {
-				image.dispose();
-			}
 			thumbnailProvider.remove(th.getFile());
 			th.dispose();
 		}
@@ -1323,5 +1269,9 @@ public class ThumbnailViewer extends Canvas {
 				redraw(p.x, PADDING_TOP, CARET_WIDTH, p.y, false);
 			}
 		}
+	}
+
+	public ThumbnailProvider getThumbnailProvider() {
+		return thumbnailProvider;
 	}
 }
