@@ -18,8 +18,11 @@ import com.cgoab.offline.client.BatchUploader.BatchUploaderListener;
 import com.cgoab.offline.client.CompletionCallback;
 import com.cgoab.offline.client.PhotoUploadProgressListener;
 import com.cgoab.offline.client.UploadClient;
+import com.cgoab.offline.model.DuplicatePhotoException;
+import com.cgoab.offline.model.InvalidInsertionPointException;
 import com.cgoab.offline.model.Journal;
 import com.cgoab.offline.model.Page;
+import com.cgoab.offline.model.PageNotEditableException;
 import com.cgoab.offline.model.Photo;
 import com.cgoab.offline.model.UploadState;
 
@@ -42,7 +45,7 @@ public class BatchUploaderTest {
 	}
 
 	@Test
-	public void testUploadSucess() {
+	public void testUploadSucess() throws Exception {
 		final Mockery context = new Mockery();
 		final int docId = 1;
 		final int pageId = 100;
@@ -109,7 +112,7 @@ public class BatchUploaderTest {
 	}
 
 	@Test
-	public void testUploadPhotoFails() {
+	public void testUploadPhotoFails() throws Exception {
 		final int docId = 1;
 		final int pageId = 100;
 		final Page page = newPage(journal);
@@ -179,7 +182,7 @@ public class BatchUploaderTest {
 	}
 
 	@Test
-	public void testUploadPartiallyUploadedPage() {
+	public void testUploadPartiallyUploadedPage() throws Exception {
 		final int docId = 1;
 		final int pageId = 100;
 		final Page page = newPage(journal);

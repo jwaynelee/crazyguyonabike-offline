@@ -1,6 +1,7 @@
 package com.cgoab.offline.ui.util;
 
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.events.KeyEvent;
 import org.eclipse.swt.graphics.ImageData;
 import org.eclipse.swt.widgets.Display;
 
@@ -48,5 +49,24 @@ public class SWTUtils {
 		// destBytesPerLine is used as scanlinePad to ensure that no padding is
 		// required
 		return new ImageData(width, height, srcData.depth, srcData.palette, destBytesPerLine, newData);
+	}
+
+	public static int getAccelerator(KeyEvent event) {
+		int key = event.character;
+		if (key == 0) {
+			key = event.keyCode;
+		} else {
+			if (0 <= key && key <= 0x1F) {
+				if ((event.stateMask & SWT.CTRL) != 0) {
+					key += 0x40;
+				}
+			} else {
+				if ('a' <= key && key <= 'z') {
+					key -= 'a' - 'A';
+				}
+			}
+		}
+		int mods = event.stateMask & SWT.MODIFIER_MASK;
+		return mods + key;
 	}
 }

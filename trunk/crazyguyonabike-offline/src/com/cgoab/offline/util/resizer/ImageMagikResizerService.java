@@ -7,7 +7,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -24,19 +23,12 @@ import com.cgoab.offline.ui.util.UIExecutor;
 import com.cgoab.offline.util.FutureCompletionListener;
 import com.cgoab.offline.util.JobListener;
 
-public class ImageMagikResizerService implements FutureCompletionListener<Object>, ResizerService {
+public class ImageMagikResizerService implements FutureCompletionListener<File>, ResizerService {
 
 	private static final Logger LOG = LoggerFactory.getLogger(ImageMagikResizerService.class);
 
-	/*
-	 * File limit above which we will do the check for existing resized photo on
-	 * a background thread.
-	 */
-	// TODO tune
-	private static final int RESIZE_PHOTOS_SYNCHRONOUS_LIMIT = 10;
-
 	// modified by UI thread only (so not locked)
-	private final Map<Photo, Future<Object>> tasks = new HashMap<Photo, Future<Object>>(32);
+	private final Map<Photo, Future<File>> tasks = new HashMap<Photo, Future<File>>(32);
 
 	private final List<JobListener> listeners = new ArrayList<JobListener>();
 
@@ -116,16 +108,23 @@ public class ImageMagikResizerService implements FutureCompletionListener<Object
 				LOG.debug("Ignoring image [{}] as it does not end '.jpeg' or '.jpg'", photo.getFile().getAbsolutePath());
 				continue;
 			}
+			File sourceFile = photo.getFile();
+			File targetFile = getFileInCache(sourceFile);
+			ImageMagickResizeTask task = new ImageMagickResizeTask(magickPath, sourceFile, targetFile,
+					ImageMagikResizerService.this, photo);
+			tasks.put(photo, taskExecutor.submit(task));
+			fireUpdate();
 		}
 
-		// 2) run a new task to check each file and resize as needed...
-		CheckCacheAndResizePhotosTask resizeTask = new CheckCacheAndResizePhotosTask(photos);
-		if (photos.size() > RESIZE_PHOTOS_SYNCHRONOUS_LIMIT) {
-			taskExecutor.submit(resizeTask);
-		} else {
-			// do on calling thread...
-			resizeTask.call();
-		}
+		// // 2) run a new task to check each file and resize as needed...
+		// CheckCacheAndResizePhotosTask resizeTask = new
+		// CheckCacheAndResizePhotosTask(photos);
+		// if (photos.size() > RESIZE_PHOTOS_SYNCHRONOUS_LIMIT) {
+		// taskExecutor.submit(resizeTask);
+		// } else {
+		// // do on calling thread...
+		// resizeTask.call();
+		// }
 	}
 
 	@Override
@@ -142,12 +141,13 @@ public class ImageMagikResizerService implements FutureCompletionListener<Object
 	}
 
 	@Override
-	public void onCompletion(final Future<Object> result, final Object data) {
+	public void onCompletion(final Future<File> result, final Object data) {
 		uiExecutor.execute(new Runnable() {
 			@Override
 			public void run() {
+				Photo photo = (Photo) data;
 				try {
-					result.get();
+					photo.setResizedPhotoFile(result.get());
 				} catch (InterruptedException e) {
 					/* ignore */
 				} catch (CancellationException e) {
@@ -156,7 +156,7 @@ public class ImageMagikResizerService implements FutureCompletionListener<Object
 					// log here otherwise we'll miss the exception
 					LOG.warn("Failed to resize image", e);
 				}
-				tasks.remove((Photo) data);
+				tasks.remove(photo);
 				fireUpdate();
 			}
 		});
@@ -165,7 +165,7 @@ public class ImageMagikResizerService implements FutureCompletionListener<Object
 	@Override
 	public void cancelAll() {
 		SWTUtils.assertOnUIThread();
-		for (Entry<Photo, Future<Object>> e : new HashSet<Entry<Photo, Future<Object>>>(tasks.entrySet())) {
+		for (Entry<Photo, Future<File>> e : new HashSet<Entry<Photo, Future<File>>>(tasks.entrySet())) {
 			e.getValue().cancel(true);
 		}
 	}
@@ -175,7 +175,7 @@ public class ImageMagikResizerService implements FutureCompletionListener<Object
 		SWTUtils.assertOnUIThread();
 		// cancel any pending resize jobs for these photos, then remove files
 		for (Photo photo : photos) {
-			Future<Object> job = tasks.get(photo);
+			Future<File> job = tasks.get(photo);
 			if (job != null) {
 				job.cancel(true);
 				try {
@@ -192,53 +192,5 @@ public class ImageMagikResizerService implements FutureCompletionListener<Object
 			}
 		}
 		fireUpdate();
-	}
-
-	private class CheckCacheAndResizePhotosTask implements Callable<Object> {
-
-		private final List<Photo> photos;
-
-		public CheckCacheAndResizePhotosTask(List<Photo> photos) {
-			this.photos = photos;
-		}
-
-		@Override
-		public Object call() {
-			final List<Photo> filesToResize = new ArrayList<Photo>();
-			for (Photo photo : photos) {
-				File sourceFile = photo.getFile();
-				File targetFile = getFileInCache(sourceFile);
-				if (targetFile.exists()) {
-					if (targetFile.lastModified() >= sourceFile.lastModified()) {
-						// already resized
-						continue;
-					}
-					// delete the old resized image and start again
-					targetFile.delete();
-				}
-				filesToResize.add(photo);
-			}
-
-			// 3) start new jobs to resize the photos
-			uiExecutor.execute(new Runnable() {
-				@Override
-				public void run() {
-					addResizeTasks(filesToResize);
-				}
-			});
-			return null;
-		}
-
-		private void addResizeTasks(List<Photo> files) {
-			SWTUtils.assertOnUIThread();
-			for (Photo photo : files) {
-				File sourceFile = photo.getFile();
-				File targetFile = getFileInCache(sourceFile);
-				ImageMagickResizeTask task = new ImageMagickResizeTask(magickPath, sourceFile, targetFile,
-						ImageMagikResizerService.this, photo);
-				tasks.put(photo, taskExecutor.submit(task));
-				fireUpdate();
-			}
-		}
 	}
 }

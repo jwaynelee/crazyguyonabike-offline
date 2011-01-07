@@ -6,7 +6,6 @@ import java.util.concurrent.Future;
 import org.eclipse.swt.graphics.Image;
 
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailProvider.Thumbnail;
-import com.drew.metadata.Metadata;
 
 /**
  * Holder for thumbnail image data and associated detail such as filename and
@@ -17,67 +16,63 @@ import com.drew.metadata.Metadata;
  */
 public class ThumbnailHolder {
 
-	private Image image;
+	private Object data;
 
 	private boolean disposed = false;
 
-	private final int width = ThumbnailViewer.THUMBNAIL_WIDTH + ThumbnailViewer.PADDING_INSIDE
-			+ ThumbnailViewer.PADDING_INSIDE;
+	private boolean failedToLoad;
+
+	private final File file;
+
+	private Future<Thumbnail> future;
 
 	private final int height = ThumbnailViewer.THUMBNAIL_HEIGHT + ThumbnailViewer.PADDING_INSIDE
 			+ ThumbnailViewer.TEXT_HEIGHT;
-
-	// absolute x location of this widget
-	private int x;
-
-	private Metadata meta;
-
-	private File file;
-
-	private String txt;
-
-	private Object data;
 
 	private int opacity;
 
 	private Image overlay;
 
-	private boolean failedToLoad;
+	private String text;
 
-	private Future<Thumbnail> future;
+	private final int width = ThumbnailViewer.THUMBNAIL_WIDTH + ThumbnailViewer.PADDING_INSIDE
+			+ ThumbnailViewer.PADDING_INSIDE;
+
+	// absolute x location of this widget
+	private int x;
+
+	private Image image;
 
 	public ThumbnailHolder(File file, String txt) {
 		this.file = file;
-		this.txt = txt;
+		this.text = txt;
 	}
 
-	public void setOpacity(int opacity) {
-		this.opacity = opacity;
-	}
-
-	public int getOpacity() {
-		return opacity;
-	}
-
-	public void setOverlay(Image overlay) {
-		this.overlay = overlay;
-	}
-
-	public Image getOverlay() {
-		return overlay;
-	}
-
-	public void setData(Object data) {
-		this.data = data;
+	public void dispose() {
+		if (!disposed) {
+			disposed = true;
+			if (image != null) {
+				image.dispose();
+			}
+			if (future != null && !future.isDone()) {
+				future.cancel(true);
+			}
+		}
 	}
 
 	public Object getData() {
+		throwIfDisposed();
 		return data;
 	}
 
-	public String getText() {
+	public File getFile() {
 		throwIfDisposed();
-		return txt;
+		return file;
+	}
+
+	public Future<Thumbnail> getFuture() {
+		throwIfDisposed();
+		return future;
 	}
 
 	public int getHeight() {
@@ -85,29 +80,75 @@ public class ThumbnailHolder {
 		return height;
 	}
 
+	public int getOpacity() {
+		throwIfDisposed();
+		return opacity;
+	}
+
+	public Image getOverlay() {
+		throwIfDisposed();
+		return overlay;
+	}
+
+	public String getText() {
+		throwIfDisposed();
+		return text;
+	}
+
 	public int getWidth() {
 		throwIfDisposed();
 		return width;
 	}
 
-	public Image getImage() {
+	public int getX() {
 		throwIfDisposed();
-		return image;
+		return x;
 	}
 
-	public void setImage(Image image) {
+	// returns true if the given x co-ordinate is over this image
+	public boolean inside(int x, int y) {
 		throwIfDisposed();
-		this.image = image;
+		if (x > this.x && x < (this.x + width)) {
+			return y > ThumbnailViewer.PADDING_TOP && y < (ThumbnailViewer.PADDING_TOP + height);
+		}
+		return false;
 	}
 
-	public void setMeta(Metadata meta) {
-		throwIfDisposed();
-		this.meta = meta;
+	public boolean isDisposed() {
+		return disposed;
 	}
 
-	public File getFile() {
+	public boolean isFailedToLoad() {
 		throwIfDisposed();
-		return file;
+		return failedToLoad;
+	}
+
+	public void setData(Object data) {
+		throwIfDisposed();
+		this.data = data;
+	}
+
+	public void setFailedToLoad(boolean failedToLoad) {
+		throwIfDisposed();
+		this.failedToLoad = failedToLoad;
+	}
+
+	public void setFuture(Future<Thumbnail> future) {
+		throwIfDisposed();
+		if (this.future != null) {
+			throw new IllegalStateException();
+		}
+		this.future = future;
+	}
+
+	public void setOpacity(int opacity) {
+		throwIfDisposed();
+		this.opacity = opacity;
+	}
+
+	public void setOverlay(Image overlay) {
+		throwIfDisposed();
+		this.overlay = overlay;
 	}
 
 	/**
@@ -121,62 +162,24 @@ public class ThumbnailHolder {
 		this.x = x;
 	}
 
-	public int getX() {
-		throwIfDisposed();
-		return x;
-	}
-
-	public Metadata getMeta() {
-		throwIfDisposed();
-		return meta;
-	}
-
-	// returns true if the given x co-ordinate is over this image
-	public boolean inside(int x, int y) {
-		throwIfDisposed();
-		if (x > this.x && x < (this.x + width)) {
-			return y > ThumbnailViewer.PADDING_TOP && y < (ThumbnailViewer.PADDING_TOP + height);
-		}
-		return false;
-	}
-
-	public synchronized boolean isDisposed() {
-		return disposed;
-	}
-
-	public void dispose() {
-		if (image != null) {
-			image.dispose();
-		}
-		if (overlay != null) {
-			// overlay.dispose();
-		}
-		image = null;
-		disposed = true;
-	}
-
 	private void throwIfDisposed() {
 		if (disposed) {
 			throw new IllegalStateException("Already disposed");
 		}
 	}
 
-	public void setFailedToLoad(boolean failedToLoad) {
-		this.failedToLoad = failedToLoad;
+	@Override
+	public String toString() {
+		return file.getName();
 	}
 
-	public boolean isFailedToLoad() {
-		return failedToLoad;
+	public void setImage(Image image) {
+		throwIfDisposed();
+		this.image = image;
 	}
 
-	public void setFuture(Future<Thumbnail> future) {
-		if (this.future != null) {
-			throw new IllegalStateException();
-		}
-		this.future = future;
-	}
-
-	public Future<Thumbnail> getFuture() {
-		return future;
+	public Image getImage() {
+		throwIfDisposed();
+		return image;
 	}
 }

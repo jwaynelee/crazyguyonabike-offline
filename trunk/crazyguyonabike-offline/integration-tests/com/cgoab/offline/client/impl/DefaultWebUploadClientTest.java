@@ -3,16 +3,20 @@ package com.cgoab.offline.client.impl;
 import java.util.Scanner;
 import java.util.concurrent.CountDownLatch;
 
+import org.apache.http.impl.client.BasicCookieStore;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
+import com.cgoab.offline.Application;
 import com.cgoab.offline.client.CompletionCallback;
+import com.cgoab.offline.client.web.DefaultWebUploadClient;
 
 public class DefaultWebUploadClientTest {
 
-	DefaultWebUploadClient impl = new DefaultWebUploadClient(null);
+	DefaultWebUploadClient impl = new DefaultWebUploadClient(Application.CRAZYGUYONABIKE_HOST,
+			Application.CRAZYGUYONABIKE_PORT, new BasicCookieStore());
 	private static String password, username;
 
 	static {

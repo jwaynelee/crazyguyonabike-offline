@@ -47,7 +47,7 @@
 				<attribute name="Specification-Title" value="${ant.project.name}" />
 				<attribute name="Specification-Version" value="${version}" />
 				<attribute name="Implementation-Title" value="${ant.project.name}" />
-				<attribute name="Implementation-Version" value="${version} ${TODAY}" />
+				<attribute name="Implementation-Version" value="${version} (build ${TODAY})" />
 			</manifest>
 			<fileset dir="${src.dir}" excludes="*.java" />
 			<!-- .log, .properties etc -->

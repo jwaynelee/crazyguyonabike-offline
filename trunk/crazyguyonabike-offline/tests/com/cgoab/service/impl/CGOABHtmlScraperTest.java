@@ -7,7 +7,7 @@ import org.htmlcleaner.HtmlCleaner;
 import org.junit.Assert;
 import org.junit.Test;
 
-import com.cgoab.offline.client.impl.CGOABHtmlUtils;
+import com.cgoab.offline.client.web.CGOABHtmlUtils;
 
 public class CGOABHtmlScraperTest {
 

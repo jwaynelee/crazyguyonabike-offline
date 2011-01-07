@@ -6,14 +6,17 @@ import java.awt.Desktop;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Method;
+import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.apache.http.client.CookieStore;
 import org.eclipse.jface.action.Action;
 import org.eclipse.jface.action.IAction;
 import org.eclipse.jface.action.IMenuListener;
@@ -88,6 +91,8 @@ import org.joda.time.LocalDate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.cgoab.offline.client.UploadClientFactory;
+import com.cgoab.offline.client.web.FileCookieStore;
 import com.cgoab.offline.model.Journal;
 import com.cgoab.offline.model.JournalAdapter;
 import com.cgoab.offline.model.JournalXmlLoader;
@@ -110,6 +115,7 @@ import com.cgoab.offline.util.resizer.ImageMagickResizerServiceFactory;
 import com.cgoab.offline.util.resizer.ResizerService;
 import com.drew.metadata.Metadata;
 import com.drew.metadata.MetadataException;
+import com.drew.metadata.exif.ExifDirectory;
 import com.drew.metadata.jpeg.JpegDirectory;
 
 public class PageEditor {
@@ -120,18 +126,8 @@ public class PageEditor {
 	private ImageMagickResizerServiceFactory resizerServiceFactory;
 
 	private Journal getCurrentJournal() {
-		IStructuredSelection selection = (IStructuredSelection) treeViewer.getSelection();
-		if (selection.size() != 1) {
-			return null;
-		}
-		Object first = selection.getFirstElement();
-		if (first instanceof Journal) {
-			return (Journal) first;
-		}
-		if (first instanceof Page) {
-			return ((Page) first).getJournal();
-		}
-		return null;
+		Object input = treeViewer.getInput();
+		return input instanceof JournalHolder ? ((JournalHolder) input).getJournal() : null;
 	}
 
 	abstract class ActionWithJournal extends Action {
@@ -218,6 +214,15 @@ public class PageEditor {
 		}
 	};
 
+	IAction toggleHideUploadedContent = new ActionWithJournal("Hide uploaded", Action.AS_CHECK_BOX) {
+		public void run(Journal journal) {
+			journal.setHideUploadedContent(!journal.isHideUploadedContent());
+			setChecked(journal.isHideUploadedContent());
+			treeViewer.refresh();
+			thumbViewer.refresh();
+		}
+	};
+
 	IAction toggleResizePhotos = new ActionWithJournal("Resize photos", Action.AS_CHECK_BOX) {
 		public void run(Journal journal) {
 			Boolean currentSetting = journal.isResizeImagesBeforeUpload();
@@ -239,7 +244,7 @@ public class PageEditor {
 		}
 	};
 
-	private IAction toggleUseExifThumbnailAction = new ActionWithJournal("Use EXIF thumbnail", Action.AS_CHECK_BOX) {
+	IAction toggleUseExifThumbnailAction = new ActionWithJournal("Use EXIF thumbnail", Action.AS_CHECK_BOX) {
 		@Override
 		public void run(Journal journal) {
 			CachingThumbnailProvider provider = thumbnailProviderFactory.getOrCreateThumbnailProvider(journal);
@@ -282,7 +287,7 @@ public class PageEditor {
 
 	private Button btnItalic;
 
-	private Button btnSortByDate;
+	// private Button btnSortByDate;
 
 	private Button btnSortByName;
 
@@ -484,10 +489,15 @@ public class PageEditor {
 
 	private StatusUpdater statusListener;
 	private CachingThumbnailProviderFactory thumbnailProviderFactory;
+	private UploadClientFactory uploadFactory;
 
 	public PageEditor(Shell shell) {
 		this.shell = shell;
-		shell.setText("CGOAB Offline");
+		String name = Utils.getNameString(getClass());
+		String version = Utils.getVersionString(getClass());
+		name = name == null ? "?" : name;
+		version = version == null ? "?" : version;
+		shell.setText(name + " : " + version);
 	}
 
 	public void afterUpload(Page errorPage, Photo errorPhoto) {
@@ -532,11 +542,7 @@ public class PageEditor {
 			public void handleEvent(Event event) {
 				if (currentPage != null) {
 					PhotosOrder order = null;
-					if (event.widget == btnSortByDate) {
-						if (btnSortByDate.getSelection()) {
-							order = PhotosOrder.DATE;
-						}
-					} else if (event.widget == btnSortByName) {
+					if (event.widget == btnSortByName) {
 						if (btnSortByName.getSelection()) {
 							order = PhotosOrder.NAME;
 						}
@@ -557,7 +563,7 @@ public class PageEditor {
 			}
 		};
 		btnSortManual.addListener(SWT.Selection, btnSortSelectionListener);
-		btnSortByDate.addListener(SWT.Selection, btnSortSelectionListener);
+		// btnSortByDate.addListener(SWT.Selection, btnSortSelectionListener);
 		btnSortByName.addListener(SWT.Selection, btnSortSelectionListener);
 	}
 
@@ -646,6 +652,7 @@ public class PageEditor {
 
 	private void createActions(Shell shell) {
 		uploadAction = new UploadAction(shell, this);
+		uploadAction.setUploadFactory(uploadFactory);
 		uploadAction.setThumbnailFactory(thumbnailProviderFactory);
 		uploadAction.setResizerFactory(resizerServiceFactory);
 		uploadAction.setPreferences(preferences);
@@ -654,14 +661,19 @@ public class PageEditor {
 	private void createControls(final Shell shell) {
 		GridLayout layout = new GridLayout(1, false);
 		shell.setLayout(layout);
-		SashForm sash = new SashForm(shell, SWT.HORIZONTAL);
-		sash.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
-		createTreeViewer(sash);
-		createEditorUI(sash);
-		sash.setWeights(new int[] { 1, 3 });
-
-		createThumbnailViewer(shell);
-
+		SashForm sashV = new SashForm(shell, SWT.VERTICAL);
+		SashForm sashH = new SashForm(sashV, SWT.HORIZONTAL);
+		sashH.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
+		sashV.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
+		createTreeViewer(sashH);
+		createEditorUI(sashH);
+		Composite thumbViewerGroup = new Composite(sashV, SWT.NONE);
+		thumbViewerGroup.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
+		thumbViewerGroup.setLayout(new GridLayout());
+		createThumbnailViewer(thumbViewerGroup);
+		sashV.setWeights(new int[] { 4, 3 });
+		sashH.setWeights(new int[] { 1, 3 });
+		
 		// status & progress bar
 		statusBar = new Label(shell, SWT.NONE);
 		statusBar.setText("");
@@ -671,12 +683,7 @@ public class PageEditor {
 	private void createEditorUI(Composite parent) {
 		Composite editorComposite = new Composite(parent, SWT.BORDER);
 		editorComposite.setLayout(new GridLayout(4, false));
-		GridData data = new GridData();
-		data.horizontalAlignment = SWT.FILL;
-		data.verticalAlignment = SWT.FILL;
-		data.grabExcessHorizontalSpace = true;
-		data.grabExcessVerticalSpace = true;
-		editorComposite.setLayoutData(data);
+		editorComposite.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
 
 		// style
 		Label styleLabel = new Label(editorComposite, SWT.NONE);
@@ -775,9 +782,9 @@ public class PageEditor {
 
 		FontData fd = new FontData("Tahoma", 10, SWT.NONE);
 		textInput.getTextWidget().setFont(new Font(shell.getDisplay(), fd));
-		data = new GridData(SWT.FILL, SWT.FILL, true, true, 4, 1);
-		// 8 lines of text
-		data.heightHint = textInput.getTextWidget().getLineHeight() * 8;
+		GridData data = new GridData(SWT.FILL, SWT.FILL, true, true, 4, 1);
+		// 6 lines of text
+		data.heightHint = textInput.getTextWidget().getLineHeight() * 6;
 		GC tempGC = new GC(textInput.getTextWidget());
 		int averageCharWidth = tempGC.getFontMetrics().getAverageCharWidth();
 		tempGC.dispose();
@@ -906,8 +913,8 @@ public class PageEditor {
 		shell.setMenuBar(menuBar);
 	}
 
-	private void createThumbnailViewer(Shell shell) {
-		thumbViewer = new ThumbnailViewer(shell);
+	private void createThumbnailViewer(Composite parent) {
+		thumbViewer = new ThumbnailViewer(parent);
 		// thumbViewer.setCache(thumbnailCache);
 		thumbViewer.setLayoutData(new GridData(SWT.FILL, SWT.BOTTOM, true, false));
 		thumbViewer.setContentProvider(new PhotosContentProvider(this));
@@ -915,7 +922,7 @@ public class PageEditor {
 		thumbViewer.addFilter(new ViewerFilter() {
 			@Override
 			public boolean select(Viewer viewer, Object parentElement, Object element) {
-				if (isHideUploadedPhotosAndPages()) {
+				if (getCurrentJournal().isHideUploadedContent()) {
 					Photo p = (Photo) element;
 					return p.getState() != UploadState.UPLOADED;
 				}
@@ -943,8 +950,8 @@ public class PageEditor {
 		});
 		// thumbnails.addErrorListener();
 
-		Composite captionComposite = new Composite(shell, SWT.NONE);
-		captionComposite.setLayoutData(new GridData(SWT.FILL, SWT.BOTTOM, true, false));
+		Composite captionComposite = new Composite(parent, SWT.NONE);
+		captionComposite.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
 		captionComposite.setLayout(new GridLayout(4, false));
 
 		Label captionLabel = new Label(captionComposite, SWT.NONE);
@@ -954,7 +961,7 @@ public class PageEditor {
 		// captionText.setSize(SWT.DEFAULT, 50);
 		captionText.getControl().setEnabled(false);
 		FontData fd = new FontData("Tahoma", 10, SWT.NONE);
-		captionText.getControl().setFont(new Font(shell.getDisplay(), fd));
+		captionText.getControl().setFont(new Font(parent.getDisplay(), fd));
 		GridData gridData = new GridData(SWT.FILL, SWT.FILL, true, true);
 		// GC tempGC = new GC(captionText.getTextWidget());
 		// int averageCharWidth = tempGC.getFontMetrics().getAverageCharWidth();
@@ -977,14 +984,14 @@ public class PageEditor {
 		layout2.spacing = 5;
 		layout2.pack = true;
 		sortGroup.setLayout(layout2);
-		btnSortByDate = new Button(sortGroup, SWT.RADIO);
-		btnSortByDate.setText("date");
+		// btnSortByDate = new Button(sortGroup, SWT.RADIO);
+		// btnSortByDate.setText("date");
 		btnSortByName = new Button(sortGroup, SWT.RADIO);
 		btnSortByName.setText("name");
 		btnSortManual = new Button(sortGroup, SWT.RADIO);
 		btnSortManual.setText("manual");
 		sortGroup.setLayoutData(new GridData(SWT.RIGHT, SWT.TOP, false, false));
-		orderByButtonMap.put(PhotosOrder.DATE, btnSortByDate);
+		// orderByButtonMap.put(PhotosOrder.DATE, btnSortByDate);
 		orderByButtonMap.put(PhotosOrder.NAME, btnSortByName);
 		orderByButtonMap.put(PhotosOrder.MANUAL, btnSortManual);
 	}
@@ -1001,19 +1008,20 @@ public class PageEditor {
 		treeViewer = new TreeViewer(treeComposite);
 		data = new GridData(SWT.FILL, SWT.FILL, true, true);
 		treeViewer.getTree().setLayoutData(data);
-		Group filterGroup = new Group(treeComposite, SWT.SHADOW_IN);
-		filterGroup.setLayout(new FillLayout());
-		btnHideUploaded = new Button(filterGroup, SWT.CHECK | SWT.WRAP);
-		btnHideUploaded.setText("hide uploaded photos && pages");
-		btnHideUploaded.setSelection(true);
-		btnHideUploaded.addSelectionListener(new SelectionAdapter() {
-			@Override
-			public void widgetSelected(SelectionEvent e) {
-				treeViewer.refresh();
-				thumbViewer.refresh();
-			}
-		});
-		filterGroup.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
+		// Group filterGroup = new Group(treeComposite, SWT.SHADOW_IN);
+		// filterGroup.setLayout(new FillLayout());
+		// btnHideUploaded = new Button(filterGroup, SWT.CHECK | SWT.WRAP);
+		// btnHideUploaded.setText("hide uploaded photos && pages");
+		// btnHideUploaded.setSelection(true);
+		// btnHideUploaded.addSelectionListener(new SelectionAdapter() {
+		// @Override
+		// public void widgetSelected(SelectionEvent e) {
+		// treeViewer.refresh();
+		// thumbViewer.refresh();
+		// }
+		// });
+		// filterGroup.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true,
+		// false));
 
 		TreeViewerEditor.create(treeViewer, new ColumnViewerEditorActivationStrategy(treeViewer) {
 			@Override
@@ -1036,7 +1044,7 @@ public class PageEditor {
 			public boolean select(Viewer viewer, Object parentElement, Object element) {
 				if (element instanceof Page) {
 					// filters uploaded pages
-					if (isHideUploadedPhotosAndPages()) {
+					if (getCurrentJournal().isHideUploadedContent()) {
 						return ((Page) element).getState() != UploadState.UPLOADED;
 					}
 				}
@@ -1149,6 +1157,8 @@ public class PageEditor {
 						manager.add(new Separator());
 					}
 
+					manager.add(toggleHideUploadedContent);
+					manager.add(new Separator());
 					manager.add(toggleResizePhotos);
 					manager.add(openResizedPhotosFolder);
 					manager.add(purgeResizedPhotos);
@@ -1246,10 +1256,6 @@ public class PageEditor {
 			}
 		}
 		throw new IllegalStateException();
-	}
-
-	public boolean isHideUploadedPhotosAndPages() {
-		return btnHideUploaded.getSelection();
 	}
 
 	/**
@@ -1365,6 +1371,8 @@ public class PageEditor {
 	}
 
 	private void bindJournal(Journal journal) {
+		toggleHideUploadedContent.setChecked(journal.isHideUploadedContent());
+
 		// wire up image resizer service if required and update action
 		if (journal.isResizeImagesBeforeUpload() == Boolean.TRUE) {
 			registerPhotoResizer(journal, true);
@@ -1373,14 +1381,12 @@ public class PageEditor {
 
 		// wire up thumbnail provider (always needed)
 		CachingThumbnailProvider thumbProvider = thumbnailProviderFactory.getOrCreateThumbnailProvider(journal);
-		if (journal.isUseExifThumbnail() == null) {
-			// not set, default to provider (TODO move to question on first load
-			// of photo)
-			journal.setUseExifThumbnail(thumbProvider.isUseExifThumbnail());
-		} else {
-			thumbProvider.setUseExifThumbnail(journal.isUseExifThumbnail());
-		}
+		/*
+		 * if the journal is new it will be set to "null", when first photos are
+		 * added then we'll decide
+		 */
 		toggleUseExifThumbnailAction.setChecked(thumbProvider.isUseExifThumbnail());
+
 		thumbProvider.addJobListener(statusListener.thumnailListener);
 		thumbViewer.setThumbnailProvider(thumbProvider);
 
@@ -1424,8 +1430,8 @@ public class PageEditor {
 		 * together
 		 */
 		pageEditorWidgets = Arrays.asList(btnItalic, btnBold, cmbFormat, cmbIndent, cmbHeadingStyle, titleInput,
-				headlineInput, distanceInput, dateInput, textInput.getTextWidget(), thumbViewer, btnSortByDate,
-				btnSortByName, btnSortManual);
+				headlineInput, distanceInput, dateInput, textInput.getTextWidget(), thumbViewer, btnSortByName,
+				btnSortManual);
 
 		setEditorControlsState(EditorState.DISABLED);
 
@@ -1616,6 +1622,10 @@ public class PageEditor {
 		}
 	}
 
+	public void setUploadFactory(UploadClientFactory uploadFactory) {
+		this.uploadFactory = uploadFactory;
+	}
+
 	public void setPreferences(Preferences preferences) {
 		this.preferences = preferences;
 	}
@@ -1781,12 +1791,26 @@ public class PageEditor {
 		// }
 		// }
 
-		private String getDimensions(Metadata meta) {
-			JpegDirectory jpeg = (JpegDirectory) meta.getDirectory(JpegDirectory.class);
-			if (jpeg != null) {
+		private String getPhotoDateTime(Metadata meta) {
+			if (meta.containsDirectory(ExifDirectory.class)) {
 				try {
+					ExifDirectory exifDirectory = (ExifDirectory) meta.getDirectory(ExifDirectory.class);
+					Date d = exifDirectory.getDate(ExifDirectory.TAG_DATETIME_ORIGINAL);
+					return DateFormat.getDateTimeInstance().format(d);
+				} catch (Exception e) {
+					/* ignore */
+				}
+			}
+			return "";
+		}
+
+		private String getDimensions(Metadata meta) {
+			if (meta.containsDirectory(JpegDirectory.class)) {
+				try {
+					JpegDirectory jpeg = (JpegDirectory) meta.getDirectory(JpegDirectory.class);
 					return jpeg.getImageWidth() + " x " + jpeg.getImageHeight();
-				} catch (MetadataException e) {
+				} catch (Exception e) {
+					/* ignore */
 				}
 			}
 			return "";
@@ -1810,6 +1834,12 @@ public class PageEditor {
 						b.append(" (");
 						b.append(Utils.formatBytes(photo.getFile().length()));
 						b.append(") ");
+						if (meta != null) {
+							String takenOn = getPhotoDateTime(meta);
+							if (!takenOn.isEmpty()) {
+								b.append(" : taken on ").append(takenOn).append(" ");
+							}
+						}
 					}
 				}
 			}
@@ -1875,4 +1905,9 @@ public class PageEditor {
 	TreeViewer getJournalTreeViewer() {
 		return treeViewer;
 	}
+
+	public CachingThumbnailProviderFactory getThumbnailProviderFactory() {
+		return thumbnailProviderFactory;
+	}
+
 }

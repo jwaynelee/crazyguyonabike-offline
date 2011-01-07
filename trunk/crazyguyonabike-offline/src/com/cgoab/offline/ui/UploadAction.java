@@ -1,6 +1,5 @@
 package com.cgoab.offline.ui;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -9,16 +8,13 @@ import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.MessageBox;
 import org.eclipse.swt.widgets.Shell;
 
-import com.cgoab.offline.client.PhotoFileResolver;
 import com.cgoab.offline.client.UploadClient;
-import com.cgoab.offline.client.impl.DefaultWebUploadClient;
+import com.cgoab.offline.client.UploadClientFactory;
 import com.cgoab.offline.client.mock.MockClient;
 import com.cgoab.offline.model.Journal;
 import com.cgoab.offline.model.Page;
-import com.cgoab.offline.model.Photo;
 import com.cgoab.offline.ui.UploadDialog.UploadResult;
 import com.cgoab.offline.ui.thumbnailviewer.CachingThumbnailProviderFactory;
-import com.cgoab.offline.util.resizer.ResizerService;
 import com.cgoab.offline.util.resizer.ImageMagickResizerServiceFactory;
 
 /**
@@ -31,11 +27,16 @@ public class UploadAction extends Action {
 	private Preferences preferences;
 	private CachingThumbnailProviderFactory thumbnailFactory;
 	private ImageMagickResizerServiceFactory resizerFactory;
+	private UploadClientFactory factory;
 
 	public UploadAction(Shell shell, PageEditor editor) {
-		super("Upload");
+		super("Upload Journal");
 		this.shell = shell;
 		this.editor = editor;
+	}
+
+	public void setUploadFactory(UploadClientFactory factory) {
+		this.factory = factory;
 	}
 
 	public void setThumbnailFactory(CachingThumbnailProviderFactory thumbnailFactory) {
@@ -54,16 +55,7 @@ public class UploadAction extends Action {
 		if (Boolean.valueOf(preferences.getValue(Preferences.USE_MOCK_IMPL_PATH))) {
 			return new MockClient();
 		} else {
-			final ResizerService service = resizerFactory.getResizerFor(journal);
-			return new DefaultWebUploadClient(new PhotoFileResolver() {
-				@Override
-				public File getFileFor(Photo photo) {
-					if (service == null) {
-						return null;
-					}
-					return service.getResizedPhotoFile(photo.getFile());
-				}
-			});
+			return factory.newClient();
 		}
 	}
 

@@ -1,5 +1,6 @@
 package com.cgoab.offline.client.mock;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -156,5 +157,10 @@ public class MockClient extends AbstractUploadClient {
 
 	public void setOperationDelay(int delay) {
 		this.delay = delay;
+	}
+
+	@Override
+	public String toString() {
+		return getClass().getSimpleName();
 	}
 }

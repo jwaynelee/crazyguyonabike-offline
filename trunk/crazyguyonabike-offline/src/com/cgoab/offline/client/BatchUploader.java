@@ -209,7 +209,6 @@ public class BatchUploader {
 	}
 
 	private BatchUploaderListener listener;
-	private PhotoFileResolver photoFileResolver;
 
 	public void setListener(BatchUploaderListener listener) {
 		this.listener = listener;
@@ -234,9 +233,5 @@ public class BatchUploader {
 		public abstract void retryPage(Page page, Throwable error, int retryCount);
 
 		public abstract void uploadPhotoProgress(Photo photo, long bytes, long total);
-	}
-
-	public void setPhotoFileResolver(PhotoFileResolver photoFileResolver) {
-		this.photoFileResolver = photoFileResolver;
 	}
 }

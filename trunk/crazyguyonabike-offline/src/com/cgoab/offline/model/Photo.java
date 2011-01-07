@@ -7,13 +7,23 @@ import org.eclipse.jface.text.IDocument;
 
 import com.cgoab.offline.util.Assert;
 
-public class Photo implements Cloneable {
+public class Photo {
 
 	private IDocument captionDocument;
 
 	private File file;
 
 	private UploadState state = UploadState.NEW;
+
+	/* transient, not persisted */
+	private File resizedPhotoFile;
+
+	public Photo() {
+	}
+
+	public Photo(File file) {
+		setFile(file);
+	}
 
 	public String getCaption() {
 		return captionDocument == null ? null : captionDocument.get();
@@ -53,21 +63,17 @@ public class Photo implements Cloneable {
 	// }
 
 	@Override
-	public Photo clone() {
-		try {
-			return (Photo) super.clone();
-		} catch (CloneNotSupportedException e) {
-			throw new AssertionError();
-		}
-	}
-
-	@Override
 	public String toString() {
 		return String.format("Photo [%s]", file.getName());
 	}
 
+	@Override
+	public int hashCode() {
+		return file.getName().hashCode();
+	}
+
 	/**
-	 * Equality defined by file name of the photo.
+	 * Equality defined by local file name of the photo.
 	 */
 	@Override
 	public boolean equals(Object obj) {
@@ -75,5 +81,13 @@ public class Photo implements Cloneable {
 			return file.getName().equals(((Photo) obj).getFile().getName());
 		}
 		return false;
+	}
+
+	public void setResizedPhotoFile(File resizedPhotoFile) {
+		this.resizedPhotoFile = resizedPhotoFile;
+	}
+
+	public File getResizedPhoto() {
+		return resizedPhotoFile;
 	}
 }
