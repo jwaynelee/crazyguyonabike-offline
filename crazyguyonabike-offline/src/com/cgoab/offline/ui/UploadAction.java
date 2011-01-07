@@ -61,12 +61,7 @@ public class UploadAction extends Action {
 
 	@Override
 	public void run() {
-
-		Object o = editor.getSelectedJournalOrPage();
-		if (o == null || !(o instanceof Journal)) {
-			return;
-		}
-		Journal journal = (Journal) o;
+		Journal journal = editor.getCurrentJournal();
 		editor.saveJournal(journal, false);
 
 		// block until all photos in journal are resized

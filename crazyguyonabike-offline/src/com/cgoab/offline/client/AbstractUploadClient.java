@@ -2,7 +2,6 @@ package com.cgoab.offline.client;
 
 import java.io.IOException;
 
-
 public abstract class AbstractUploadClient implements UploadClient {
 
 	private Task<?> currentTask;
@@ -76,7 +75,7 @@ public abstract class AbstractUploadClient implements UploadClient {
 			current = currentTask;
 		}
 
-		if (current != null) {
+		if (current != null && current.callback != null) {
 			current.callback.retryNotify(exception, executionCount);
 		}
 	}
