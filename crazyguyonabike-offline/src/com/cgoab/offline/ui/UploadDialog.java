@@ -53,9 +53,7 @@ import com.cgoab.offline.ui.thumbnailviewer.ThumbnailProvider;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailProvider.Thumbnail;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailViewer;
 import com.cgoab.offline.ui.util.ErrorBoxWithHtml;
-import com.cgoab.offline.ui.util.UIThreadCallbackMarsheller;
 import com.cgoab.offline.util.Utils;
-import com.cgoab.offline.util.resizer.ResizerService;
 
 public class UploadDialog {
 
@@ -127,10 +125,6 @@ public class UploadDialog {
 				}
 			}
 		});
-	}
-
-	private void asyncExec(Runnable work) {
-		shell.getDisplay().asyncExec(work);
 	}
 
 	private void createDocumentViewer(Shell shell) {
@@ -207,34 +201,23 @@ public class UploadDialog {
 		client.login(username, password, new CompletionCallback<String>() {
 			@Override
 			public void onCompletion(final String actualUsername) {
-				asyncExec(new Runnable() {
-					@Override
-					public void run() {
-						log("Logged in as " + actualUsername);
-						statusLine.setText("Logged in as \"" + actualUsername + "\" ("
-								+ client.getCurrentUserRealName() + ")");
-						if (username == null) {
-							txtUsername.setText(actualUsername);
-						}
-						setEnabledTo(true, btnLogout);
-					}
-				});
+				log("Logged in as " + actualUsername);
+				statusLine.setText("Logged in as \"" + actualUsername + "\" (" + client.getCurrentUserRealName() + ")");
+				if (username == null) {
+					txtUsername.setText(actualUsername);
+				}
+				setEnabledTo(true, btnLogout);
 				refreshDocumentList(journal.getDocIdHint());
 			}
 
 			@Override
 			public void onError(final Throwable t) {
-				asyncExec(new Runnable() {
-					@Override
-					public void run() {
-						statusLine.setText(NOT_LOGGED_IN_TXT);
-						setEnabledTo(true, txtUsername, txtPassword, btnLogin);
-						if (username != null) {
-							// don't prompt if we just did an auto-login
-							showError("logging in", "Failed to login to the server", t);
-						}
-					}
-				});
+				statusLine.setText(NOT_LOGGED_IN_TXT);
+				setEnabledTo(true, txtUsername, txtPassword, btnLogin);
+				if (username != null) {
+					// don't prompt if we just did an auto-login
+					showError("logging in", "Failed to login to the server", t);
+				}
 			}
 
 			@Override
@@ -250,23 +233,13 @@ public class UploadDialog {
 		client.logout(new CompletionCallback<Void>() {
 			@Override
 			public void onCompletion(Void result) {
-				asyncExec(new Runnable() {
-					@Override
-					public void run() {
-						restoreUI();
-					}
-				});
+				restoreUI();
 			}
 
 			@Override
 			public void onError(Throwable exception) {
 				// TODO handle error?
-				asyncExec(new Runnable() {
-					@Override
-					public void run() {
-						restoreUI();
-					}
-				});
+				restoreUI();
 			}
 
 			private void restoreUI() {
@@ -294,8 +267,6 @@ public class UploadDialog {
 
 	private ThumbnailProvider thumbnailProvider;
 
-	private ResizerService resizerService;
-
 	private void doUpload() {
 		// disable UI
 		setEnabledTo(false, btnUpload, btnLogout, documentTable.getTable());
@@ -306,11 +277,12 @@ public class UploadDialog {
 		btnCancel.removeSelectionListener(closeShellListener);
 		btnCancel.addSelectionListener(cancelCurrentOperationListener);
 
-		final int documentID = ((DocumentDescription) ((IStructuredSelection) documentTable.getSelection())
-				.getFirstElement()).getDocumentId();
+		final DocumentDescription selectedDocument = (DocumentDescription) ((IStructuredSelection) documentTable
+				.getSelection()).getFirstElement();
+		selectedDocument.getDocumentId();
 
 		// save doc id hint in journal for future use
-		journal.setDocIdHint(documentID);
+		journal.setDocIdHint(selectedDocument.getDocumentId());
 
 		// compute how much work we have to do...
 		int work = 0;
@@ -327,12 +299,41 @@ public class UploadDialog {
 		photoProgressBar.setMinimum(0);
 		photoProgressBar.setMaximum(100);
 
-		BatchUploader uploader = new BatchUploader(client);
-		uploader.setDocumentId(documentID);
+		final BatchUploader uploader = new BatchUploader(client);
 		uploader.setPages(pages);
-		uploader.setListener(UIThreadCallbackMarsheller.wrap(new UploadListener(), shell.getDisplay()));
-		log("Starting upload of " + pages.size() + " pages to " + documentID);
-		uploader.start();
+		uploader.setListener(new UploadListener());
+
+		/* first initialise the client */
+		log("Checking server using docId " + selectedDocument.getDocumentId());
+		client.initialize(selectedDocument.getDocumentId(), new CompletionCallback<Void>() {
+			@Override
+			public void onCompletion(Void result) {
+				log("Finished initialization");
+				log("Starting upload of " + pages.size() + " pages to " + selectedDocument.getDocumentId() + " ("
+						+ selectedDocument.getTitle() + ")");
+				uploader.start();
+			}
+
+			public void onError(Throwable exception) {
+				showError("Checking server",
+						"Failed to check for server changes. This may be because the server has been changed "
+								+ "since this version was released. Check you are using the latest version and "
+								+ "contact the author.", exception);
+				btnCancel.removeSelectionListener(cancelCurrentOperationListener);
+				btnCancel.addSelectionListener(new SelectionAdapter() {
+					@Override
+					public void widgetSelected(SelectionEvent e) {
+						shell.close();
+					}
+				});
+			}
+
+			@Override
+			public void retryNotify(Throwable exception, int retryCount) {
+				/* ignore */
+			}
+		});
+
 	}
 
 	private void log(final String str) {
@@ -350,7 +351,7 @@ public class UploadDialog {
 	}
 
 	public UploadResult open() {
-		shell.setText("Upload to journal to (" + client + ")");
+		shell.setText("Upload journal to (" + client + ")");
 		GridLayout layout = new GridLayout(2, false);
 		layout.marginTop = layout.marginBottom = 5;
 		layout.marginLeft = layout.marginRight = 5;
@@ -528,25 +529,19 @@ public class UploadDialog {
 		client.getDocuments(new CompletionCallback<List<DocumentDescription>>() {
 			@Override
 			public void onCompletion(final List<DocumentDescription> result) {
-				asyncExec(new Runnable() {
-					@Override
-					public void run() {
-						log("Found " + result.size() + " documents on the server");
-						documentTable.getTable().setEnabled(true);
-						documentTable.setInput(result);
+				log("Found " + result.size() + " documents on the server");
+				documentTable.getTable().setEnabled(true);
+				documentTable.setInput(result);
 
-						// default selection if possible
-						if (defaultSelection != Journal.UNSET_DOC_ID) {
-							for (DocumentDescription doc : result) {
-								if (doc.getDocumentId() == defaultSelection) {
-									documentTable.setSelection(new StructuredSelection(doc), true);
-									break;
-								}
-							}
+				// default selection if possible
+				if (defaultSelection != Journal.UNSET_DOC_ID) {
+					for (DocumentDescription doc : result) {
+						if (doc.getDocumentId() == defaultSelection) {
+							documentTable.setSelection(new StructuredSelection(doc), true);
+							break;
 						}
 					}
-
-				});
+				}
 			}
 
 			@Override
@@ -576,27 +571,17 @@ public class UploadDialog {
 	}
 
 	private void showError(final String action, final String message, final Throwable t) {
-		if (shell.getDisplay().getThread() != Thread.currentThread()) {
-			asyncExec(new Runnable() {
-				@Override
-				public void run() {
-					// move onto UI thread
-					showError(action, message, t);
-				}
-			});
+		if (t instanceof HtmlProvider) {
+			ErrorBoxWithHtml p = new ErrorBoxWithHtml(shell);
+			p.setHtml(((HtmlProvider) t).getHtml());
+			p.setTitle("Error " + action);
+			p.setMessage(message + "\n\nException: " + t.toString());
+			p.open();
 		} else {
-			if (t instanceof HtmlProvider) {
-				ErrorBoxWithHtml p = new ErrorBoxWithHtml(shell);
-				p.setHtml(((HtmlProvider) t).getHtml());
-				p.setTitle("Error " + action);
-				p.setMessage(message + "\n\nException: " + t.toString());
-				p.open();
-			} else {
-				MessageBox box = new MessageBox(shell, SWT.ICON_ERROR | SWT.OK);
-				box.setText("Error " + action);
-				box.setMessage(message + "\n\nException: " + t.toString());
-				box.open();
-			}
+			MessageBox box = new MessageBox(shell, SWT.ICON_ERROR | SWT.OK);
+			box.setText("Error " + action);
+			box.setMessage(message + "\n\nException: " + t.toString());
+			box.open();
 		}
 	}
 

@@ -27,6 +27,7 @@ import com.cgoab.offline.ui.thumbnailviewer.CachingThumbnailProviderFactory;
 import com.cgoab.offline.ui.thumbnailviewer.FitWithinResizeStrategy;
 import com.cgoab.offline.ui.thumbnailviewer.ResizeStrategy;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailViewer;
+import com.cgoab.offline.ui.util.UIExecutor;
 import com.cgoab.offline.util.resizer.ImageMagickResizerServiceFactory;
 
 public class Application implements Runnable {
@@ -88,6 +89,7 @@ public class Application implements Runnable {
 		uploadFactory.setCookies(cookieStore);
 		uploadFactory.setHost(System.getProperty("host", CRAZYGUYONABIKE_HOST));
 		uploadFactory.setPort(Integer.getInteger("port", CRAZYGUYONABIKE_PORT));
+		uploadFactory.setCallbackExecutor(new UIExecutor(display));
 		app.setUploadFactory(uploadFactory);
 		app.setThumbnailFactory(new CachingThumbnailProviderFactory(display, THUMBNAIL_RESIZER, THUMNAILS_FOLDER));
 		app.setResizerFactory(new ImageMagickResizerServiceFactory(display, RESIZED_FOLDER));

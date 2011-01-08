@@ -1,15 +1,26 @@
 package com.cgoab.offline.client.web;
 
+import html.FormFinder;
+import html.FormFinder.FormItem;
+import html.FormFinder.HtmlForm;
+
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -24,6 +35,7 @@ import org.apache.http.client.CookieStore;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.client.params.HttpClientParams;
 import org.apache.http.client.protocol.ClientContext;
 import org.apache.http.client.utils.URIUtils;
@@ -36,6 +48,7 @@ import org.apache.http.cookie.CookieSpecFactory;
 import org.apache.http.cookie.MalformedCookieException;
 import org.apache.http.cookie.SetCookie;
 import org.apache.http.entity.mime.MultipartEntity;
+import org.apache.http.entity.mime.content.ContentBody;
 import org.apache.http.entity.mime.content.FileBody;
 import org.apache.http.entity.mime.content.StringBody;
 import org.apache.http.impl.client.DefaultHttpClient;
@@ -49,39 +62,119 @@ import org.apache.http.util.EntityUtils;
 import org.htmlcleaner.CleanerProperties;
 import org.htmlcleaner.HtmlCleaner;
 import org.htmlcleaner.TagNode;
-import org.htmlcleaner.XPatherException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.cgoab.offline.client.AbstractUploadClient;
 import com.cgoab.offline.client.CompletionCallback;
 import com.cgoab.offline.client.DocumentDescription;
-import com.cgoab.offline.client.DocumentType;
 import com.cgoab.offline.client.PhotoUploadProgressListener;
+import com.cgoab.offline.client.UploadClient;
 import com.cgoab.offline.client.web.ProgressTrackingFileBody.ProgressListener;
 import com.cgoab.offline.model.Page;
 import com.cgoab.offline.model.Photo;
 import com.cgoab.offline.util.StringUtils;
 
+/**
+ * {@link UploadClient} that uses the traditional web (HTML over HTTP) interface
+ * to the crazyguyonabike server.
+ * <p>
+ * This implementation is inherintly fragile. It relies on the URLs and form
+ * fields used to add pages and photos not changing. This could potentially
+ * change. Such a change would have no impact on users using the site in a
+ * webbrowser as the site generates the forms that it expcets to be posted back
+ * at it, however this application would suffer. As an added guard this
+ * implementaton, during {@link #initialize(int, CompletionCallback)} , checks
+ * if the HTML forms to add pages and photos have changed. If so it reports a
+ * warning if unused fields were removed or new ones added (probably OK) and
+ * reports an exception when required fields are missing (definitly not OK).
+ * <p>
+ * The intention is that this class can be removed and a much simpler
+ * implementation can be used that relies on a simple and stable published set
+ * of HTTP operations designed for programatic use (ie, non HTML UI).
+ * 
+ * <h3>Mapping of Operations into HTTP/HTML</h3>
+ * If not specified, form values default to those found in the initialization
+ * phase.
+ * <table border="1">
+ * <tr>
+ * <th>Operation</th>
+ * <th>Implementation</th>
+ * </tr>
+ * <tr>
+ * <td rowspan="4">Login</td>
+ * <td>POST to "/login/index.html" with
+ * <tt>[username,password,command="login",button="Login","persistent="0"]</tt></td>
+ * </tr>
+ * <tr>
+ * <td>expect 301 (redirect) to "/my/" else error</td>
+ * </tr>
+ * <tr>
+ * <td>GET from "/my/account/"</td>
+ * </tr>
+ * <tr>
+ * <td>extract realname and username using
+ * {@link CGOABHtmlUtils#getRealnameFromMyAccount(TagNode)} and
+ * {@link CGOABHtmlUtils#getUsernameFromMyAccount(TagNode)}</td>
+ * </tr>
+ * <tr>
+ * <td rowspan="3">GetDocuments</td>
+ * <td>GET from "/my/"</td>
+ * </tr>
+ * <tr>
+ * <td>expect 200 (OK) else error</td>
+ * </tr>
+ * <tr>
+ * <td>extract documents from html using
+ * {@link CGOABHtmlUtils#extractDocuments(TagNode)}</td>
+ * </tr>
+ * <tr>
+ * <td rowspan="3">CreateNewPage</td>
+ * <td>POST to "/doc/edit/page/" with <tt>[toc_heading_size, toc_heading_bold,
+ * toc_heading_italic ,toc_level, visible, date, distance, title, headline,
+ * text, edit_comment, format, doc_id, submit="Upload Pic or File"]</tt></td>
+ * </tr>
+ * <tr>
+ * <td>expect 301 (redirect) else error</td>
+ * </tr>
+ * <tr>
+ * <td>extract the new page_id from "Location" redirect header, match against
+ * <tt>page_id=(\\d+)</tt></td>
+ * </tr>
+ * <tr>
+ * <td rowspan="2">AddPhoto</td>
+ * <td>POST to "/doc/edit/page/pic/" with
+ * <tt>[upload_filename, caption, page_id]</tt></td>
+ * </tr>
+ * <tr>
+ * <td>expect 301 (redirect) else error</td>
+ * </tr>
+ * </table>
+ * 
+ * <h3>Error handling</h3>
+ * 
+ * When an error occurs on the server the error message (if any) is returned to
+ * the user embedded in the page. There is no consistent location for this error
+ * message, it varies on the actual error that occured. So isolating the error
+ * message is virtually impossible. Additionally, this client may detect an
+ * error condition but the server will not know it was an error (for example,
+ * the login page html will be returned if we try to perform an operation before
+ * logging in). As a result this implementation provides the <i>entire</i> html
+ * page returned from the server to the error handler via a
+ * {@link ServerOperationException}. This can then be presented to the user
+ * allowing them to find the error string.
+ */
 public class DefaultWebUploadClient extends AbstractUploadClient {
 
-	private static final Pattern DOC_ID_PATTERN = Pattern.compile(".*doc_id=(\\d+).*");
-	private static final Logger LOG = LoggerFactory.getLogger(DefaultWebUploadClient.class);
 	private static final String MYSPEC = "myspec";
 	private static final Pattern PAGE_ID_PATTERN = Pattern.compile(".*page_id=(\\d+).*");
 
-	private static void assertStatusCodeOrThrow(int actual, int... expected) {
+	private static void assertStatusCode(String html, int actual, int... expected) {
 		for (int i : expected) {
 			if (i == actual) {
 				return;
 			}
 		}
-		throw new IllegalStateException("Unexpected staus code '" + actual + "'");
-	}
-
-	private static String clean(String s) {
-		s = s.replace("&nbsp;", " ");
-		return s.trim();
+		throw new ServerOperationException("Unexpected staus code '" + actual + "' expected "
+				+ Arrays.toString(expected), html);
 	}
 
 	private URI createURI(String path, String query) {
@@ -123,6 +216,12 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 
 	private String currentRealname;
 
+	private int documentId = -1;
+
+	private HtmlForm editPageForm;
+
+	private HtmlForm addPhotoForm;
+
 	// public void delete(int pageId) {
 	//
 	// //http://www.crazyguyonabike.com/?command=do_delete&page_id=173278&doc_id=&from=editcontents
@@ -135,7 +234,21 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 
 	private final int port;
 
-	public DefaultWebUploadClient(String url, int port, CookieStore cookies) {
+	/**
+	 * Creates a new client
+	 * 
+	 * @param url
+	 *            url of the server
+	 * @param port
+	 *            port of the server
+	 * @param cookies
+	 *            place to store cookies set by the server
+	 * @param executor
+	 *            executor used to run completion callbacks, if null calls on
+	 *            the client thread
+	 */
+	public DefaultWebUploadClient(String url, int port, CookieStore cookies, Executor executor) {
+		super(executor);
 		this.host = url;
 		this.port = port;
 		this.cleaner = new HtmlCleaner();
@@ -167,28 +280,22 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 	@Override
 	public void addPhoto(final int pageId, final Photo photo, CompletionCallback<Void> callback,
 			PhotoUploadProgressListener progressListener) {
+		throwIfNotInitialized();
 		final PhotoUploadProgressListener listener = progressListener == null ? new PhotoUploadProgressAdapter()
 				: progressListener;
 		asyncExec(new AddPhotoTask(callback, pageId, photo, listener));
 	}
 
-	private DocumentDescription createJournal(TagNode node) throws XPatherException {
-		Object[] e = node.evaluateXPath("td");
-		String typeString = clean(((TagNode) e[0]).getText().toString()).toUpperCase();
-		TagNode anchorNode = ((TagNode) e[1]).getElementsByName("a", true)[0];
-		String link = anchorNode.getAttributeByName("href");
-		int id = extractDocIdFromURL(link);
-		String title = clean(anchorNode.getText().toString());
-		String status = clean(((TagNode) e[3]).getText().toString());
-		String rawCount = clean(((TagNode) e[4]).getText().toString());
-		rawCount = rawCount.replace(",", "");
-		int hits = Integer.parseInt(rawCount);
-		return new DocumentDescription(title, hits, status, id, DocumentType.valueOf(typeString));
+	@Override
+	public void createNewPage(Page page, CompletionCallback<Integer> callback) {
+		throwIfNotInitialized();
+		asyncExec(new AddPageTask(callback, page));
 	}
 
-	@Override
-	public void createNewPage(final int documentId, final Page page, CompletionCallback<Integer> callback) {
-		asyncExec(new AddPageTask(callback, documentId, page));
+	private void throwIfNotInitialized() {
+		if (documentId == -1 || editPageForm == null || addPhotoForm == null) {
+			throw new IllegalStateException("UploadClient not initialized!");
+		}
 	}
 
 	@Override
@@ -196,61 +303,6 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 		// don't bother to logout, just null data and kill worker
 		currentRealname = currentUsername = null;
 		super.dispose();
-	}
-
-	private int doAddPagePOST(int journalID, Page page) throws IllegalStateException, IOException {
-		HttpPost post = new HttpPost(createURI("/doc/edit/page/", null));
-		RequestBuilder rb = new RequestBuilder();
-		rb.add("toc_heading_size", page.getHeadingStyle().toString());
-		rb.add("toc_heading_bold", toOnOff(page.isBold()));
-		rb.add("toc_heading_italic", toOnOff(page.isItalic()));
-		rb.add("toc_level", Integer.toString(page.getIndent()));
-		rb.add("visible", toOnOff(page.isVisible()));
-		rb.add("date", page.getDate().toString());
-		rb.add("distance", Float.toString(page.getDistance()));
-		rb.add("title", page.getTitle());
-		rb.add("headline", page.getHeadline());
-		rb.add("text", page.getText());
-		rb.add("edit_comment", page.getEditComment());
-		rb.add("format", page.getFormat().toString().toLowerCase());
-		rb.add("submit", "Upload Pic or File");
-		rb.add("command", "do_add");
-		rb.add("submitted", "1");
-		// TODO fix!!!!
-		rb.add("sequence", "10000");
-		rb.add("doctype", "journal");
-		rb.add("from", "editcontents");
-		rb.add("doc_id", Integer.toString(journalID));
-		rb.add("update_timestamp", "off");
-
-		post.setEntity(rb.createFormEntity());
-		HttpResponse result = client.execute(post, context);
-		int statusCode = result.getStatusLine().getStatusCode();
-		if (isRedirect(statusCode)) {
-			// page-id can be found in redirect header
-			result.getEntity().consumeContent();
-			Header locationHeader = result.getFirstHeader("Location");
-			if (locationHeader == null) {
-				throw new IllegalStateException("No location header returned by server.");
-			}
-			String location = locationHeader.getValue();
-			Matcher match = PAGE_ID_PATTERN.matcher(location);
-			if (!match.matches()) {
-				throw new IllegalStateException("Could not find page_id in url '" + location + "'");
-			}
-			return Integer.parseInt(match.group(1));
-		} else if (statusCode == HttpStatus.SC_OK) {
-			// the page contains the error message
-			throw new ServerOperationException("Failed to add page", EntityUtils.toString(result.getEntity()));
-		} else {
-			throw new IllegalStateException("Unexpected status code '" + statusCode + "'");
-		}
-	}
-
-	private TagNode doGetDocumentsGET() throws ClientProtocolException, IOException {
-		HttpGet get = new HttpGet(createURI("/my/", null));
-		HttpResponse response = client.execute(get, context);
-		return cleaner.clean(new InputStreamReader(response.getEntity().getContent()));
 	}
 
 	private String doLoginPOST(String username, String password) throws ClientProtocolException, IOException {
@@ -280,8 +332,8 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 		HttpResponse result;
 		try {
 			result = client.execute(get, context);
-			result.getEntity().consumeContent();
-			assertStatusCodeOrThrow(result.getStatusLine().getStatusCode(), HttpStatus.SC_OK);
+			assertStatusCode(EntityUtils.toString(result.getEntity()), result.getStatusLine().getStatusCode(),
+					HttpStatus.SC_OK);
 		} catch (RuntimeException e) {
 			throw e;
 		} catch (Exception e) {
@@ -299,24 +351,17 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 		try {
 			HttpGet get = new HttpGet(createURI("/my/account/", null));
 			HttpResponse result = client.execute(get, context);
-			assertStatusCodeOrThrow(result.getStatusLine().getStatusCode(), HttpStatus.SC_OK,
+			String html = EntityUtils.toString(result.getEntity());
+			assertStatusCode(html, result.getStatusLine().getStatusCode(), HttpStatus.SC_OK,
 					HttpStatus.SC_MOVED_PERMANENTLY);
 			if (result.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
-				return EntityUtils.toString(result.getEntity());
+				return html;
 			}
 			result.getEntity().consumeContent(); // closes connection
 			return null;
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
-	}
-
-	private int extractDocIdFromURL(String url) {
-		Matcher match = DOC_ID_PATTERN.matcher(url);
-		if (!match.matches()) {
-			throw new IllegalArgumentException("Could not find doc_id in url '" + url + "'");
-		}
-		return Integer.parseInt(match.group(1));
 	}
 
 	// for testing
@@ -339,6 +384,10 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 		asyncExec(new GetDocumentsTask(callback));
 	}
 
+	public void initialize(int docId, final CompletionCallback<Void> callback) {
+		asyncExec(new InitializeFormsTask(callback, docId));
+	}
+
 	@Override
 	public void login(final String username, final String password, CompletionCallback<String> callback) {
 		asyncExec(new LoginTask(callback, username, password));
@@ -348,6 +397,8 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 	public void logout(CompletionCallback<Void> callback) {
 		asyncExec(new LogoutTask(callback));
 		currentRealname = currentUsername = null;
+		addPhotoForm = editPageForm = null;
+		documentId = -1;
 	}
 
 	void toFile(String name, HttpEntity entity) throws IOException {
@@ -356,20 +407,177 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 		file.close();
 	}
 
-	class AddPageTask extends Task<Integer> {
+	boolean validatedAddPageForm;
 
-		private int documentId;
+	class InitializeFormsTask extends CancellableHttpTask<Void> {
+
+		private final int docId;
+
+		public InitializeFormsTask(CompletionCallback<Void> callback, int docId) {
+			super(callback);
+			this.docId = docId;
+		}
+
+		@Override
+		protected Void doRun() throws Exception {
+			// 1) load edit-page form
+			LOG.debug("Initializing client using document {}", docId);
+			HttpGet getEditPage = new HttpGet(createURI("/doc/edit/page/", "command=add&doc_id=" + docId
+					+ "&from=editcontents"));
+
+			HttpResponse response = execute(getEditPage);
+
+			String html = EntityUtils.toString(response.getEntity());
+			assertStatusCode(html, response.getStatusLine().getStatusCode(), HttpStatus.SC_OK);
+			TagNode root = cleaner.clean(html);
+			HtmlForm pageForm = FormFinder.findFormWithName(root, "form");
+			if (pageForm == null) {
+				/* error */
+				throw new ServerOperationException("Failed to find 'edit-page' form; has the server changed?", html);
+			} else {
+				/* TODO check form fields are as expected */
+				LOG.debug("Found edit-page form {}", pageForm);
+			}
+
+			// 2) post the form to get to add-photo form
+			HttpPost postEditPhoto = new HttpPost(createURI("/doc/edit/page/", null));
+			Map<String, Object> overrides = new HashMap<String, Object>();
+			overrides.put("visible", "false");
+			overrides.put("title", "__VALIDATE_CGOAB_OFFLINE__");
+			overrides.put("headline", "__DELETE_THIS_PAGE__");
+			overrides.put("format", "auto");
+			overrides.put("text", "");
+			overrides.put("submit", "Upload Pic or File");
+			postEditPhoto.setEntity(createFormEntity(pageForm.newMergedProperties(overrides)));
+			FormItem pageId = null;
+			try {
+				LOG.debug("Creating temporary page to check add-photo form");
+				response = execute(postEditPhoto);
+				html = EntityUtils.toString(response.getEntity());
+				assertStatusCode(html, response.getStatusLine().getStatusCode(), HttpStatus.SC_MOVED_PERMANENTLY);
+				// TODO turn on follow redirects?
+				Header location = response.getFirstHeader("Location");
+				HttpGet get = new HttpGet(createURI(location.getValue(), null));
+				response = execute(get);
+				html = EntityUtils.toString(response.getEntity());
+				root = cleaner.clean(html);
+				HtmlForm photoForm = FormFinder.findFormWithName(root, "form");// "/doc/edit/page/pic/");
+				if (photoForm == null) {
+					throw new ServerOperationException("Failed to find add-page form; has the server changed?", html);
+				} else {
+					/* TODO check form fields have not changed */
+					LOG.debug("Found add-page form {}", addPhotoForm);
+				}
+				pageId = photoForm.getItems().get("page_id");
+
+				/* done, sopublish initialization data */
+				documentId = docId;
+				editPageForm = pageForm;
+				addPhotoForm = photoForm;
+			} finally {
+				// 3) delete the temporary page just created
+				if (pageId != null && pageId.getValue() != null) {
+					LOG.debug("Deleting temporary page {}", pageId);
+					HttpGet deletePage = new HttpGet(createURI("/doc/edit/page/",
+							"command=do_delete&page_id=" + pageId.getValue() + "&from=editcontents"));
+					response = execute(deletePage);
+					if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
+						/* log warning, noting we can do */
+					}
+					response.getEntity().consumeContent();
+				}
+			}
+			return null;
+		}
+	}
+
+	abstract class CancellableHttpTask<T> extends Task<T> {
+
+		private final AtomicReference<HttpRequestBase> currentOperation = new AtomicReference<HttpRequestBase>();
+		private final AtomicBoolean cancelled = new AtomicBoolean();
+
+		protected CancellableHttpTask(CompletionCallback<T> callback) {
+			super(callback);
+		}
+
+		public boolean isCancelled() {
+			return cancelled.get();
+		}
+
+		protected HttpResponse execute(HttpRequestBase request) throws ClientProtocolException, IOException {
+			if (cancelled.get()) {
+				throw new CancellationException("Task is cancelled!");
+			}
+			try {
+				currentOperation.set(request);
+				return client.execute(request, context);
+			} finally {
+				currentOperation.set(null);
+			}
+		}
+
+		@Override
+		protected final void cancel() {
+			HttpRequestBase request = currentOperation.get();
+			if (request != null) {
+				request.abort();
+			}
+			cancelled.set(true);
+		}
+	}
+
+	class AddPageTask extends CancellableHttpTask<Integer> {
 		private Page page;
 
-		public AddPageTask(CompletionCallback<Integer> callback, int documentId, Page page) {
+		public AddPageTask(CompletionCallback<Integer> callback, Page page) {
 			super(callback);
-			this.documentId = documentId;
 			this.page = page;
 		}
 
 		@Override
 		protected Integer doRun() throws Exception {
-			return doAddPagePOST(documentId, page);
+			HttpPost post = new HttpPost(createURI("/doc/edit/page/", null));
+			Map<String, Object> fields = new HashMap<String, Object>();
+			fields.put("toc_heading_size", page.getHeadingStyle().toString());
+			fields.put("toc_heading_bold", toOnOff(page.isBold()));
+			fields.put("toc_heading_italic", toOnOff(page.isItalic()));
+			fields.put("toc_level", Integer.toString(page.getIndent()));
+			fields.put("visible", toOnOff(page.isVisible()));
+			fields.put("date", page.getDate().toString());
+			fields.put("distance", Float.toString(page.getDistance()));
+			fields.put("title", page.getTitle());
+			fields.put("headline", page.getHeadline());
+			fields.put("text", page.getText());
+			fields.put("edit_comment", page.getEditComment());
+			fields.put("format", page.getFormat().toString().toLowerCase());
+			// fields.put("submit", "Upload Pic or File");
+			fields.put("doc_id", Integer.toString(documentId));
+			fields.put("update_timestamp", "off");
+			Map<String, Object> merged = editPageForm.newMergedProperties(fields);
+			merged.remove("sequence");
+			post.setEntity(createFormEntity(merged));
+			HttpResponse result = execute(post);
+			String html = EntityUtils.toString(result.getEntity());
+			int statusCode = result.getStatusLine().getStatusCode();
+			if (isRedirect(statusCode)) {
+				// page-id can be found in redirect header
+				result.getEntity().consumeContent();
+				Header locationHeader = result.getFirstHeader("Location");
+				if (locationHeader == null) {
+					throw new IllegalStateException("No location header returned by server.");
+				}
+				String location = locationHeader.getValue();
+				Matcher match = PAGE_ID_PATTERN.matcher(location);
+				if (!match.matches()) {
+					throw new ServerOperationException("Could not find page_id in url '" + location + "'", html);
+				}
+				return Integer.parseInt(match.group(1));
+			} else if (statusCode == HttpStatus.SC_OK) {
+				// the page contains the error message
+				throw new ServerOperationException("Failed to add page", html);
+			} else {
+				throw new IllegalStateException("Unexpected status code '" + statusCode + "'");
+			}
 		}
 	}
 
@@ -429,7 +637,7 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 	// return toc;
 	// }
 
-	class AddPhotoTask extends Task<Void> {
+	class AddPhotoTask extends CancellableHttpTask<Void> {
 
 		private PhotoUploadProgressListener listener;
 		private int pageId;
@@ -445,14 +653,6 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 		}
 
 		@Override
-		public void cancel() {
-			// TODO synch?
-			if (post != null) {
-				post.abort();
-			}
-		}
-
-		@Override
 		public Void doRun() throws ClientProtocolException, IOException {
 			post = new HttpPost(createURI("doc/edit/page/pic/", null));
 			File file = photo.getResizedPhoto();
@@ -461,36 +661,31 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 			}
 			FileBody fb = new ProgressTrackingFileBody(file, new ProgressListener() {
 				@Override
-				public void transferred(long sent, long total) {
-					listener.uploadPhotoProgress(photo, sent, total);
+				public void transferred(final long sent, final long total) {
+					getCallbackExecutor().execute(new Runnable() {
+						@Override
+						public void run() {
+							listener.uploadPhotoProgress(photo, sent, total);
+						}
+					});
 				}
 			});
-			MultipartEntity request = new MultipartEntity();
-			request.addPart("upload_filename", fb);
-			request.addPart("filename", new StringBody(""));
-			// new StringBody(StringUtils.nullToEmpty(photo.getImageName())));
-			request.addPart("caption", new StringBody(StringUtils.nullToEmpty(photo.getCaption())));
-			request.addPart("rotate_degrees", new StringBody("auto"));
-			request.addPart("include_in_random", new StringBody("on"));
-			request.addPart("button", new StringBody("Finish"));
-			request.addPart("command", new StringBody("do_add"));
-			request.addPart("submitted", new StringBody("1"));
-			request.addPart("doctype", new StringBody("journal"));
-			request.addPart("from", new StringBody("editcontents-editpage"));
-			request.addPart("page_id", new StringBody(Integer.toString(pageId)));
-			request.addPart("update_timestamp", new StringBody("on"));
-			post.setEntity(request);
 
-			HttpResponse response = client.execute(post, context);
+			Map<String, Object> properties = new HashMap<String, Object>();
+			properties.put("upload_filename", fb);
+			properties.put("caption", new StringBody(StringUtils.nullToEmpty(photo.getCaption())));
+			properties.put("page_id", new StringBody(Integer.toString(pageId)));
+			post.setEntity(createMultipartFormEntity(addPhotoForm.newMergedProperties(properties)));
+
+			HttpResponse response = execute(post);
+			String html = EntityUtils.toString(response.getEntity());
 
 			int statusCode = response.getStatusLine().getStatusCode();
 			if (isRedirect(statusCode)) {
 				// ok, expected
 				// TODO assert is a redirect to /doc/edit/page/?...
-				response.getEntity().consumeContent();
 				return null;
 			} else if (statusCode == HttpStatus.SC_OK) {
-				String html = EntityUtils.toString(response.getEntity());
 				throw new ServerOperationException("Error adding photo " + photo.getFile(), html);
 			} else {
 				throw new IllegalStateException("Unexpected status code '" + statusCode + "'");
@@ -498,7 +693,7 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 		}
 	}
 
-	class GetDocumentsTask extends Task<List<DocumentDescription>> {
+	class GetDocumentsTask extends CancellableHttpTask<List<DocumentDescription>> {
 
 		public GetDocumentsTask(CompletionCallback<List<DocumentDescription>> callback) {
 			super(callback);
@@ -506,19 +701,15 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 
 		@Override
 		protected List<DocumentDescription> doRun() throws Exception {
-			TagNode root = doGetDocumentsGET();
-			Object[] table = root.evaluateXPath("/body/table[5]/tbody/tr/td/table/tbody/tr");
-
-			List<DocumentDescription> journals = new ArrayList<DocumentDescription>();
-			// tr[1] is table header, tr[2] onwards are journal listings...
-			for (int i = 1; i < table.length; ++i) {
-				journals.add(createJournal((TagNode) table[i]));
-			}
-			return journals;
+			HttpGet get = new HttpGet(createURI("/my/", null));
+			HttpResponse response = execute(get);
+			String html = EntityUtils.toString(response.getEntity());
+			assertStatusCode(html, response.getStatusLine().getStatusCode(), HttpStatus.SC_OK);
+			return CGOABHtmlUtils.extractDocuments(cleaner.clean(html));
 		}
 	}
 
-	class LoginTask extends Task<String> {
+	class LoginTask extends CancellableHttpTask<String> {
 
 		final String password;
 		final String username;
@@ -590,7 +781,7 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 		}
 	}
 
-	private static class MyCookieSpec extends BrowserCompatSpec {
+	private class MyCookieSpec extends BrowserCompatSpec {
 		public MyCookieSpec() {
 			super();
 			final CookieAttributeHandler defaultHandler = getAttribHandler(ClientCookie.EXPIRES_ATTR);
@@ -608,7 +799,7 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 						Calendar c = Calendar.getInstance();
 						c.add(Calendar.YEAR, 10);
 						cookie.setExpiryDate(c.getTime());
-						LOG.debug("Cookie expiration = -1, setting to 10 years");
+						LOG.debug("Cookie expiration = -1, resetting as 10 years");
 					} else {
 						defaultHandler.parse(cookie, value);
 					}
@@ -645,7 +836,7 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 		}
 	}
 
-	public class ServerOperationException extends RuntimeException implements HtmlProvider {
+	public static class ServerOperationException extends RuntimeException implements HtmlProvider {
 		private final String html;
 
 		public ServerOperationException(String message, String html) {
@@ -676,5 +867,38 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 	@Override
 	public String toString() {
 		return host + (port == -1 ? "" : ":" + port);
+	}
+
+	private static HttpEntity createMultipartFormEntity(Map<String, Object> properties)
+			throws UnsupportedEncodingException {
+		MultipartEntity entity = new MultipartEntity();
+		for (Entry<String, Object> e : properties.entrySet()) {
+			Object value = e.getValue();
+			ContentBody body;
+			if (value instanceof ContentBody) {
+				body = (ContentBody) value;
+			} else if (value instanceof String) {
+				body = new StringBody((String) value);
+			} else {
+				throw new IllegalArgumentException("Unhandled type " + value);
+			}
+			entity.addPart(e.getKey(), body);
+		}
+		return entity;
+	}
+
+	private static HttpEntity createFormEntity(Map<String, Object> properties) throws UnsupportedEncodingException {
+		List<NameValuePair> pairs = new ArrayList<NameValuePair>(properties.size());
+		for (Entry<String, Object> e : properties.entrySet()) {
+			Object value = e.getValue();
+			if (value instanceof String) {
+				pairs.add(new BasicNameValuePair(e.getKey(), (String) value));
+			} else if (value == null) {
+				/* ignore */
+			} else {
+				throw new IllegalArgumentException("Unhandled type " + value);
+			}
+		}
+		return new UrlEncodedFormEntity(pairs);
 	}
 }

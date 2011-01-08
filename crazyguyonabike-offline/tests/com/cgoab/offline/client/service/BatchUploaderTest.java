@@ -57,7 +57,7 @@ public class BatchUploaderTest {
 		final UploadClient client = context.mock(UploadClient.class);
 		context.checking(new Expectations() {
 			{
-				oneOf(client).createNewPage(with(equal(docId)), with(same(page)), with(any(CompletionCallback.class)));
+				oneOf(client).createNewPage(with(same(page)), with(any(CompletionCallback.class)));
 				will(new CompletionCallbackAction<Integer>(pageId));
 				oneOf(client).addPhoto(with(equal(pageId)), with(same(photo1)), with(any(CompletionCallback.class)),
 						with(any(PhotoUploadProgressListener.class)));
@@ -92,7 +92,6 @@ public class BatchUploaderTest {
 		});
 
 		BatchUploader uploader = new BatchUploader(client);
-		uploader.setDocumentId(docId);
 		uploader.setPages(Arrays.asList(page));
 		uploader.setListener(listener);
 
@@ -126,7 +125,7 @@ public class BatchUploaderTest {
 		final UploadClient client = context.mock(UploadClient.class);
 		context.checking(new Expectations() {
 			{
-				oneOf(client).createNewPage(with(equal(docId)), with(same(page)), with(any(CompletionCallback.class)));
+				oneOf(client).createNewPage(with(same(page)), with(any(CompletionCallback.class)));
 				will(new CompletionCallbackAction<Integer>(pageId));
 				oneOf(client).addPhoto(with(equal(pageId)), with(same(photo1)), with(any(CompletionCallback.class)),
 						with(any(PhotoUploadProgressListener.class)));
@@ -161,7 +160,6 @@ public class BatchUploaderTest {
 		});
 
 		BatchUploader uploader = new BatchUploader(client);
-		uploader.setDocumentId(docId);
 		uploader.setPages(Arrays.asList(page));
 		uploader.setListener(listener);
 
@@ -219,7 +217,6 @@ public class BatchUploaderTest {
 		});
 
 		BatchUploader uploader = new BatchUploader(client);
-		uploader.setDocumentId(docId);
 		uploader.setPages(Arrays.asList(page));
 		uploader.setListener(listener);
 
@@ -252,8 +249,13 @@ public class BatchUploaderTest {
 
 		@Override
 		public Object invoke(Invocation invocation) throws Throwable {
-			((CompletionCallback<T>) invocation.getParameter(2)).onError(value);
-			return null;
+			for (Object o : invocation.getParametersAsArray()) {
+				if (o instanceof CompletionCallback) {
+					((CompletionCallback<T>) o).onError(value);
+					return null;
+				}
+			}
+			throw new IllegalArgumentException("No CompletionCallback paramater found");
 		}
 	}
 
@@ -271,8 +273,13 @@ public class BatchUploaderTest {
 
 		@Override
 		public Object invoke(Invocation invocation) throws Throwable {
-			((CompletionCallback<T>) invocation.getParameter(2)).onCompletion(value);
-			return null;
+			for (Object o : invocation.getParametersAsArray()) {
+				if (o instanceof CompletionCallback) {
+					((CompletionCallback<T>) o).onCompletion(value);
+					return null;
+				}
+			}
+			throw new IllegalArgumentException("No CompletionCallback paramater found");
 		}
 	}
 }

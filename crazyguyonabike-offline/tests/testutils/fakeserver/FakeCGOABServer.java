@@ -77,7 +77,7 @@ public class FakeCGOABServer {
 		thread.start();
 		model = new ServerModel();
 		// populate journals from file
-		List<DocumentDescription> documents = CGOABHtmlUtils.getDocuments(new HtmlCleaner().clean(getClass()
+		List<DocumentDescription> documents = CGOABHtmlUtils.extractDocuments(new HtmlCleaner().clean(getClass()
 				.getResourceAsStream("MyPage.htm")));
 		for (DocumentDescription doc : documents) {
 			model.addJournal(new ServerJournal(doc.getTitle(), doc.getDocumentId()));

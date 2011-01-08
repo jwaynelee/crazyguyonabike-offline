@@ -26,7 +26,15 @@ public class CGOABHtmlUtils {
 		return s.trim();
 	}
 
-	public static List<DocumentDescription> getDocuments(TagNode root) throws XPatherException {
+	/**
+	 * Creates document decsriptions from table found using
+	 * <tt>/body/table[5]/tbody/tr/td/table/tbody/tr</tt>.
+	 * 
+	 * @param root
+	 * @return
+	 * @throws XPatherException
+	 */
+	public static List<DocumentDescription> extractDocuments(TagNode root) throws XPatherException {
 		Object[] table = root.evaluateXPath("/body/table[5]/tbody/tr/td/table/tbody/tr");
 		List<DocumentDescription> journals = new ArrayList<DocumentDescription>();
 		// tr[1] is table header, tr[2] onwards are journal listings...
@@ -96,6 +104,13 @@ public class CGOABHtmlUtils {
 		return ((TagNode) res[0]).getAttributeByName("value");
 	}
 
+	/**
+	 * Extracts users real name using <tt>//input[@name='firstname']</tt>.
+	 * 
+	 * @param root
+	 *            html from "/my/account/"
+	 * @return
+	 */
 	public static String getRealnameFromMyAccount(TagNode root) {
 		Object[] f = matches(root, "//input[@name='firstname']");
 		if (f.length == 0) {

@@ -50,3 +50,7 @@ Properties/preferences to set size & quality options
 Preview pane (turn into to html & view in browser)
 Persist location of shells between execution
 Add launch scripts (for mac at least)
+
+--- bugs
+
+Cancel upload screen during login crashes due to WidgetDisposed
