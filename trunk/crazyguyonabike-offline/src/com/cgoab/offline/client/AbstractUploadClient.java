@@ -1,9 +1,15 @@
 package com.cgoab.offline.client;
 
 import java.io.IOException;
+import java.util.concurrent.Executor;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.cgoab.offline.client.web.DefaultWebUploadClient;
 
 public abstract class AbstractUploadClient implements UploadClient {
-
+	protected final Logger LOG = LoggerFactory.getLogger(getClass());
 	private Task<?> currentTask;
 	private final Object lock = new Object();
 	private Thread worker;
@@ -15,6 +21,15 @@ public abstract class AbstractUploadClient implements UploadClient {
 		}
 	};
 	private String threadName = "ClientThread";
+	private Executor callbackExecutor;
+
+	public AbstractUploadClient(Executor executor) {
+		callbackExecutor = executor;
+	}
+
+	public Executor getCallbackExecutor() {
+		return callbackExecutor;
+	}
 
 	protected void setThreadName(String threadName) {
 		this.threadName = threadName;
@@ -106,7 +121,7 @@ public abstract class AbstractUploadClient implements UploadClient {
 			try {
 				result = doRun();
 			} catch (Throwable t) {
-				t.printStackTrace();
+				LOG.info("Task " + this + " failed", t);
 				ex = t;
 			}
 
@@ -118,16 +133,43 @@ public abstract class AbstractUploadClient implements UploadClient {
 			}
 
 			// invoke listener outside of try/catch
-			if (ex == null) {
-				callback.onCompletion(result);
+			Callback<T> cmd = new Callback<T>(callback, result, ex);
+			if (callbackExecutor != null) {
+				callbackExecutor.execute(cmd);
 			} else {
-				callback.onError(ex);
+				cmd.run();
 			}
 		}
 
 		protected abstract T doRun() throws Exception;
 
 		protected void cancel() {
+		}
+
+		@Override
+		public String toString() {
+			return getClass().getSimpleName();
+		}
+	}
+
+	static class Callback<T> implements Runnable {
+		private final CompletionCallback<T> callback;
+		private final Throwable ex;
+		private final T result;
+
+		public Callback(CompletionCallback<T> callback, T result, Throwable ex) {
+			this.callback = callback;
+			this.ex = ex;
+			this.result = result;
+		}
+
+		@Override
+		public void run() {
+			if (ex == null) {
+				callback.onCompletion(result);
+			} else {
+				callback.onError(ex);
+			}
 		}
 	}
 

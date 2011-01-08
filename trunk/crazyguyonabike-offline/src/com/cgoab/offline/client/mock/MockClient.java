@@ -1,12 +1,13 @@
 package com.cgoab.offline.client.mock;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import org.eclipse.swt.widgets.Display;
 
 import com.cgoab.offline.client.AbstractUploadClient;
 import com.cgoab.offline.client.CompletionCallback;
@@ -15,8 +16,12 @@ import com.cgoab.offline.client.DocumentType;
 import com.cgoab.offline.client.PhotoUploadProgressListener;
 import com.cgoab.offline.model.Page;
 import com.cgoab.offline.model.Photo;
+import com.cgoab.offline.ui.util.UIExecutor;
 import com.cgoab.offline.util.StringUtils;
 
+/**
+ * Mock client, handy for testing the UI.
+ */
 public class MockClient extends AbstractUploadClient {
 
 	private int nextPageID;
@@ -27,12 +32,13 @@ public class MockClient extends AbstractUploadClient {
 
 	private Map<Integer, DocumentDescription> documents = new HashMap<Integer, DocumentDescription>();
 
-	private int delay = 100; // simulate delay
+	private int delay = 50; // simulate upload delay
 
 	protected String currentUsername;
 	protected String currentRealname;
 
 	public MockClient() {
+		super(new UIExecutor(Display.getCurrent()));
 		DocumentDescription d0 = new DocumentDescription("MyJournal 1", 0, "Not yet started", 100, DocumentType.JOURNAL);
 		DocumentDescription d1 = new DocumentDescription("MyJournal 2", 0, "Not yet started", 200, DocumentType.JOURNAL);
 		documents.put(d0.getDocumentId(), d0);
@@ -77,8 +83,28 @@ public class MockClient extends AbstractUploadClient {
 		});
 	}
 
+	private int documentId = -1;
+
 	@Override
-	public void createNewPage(final int documentId, final Page page, CompletionCallback<Integer> callback) {
+	public void initialize(final int docId, CompletionCallback<Void> callback) {
+		asyncExec(new Task<Void>(callback) {
+			@Override
+			protected Void doRun() throws Exception {
+				documentId = docId;
+				return null;
+			}
+		});
+	}
+
+	private void throwIfNotInitialized() {
+		if (documentId == -1) {
+			throw new IllegalStateException("Not initialized!");
+		}
+	}
+
+	@Override
+	public void createNewPage(final Page page, CompletionCallback<Integer> callback) {
+		throwIfNotInitialized();
 		asyncExec(new Task<Integer>(callback) {
 			@Override
 			public Integer doRun() throws Exception {
@@ -105,16 +131,13 @@ public class MockClient extends AbstractUploadClient {
 	}
 
 	private String getImageName(Photo photo) {
-		// String name = photo.getImageName();
-		// if (name != null && !"".equals(name)) {
-		// return name;
-		// }
 		return photo.getFile().getName();
 	}
 
 	@Override
 	public void addPhoto(final int pageId, final Photo photo, CompletionCallback<Void> callback,
 			final PhotoUploadProgressListener progressListener) {
+		throwIfNotInitialized();
 		asyncExec(new Task<Void>(callback) {
 			@Override
 			public Void doRun() throws Exception {
@@ -152,6 +175,7 @@ public class MockClient extends AbstractUploadClient {
 	@Override
 	public void logout(CompletionCallback<Void> callback) {
 		currentRealname = currentUsername = null;
+		documentId = -1;
 		callback.onCompletion(null);
 	}
 

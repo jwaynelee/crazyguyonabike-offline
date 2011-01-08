@@ -1,24 +1,24 @@
 package com.cgoab.offline.client;
 
-import java.io.File;
 import java.util.List;
 
 import com.cgoab.offline.model.Page;
 import com.cgoab.offline.model.Photo;
 
 /**
- * An API that encapsulates the "Web Methods" (HTTP POST & GET messages) to
- * uploaded pages and photos to the CGOAB server.
+ * An API that encapsulates the "operations" needed to uploaded pages and photos
+ * to the CGOAB server.
  * <p>
  * Operations execute asynchronously however only one operation can ever be in
  * progress at a given time. An {@link IllegalStateException} will be thrown if
- * constraint is violated. Typically the callback passed into operations is used
- * to detect completion before proceeding with the next operation.
+ * constraint is violated. Typically the callback passed into an operation will
+ * be used to listen for completion before proceeding with the next operation
+ * and so on.
  */
 public interface UploadClient {
 
 	/**
-	 * Attempts to cancel the currently running operation, if any.
+	 * Attempts to cancel the current operation, if any.
 	 */
 	public void cancel();
 
@@ -49,16 +49,16 @@ public interface UploadClient {
 	public void getDocuments(CompletionCallback<List<DocumentDescription>> callback);
 
 	/**
-	 * Creates a new page at the end of the document identified by
-	 * <tt>docId</tt> but does <b>NOT</b> upload any photos.
+	 * Creates a new page at the end of the document this client is bound too (
+	 * {@link #initialize(int, CompletionCallback)} must be called first) but
+	 * does <b>NOT</b> upload any photos.
 	 * 
-	 * @param docId
 	 * @param page
 	 * @param callback
 	 * @return
 	 * @throws Exception
 	 */
-	public void createNewPage(int docId, Page page, CompletionCallback<Integer> callback);
+	public void createNewPage(Page page, CompletionCallback<Integer> callback);
 
 	/**
 	 * Adds a photo to the page identified by <tt>pageId</tt>, the optional
@@ -86,37 +86,44 @@ public interface UploadClient {
 	// Exception;
 
 	/**
+	 * Initialises the upload client and binds to the given document, this will
+	 * fail if the client detects any changes to the html forms hosted on the
+	 * server.
+	 */
+	public void initialize(int docId, CompletionCallback<Void> callback);
+
+	/**
 	 * Logs out of the server, does nothing if not already logged in.
 	 * 
 	 * @param callback
 	 */
 	public void logout(CompletionCallback<Void> callback);
 
-	// domain exception, thrown when the server replies with an error
-	public static class ServerOperationException extends RuntimeException {
-	}
-
-	// thrown when a operation detects that the connection is no longer logged
-	// in
-	public static class NotLoggedInException extends ServerOperationException {
-	}
-
-	// thrown when a login attempt fails
-	public static class FailedLoginException extends ServerOperationException {
-	}
-
-	// thrown when add page fails, perhaps because the date is older than
-	// previous pages
-	public static class FailedAddPageException extends ServerOperationException {
-	}
-
-	// thrown when add photo fails, perhaps because the photo has the same name
-	// as another photo in the journal
-	public static class FailedAddPhotoException extends ServerOperationException {
-	}
+	// // domain exception, thrown when the server replies with an error
+	// public static class ServerOperationException extends RuntimeException {
+	// }
+	//
+	// // thrown when a login attempt fails
+	// public static class FailedLoginException extends ServerOperationException
+	// {
+	// }
+	//
+	// // thrown when add page fails, perhaps because the date is older than
+	// // previous pages
+	// public static class FailedAddPageException extends
+	// ServerOperationException {
+	// }
+	//
+	// // thrown when add photo fails, perhaps because the photo has the same
+	// name
+	// // as another photo in the journal
+	// public static class FailedAddPhotoException extends
+	// ServerOperationException {
+	// }
 
 	/**
-	 * Disposes of any resources used by this service.
+	 * Disposes of any resources used by the client.
 	 */
 	public void dispose();
+
 }

@@ -30,7 +30,6 @@ public class BatchUploader {
 	private final List<Photo> remainingPhotos = new ArrayList<Photo>();
 	private Page currentPage;
 	private Photo currentPhoto;
-	private int documentId;
 
 	private PhotoUploadProgressListener photoListener = new PhotoUploadProgressListener() {
 
@@ -128,10 +127,6 @@ public class BatchUploader {
 		this.client = client;
 	}
 
-	public void setDocumentId(int documentId) {
-		this.documentId = documentId;
-	}
-
 	public void setPages(List<Page> pages) {
 		remainingPages.clear();
 		remainingPages.addAll(pages);
@@ -139,8 +134,7 @@ public class BatchUploader {
 
 	// initiates the upload
 	public void start() {
-		Assert.isTrue(documentId > 0, "documentId is unset");
-		LOG.info("Starting batch upload of {} pages to docId {}", remainingPages.size(), documentId);
+		LOG.info("Starting batch upload of {} pages", remainingPages.size());
 		uploadedPages.clear();
 		uploadNextPage();
 	}
@@ -154,7 +148,7 @@ public class BatchUploader {
 				addNextPhoto();
 			} else {
 				fireBeforeUploadPage(currentPage);
-				client.createNewPage(documentId, currentPage, pageCompletionCallback);
+				client.createNewPage(currentPage, pageCompletionCallback);
 			}
 		} else {
 			// complete!

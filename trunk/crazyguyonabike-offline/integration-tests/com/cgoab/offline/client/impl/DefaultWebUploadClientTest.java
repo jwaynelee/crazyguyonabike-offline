@@ -16,7 +16,7 @@ import com.cgoab.offline.client.web.DefaultWebUploadClient;
 public class DefaultWebUploadClientTest {
 
 	DefaultWebUploadClient impl = new DefaultWebUploadClient(Application.CRAZYGUYONABIKE_HOST,
-			Application.CRAZYGUYONABIKE_PORT, new BasicCookieStore());
+			Application.CRAZYGUYONABIKE_PORT, new BasicCookieStore(), null);
 	private static String password, username;
 
 	static {
