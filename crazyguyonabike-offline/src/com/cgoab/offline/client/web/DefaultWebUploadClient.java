@@ -1,8 +1,5 @@
 package com.cgoab.offline.client.web;
 
-import html.FormFinder;
-import html.FormFinder.FormItem;
-import html.FormFinder.HtmlForm;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -71,7 +68,10 @@ import com.cgoab.offline.client.UploadClient;
 import com.cgoab.offline.client.web.ProgressTrackingFileBody.ProgressListener;
 import com.cgoab.offline.model.Page;
 import com.cgoab.offline.model.Photo;
+import com.cgoab.offline.util.FormFinder;
 import com.cgoab.offline.util.StringUtils;
+import com.cgoab.offline.util.FormFinder.FormItem;
+import com.cgoab.offline.util.FormFinder.HtmlForm;
 
 /**
  * {@link UploadClient} that uses the traditional web (HTML over HTTP) interface
