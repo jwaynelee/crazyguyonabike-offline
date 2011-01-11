@@ -26,7 +26,6 @@ public class Assert {
 	public static void isNull(Object o, String message) {
 		if (o != null) {
 			throw new AssertionError("Assertion Failed: " + (message == null ? "expected null" : message));
-
 		}
 	}
 
@@ -42,7 +41,7 @@ public class Assert {
 		}
 	}
 
-	public static void same(Object o1, Journal o2, String msg) {
+	public static void same(Object o1, Object o2, String msg) {
 		if (o1 != o2) {
 			throw new AssertionError(msg);
 		}
@@ -50,5 +49,11 @@ public class Assert {
 
 	public static void notNull(Object o) {
 		notNull(o, null);
+	}
+
+	public static void equals(String expected, String actual) {
+		if (!expected.equals(actual)) {
+			throw new AssertionError("Assertion Failed: " + expected + " != " + actual);
+		}
 	}
 }

@@ -1,6 +1,5 @@
 package com.cgoab.offline.client.web;
 
-
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -59,19 +58,23 @@ import org.apache.http.util.EntityUtils;
 import org.htmlcleaner.CleanerProperties;
 import org.htmlcleaner.HtmlCleaner;
 import org.htmlcleaner.TagNode;
+import org.htmlcleaner.XPatherException;
 
 import com.cgoab.offline.client.AbstractUploadClient;
 import com.cgoab.offline.client.CompletionCallback;
 import com.cgoab.offline.client.DocumentDescription;
 import com.cgoab.offline.client.PhotoUploadProgressListener;
 import com.cgoab.offline.client.UploadClient;
+import com.cgoab.offline.client.web.AbstractFormBinder.InitializationErrorException;
+import com.cgoab.offline.client.web.AbstractFormBinder.InitializationWarningException;
 import com.cgoab.offline.client.web.ProgressTrackingFileBody.ProgressListener;
 import com.cgoab.offline.model.Page;
 import com.cgoab.offline.model.Photo;
+import com.cgoab.offline.util.Assert;
 import com.cgoab.offline.util.FormFinder;
-import com.cgoab.offline.util.StringUtils;
 import com.cgoab.offline.util.FormFinder.FormItem;
 import com.cgoab.offline.util.FormFinder.HtmlForm;
+import com.cgoab.offline.util.StringUtils;
 
 /**
  * {@link UploadClient} that uses the traditional web (HTML over HTTP) interface
@@ -83,15 +86,16 @@ import com.cgoab.offline.util.FormFinder.HtmlForm;
  * webbrowser as the site generates the forms that it expcets to be posted back
  * at it, however this application would suffer. As an added guard this
  * implementaton, during {@link #initialize(int, CompletionCallback)} , checks
- * if the HTML forms to add pages and photos have changed. If so it reports a
- * warning if unused fields were removed or new ones added (probably OK) and
- * reports an exception when required fields are missing (definitly not OK).
+ * if the HTML forms to add pages and photos have changed. If so it throws
+ * {@link InitializationWarningException} if unused fields were removed or new
+ * fields added (probably OK) and throws {@link InitializationErrorException} if
+ * required fields are missing (definitly not OK).
  * <p>
  * The intention is that this class can be removed and a much simpler
  * implementation can be used that relies on a simple and stable published set
  * of HTTP operations designed for programatic use (ie, non HTML UI).
  * 
- * <h3>Mapping of Operations into HTTP/HTML</h3>
+ * <h3>Mapping of Operations to HTTP/HTML</h3>
  * If not specified, form values default to those found in the initialization
  * phase.
  * <table border="1">
@@ -105,10 +109,10 @@ import com.cgoab.offline.util.FormFinder.HtmlForm;
  * <tt>[username,password,command="login",button="Login","persistent="0"]</tt></td>
  * </tr>
  * <tr>
- * <td>expect 301 (redirect) to "/my/" else error</td>
+ * <td>expected 200 (OK) (assume META redirect to "/my/") else error</td>
  * </tr>
  * <tr>
- * <td>GET from "/my/account/"</td>
+ * <td>GET from "/my/account/" to verify login</td>
  * </tr>
  * <tr>
  * <td>extract realname and username using
@@ -177,12 +181,8 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 				+ Arrays.toString(expected), html);
 	}
 
-	private URI createURI(String path, String query) {
-		try {
-			return URIUtils.createURI("http", host, port, path, query, null);
-		} catch (URISyntaxException e) {
-			throw new RuntimeException(e);
-		}
+	private URI createURI(String path, String query) throws URISyntaxException {
+		return URIUtils.createURI("http", host, port, path, query, null);
 	}
 
 	static boolean isRedirect(int code) {
@@ -198,12 +198,8 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 		System.out.println("-------------------------------------");
 	}
 
-	private static void setCookieSpec(HttpRequest request) {
+	private static void useMyCookiePolicy(HttpRequest request) {
 		HttpClientParams.setCookiePolicy(request.getParams(), MYSPEC);
-	}
-
-	private static String toOnOff(boolean value) {
-		return value ? "on" : "off";
 	}
 
 	private HtmlCleaner cleaner;
@@ -216,11 +212,9 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 
 	private String currentRealname;
 
-	private int documentId = -1;
+	private PhotoBinder photoBinder;
 
-	private HtmlForm editPageForm;
-
-	private HtmlForm addPhotoForm;
+	private PageBinder pageBinder;
 
 	// public void delete(int pageId) {
 	//
@@ -293,7 +287,7 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 	}
 
 	private void throwIfNotInitialized() {
-		if (documentId == -1 || editPageForm == null || addPhotoForm == null) {
+		if (photoBinder == null || pageBinder == null || !photoBinder.isInitialized() || !pageBinder.isInitialized()) {
 			throw new IllegalStateException("UploadClient not initialized!");
 		}
 	}
@@ -305,63 +299,14 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 		super.dispose();
 	}
 
-	private String doLoginPOST(String username, String password) throws ClientProtocolException, IOException {
-		// login
-		HttpPost post = new HttpPost(createURI("/login/index.html", null));
-		RequestBuilder rb = new RequestBuilder();
-		rb.add("command", "login");
-		rb.add("username", username);
-		rb.add("password", password);
-		rb.add("persistent", "0");
-		rb.add("button", "Login");
-		HttpResponse result;
-
-		post.setEntity(rb.createFormEntity());
-		result = client.execute(post, context);
-		int statusCode = result.getStatusLine().getStatusCode();
-		if (statusCode != HttpStatus.SC_OK) {
-			result.getEntity().consumeContent();
-			throw new IllegalStateException("Unexpected staus code '" + statusCode + "'");
-		}
-		return EntityUtils.toString(result.getEntity());
-	}
-
-	private void doLogoutGET() {
+	private void doLogoutGET(CancellableHttpTask<?> task) throws URISyntaxException, ClientProtocolException,
+			IOException {
 		HttpGet get = new HttpGet(createURI("/logout/", null));
-		setCookieSpec(get); // right now expire=-1 is only set on logout
-		HttpResponse result;
-		try {
-			result = client.execute(get, context);
-			assertStatusCode(EntityUtils.toString(result.getEntity()), result.getStatusLine().getStatusCode(),
-					HttpStatus.SC_OK);
-		} catch (RuntimeException e) {
-			throw e;
-		} catch (Exception e) {
-			throw new RuntimeException(e);
-		}
-	}
-
-	/**
-	 * Attempts to get the current username from the "/my/account" page, returns
-	 * null if not logged in.
-	 * 
-	 * @return
-	 */
-	private String doMyAccountGET() {
-		try {
-			HttpGet get = new HttpGet(createURI("/my/account/", null));
-			HttpResponse result = client.execute(get, context);
-			String html = EntityUtils.toString(result.getEntity());
-			assertStatusCode(html, result.getStatusLine().getStatusCode(), HttpStatus.SC_OK,
-					HttpStatus.SC_MOVED_PERMANENTLY);
-			if (result.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
-				return html;
-			}
-			result.getEntity().consumeContent(); // closes connection
-			return null;
-		} catch (Exception e) {
-			throw new RuntimeException(e);
-		}
+		useMyCookiePolicy(get); // "expire=-1" cookie only set on logout
+		HttpResponse result = task.execute(get);
+		String html = EntityUtils.toString(result.getEntity());
+		assertStatusCode(html, result.getStatusLine().getStatusCode(), HttpStatus.SC_OK);
+		return;
 	}
 
 	// for testing
@@ -397,8 +342,8 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 	public void logout(CompletionCallback<Void> callback) {
 		asyncExec(new LogoutTask(callback));
 		currentRealname = currentUsername = null;
-		addPhotoForm = editPageForm = null;
-		documentId = -1;
+		photoBinder = null;
+		pageBinder = null;
 	}
 
 	void toFile(String name, HttpEntity entity) throws IOException {
@@ -431,12 +376,21 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 			assertStatusCode(html, response.getStatusLine().getStatusCode(), HttpStatus.SC_OK);
 			TagNode root = cleaner.clean(html);
 			HtmlForm pageForm = FormFinder.findFormWithName(root, "form");
+			boolean fatal = false;
+			List<String> errorMessages = new ArrayList<String>();
 			if (pageForm == null) {
 				/* error */
-				throw new ServerOperationException("Failed to find 'edit-page' form; has the server changed?", html);
+				fatal = true;
+				errorMessages.add("ERROR: EditPage form missing");
 			} else {
-				/* TODO check form fields are as expected */
-				LOG.debug("Found edit-page form {}", pageForm);
+				/* throws if we have a problem */
+				LOG.debug("Found edit-page form {}, validating", pageForm);
+				pageBinder = new PageBinder();
+
+				pageBinder.setDocumentId(docId);
+				if (!pageBinder.initialize(pageForm, errorMessages)) {
+					fatal = true;
+				}
 			}
 
 			// 2) post the form to get to add-photo form
@@ -463,17 +417,16 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 				root = cleaner.clean(html);
 				HtmlForm photoForm = FormFinder.findFormWithName(root, "form");// "/doc/edit/page/pic/");
 				if (photoForm == null) {
-					throw new ServerOperationException("Failed to find add-page form; has the server changed?", html);
+					fatal = true;
+					errorMessages.add("ERROR: AddPhoto form missing");
 				} else {
-					/* TODO check form fields have not changed */
-					LOG.debug("Found add-page form {}", addPhotoForm);
+					LOG.debug("Found add-photo form {}", photoForm);
+					pageId = photoForm.getItems().get("page_id");
+					photoBinder = new PhotoBinder();
+					if (!photoBinder.initialize(photoForm, errorMessages)) {
+						fatal = true;
+					}
 				}
-				pageId = photoForm.getItems().get("page_id");
-
-				/* done, sopublish initialization data */
-				documentId = docId;
-				editPageForm = pageForm;
-				addPhotoForm = photoForm;
 			} finally {
 				// 3) delete the temporary page just created
 				if (pageId != null && pageId.getValue() != null) {
@@ -481,12 +434,22 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 					HttpGet deletePage = new HttpGet(createURI("/doc/edit/page/",
 							"command=do_delete&page_id=" + pageId.getValue() + "&from=editcontents"));
 					response = execute(deletePage);
-					if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
-						/* log warning, noting we can do */
+					int code = response.getStatusLine().getStatusCode();
+					if (code != HttpStatus.SC_MOVED_PERMANENTLY) {
+						LOG.warn(
+								"Unexpected status code {} deleting temporary page, it may need to be deleted manually",
+								code);
 					}
 					response.getEntity().consumeContent();
 				}
 			}
+
+			if (fatal) {
+				throw new InitializationErrorException(StringUtils.join(errorMessages, "\n"));
+			} else if (errorMessages.size() > 0) {
+				throw new InitializationWarningException(StringUtils.join(errorMessages, "\n"));
+			}
+
 			return null;
 		}
 	}
@@ -518,11 +481,11 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 
 		@Override
 		protected final void cancel() {
+			cancelled.set(true);
 			HttpRequestBase request = currentOperation.get();
 			if (request != null) {
 				request.abort();
 			}
-			cancelled.set(true);
 		}
 	}
 
@@ -537,25 +500,7 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 		@Override
 		protected Integer doRun() throws Exception {
 			HttpPost post = new HttpPost(createURI("/doc/edit/page/", null));
-			Map<String, Object> fields = new HashMap<String, Object>();
-			fields.put("toc_heading_size", page.getHeadingStyle().toString());
-			fields.put("toc_heading_bold", toOnOff(page.isBold()));
-			fields.put("toc_heading_italic", toOnOff(page.isItalic()));
-			fields.put("toc_level", Integer.toString(page.getIndent()));
-			fields.put("visible", toOnOff(page.isVisible()));
-			fields.put("date", page.getDate().toString());
-			fields.put("distance", Float.toString(page.getDistance()));
-			fields.put("title", page.getTitle());
-			fields.put("headline", page.getHeadline());
-			fields.put("text", page.getText());
-			fields.put("edit_comment", page.getEditComment());
-			fields.put("format", page.getFormat().toString().toLowerCase());
-			// fields.put("submit", "Upload Pic or File");
-			fields.put("doc_id", Integer.toString(documentId));
-			fields.put("update_timestamp", "off");
-			Map<String, Object> merged = editPageForm.newMergedProperties(fields);
-			merged.remove("sequence");
-			post.setEntity(createFormEntity(merged));
+			post.setEntity(createFormEntity(pageBinder.bind(page)));
 			HttpResponse result = execute(post);
 			String html = EntityUtils.toString(result.getEntity());
 			int statusCode = result.getStatusLine().getStatusCode();
@@ -642,7 +587,6 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 		private PhotoUploadProgressListener listener;
 		private int pageId;
 		private Photo photo;
-		private HttpPost post;
 
 		public AddPhotoTask(CompletionCallback<Void> callback, int pageId, Photo photo,
 				PhotoUploadProgressListener listener) {
@@ -653,8 +597,8 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 		}
 
 		@Override
-		public Void doRun() throws ClientProtocolException, IOException {
-			post = new HttpPost(createURI("doc/edit/page/pic/", null));
+		public Void doRun() throws ClientProtocolException, IOException, URISyntaxException {
+			HttpPost post = new HttpPost(createURI("doc/edit/page/pic/", null));
 			File file = photo.getResizedPhoto();
 			if (file == null) {
 				file = photo.getFile();
@@ -671,12 +615,7 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 				}
 			});
 
-			Map<String, Object> properties = new HashMap<String, Object>();
-			properties.put("upload_filename", fb);
-			properties.put("caption", new StringBody(StringUtils.nullToEmpty(photo.getCaption())));
-			properties.put("page_id", new StringBody(Integer.toString(pageId)));
-			post.setEntity(createMultipartFormEntity(addPhotoForm.newMergedProperties(properties)));
-
+			post.setEntity(createMultipartFormEntity(photoBinder.bind(photo, fb, pageId)));
 			HttpResponse response = execute(post);
 			String html = EntityUtils.toString(response.getEntity());
 
@@ -711,6 +650,7 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 
 	class LoginTask extends CancellableHttpTask<String> {
 
+		private static final String LOGING_PATH = "/login/index.html";
 		final String password;
 		final String username;
 
@@ -720,32 +660,88 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 			this.password = password;
 		}
 
+		private LoginBinder initializeBinder() throws URISyntaxException, ClientProtocolException, IOException,
+				XPatherException {
+			HttpGet get = new HttpGet(createURI(LOGING_PATH, null));
+			HttpResponse response = execute(get);
+			String html = EntityUtils.toString(response.getEntity());
+			assertStatusCode(html, response.getStatusLine().getStatusCode(), HttpStatus.SC_OK);
+			HtmlForm form = FormFinder.findFormWithName(cleaner.clean(html), "form");
+			if (form == null) {
+				throw new InitializationErrorException("No [form] found");
+			} else {
+				LOG.debug("Found login-form {}", form);
+			}
+			LoginBinder binder = new LoginBinder();
+			List<String> errors = new ArrayList<String>();
+			if (!binder.initialize(form, errors)) {
+				throw new InitializationErrorException(StringUtils.join(errors, "\n"));
+			} else if (errors.size() > 0) {
+				throw new InitializationWarningException(StringUtils.join(errors, "\n"));
+			}
+			return binder;
+		}
+
+		private String doLoginPOST(String username, String password) throws ClientProtocolException, IOException,
+				URISyntaxException, XPatherException {
+			LoginBinder binder = initializeBinder();
+			HttpPost post = new HttpPost(createURI(LOGING_PATH, null));
+			post.setEntity(createFormEntity(binder.bind(username, password)));
+			HttpResponse result = execute(post);
+			String html = EntityUtils.toString(result.getEntity());
+			assertStatusCode(html, result.getStatusLine().getStatusCode(), HttpStatus.SC_OK);
+			return html;
+		}
+
+		/**
+		 * Attempts to get the current username from the "/my/account" page,
+		 * returns null if not logged in.
+		 * 
+		 * @return
+		 * @throws IOException
+		 * @throws URISyntaxException
+		 */
+		private String doMyAccountGET() throws IOException, URISyntaxException {
+			HttpGet get = new HttpGet(createURI("/my/account/", null));
+			HttpResponse result = execute(get);
+			String html = EntityUtils.toString(result.getEntity());
+			if (result.getStatusLine().getStatusCode() == HttpStatus.SC_MOVED_PERMANENTLY) {
+				return null; /* not logged in */
+			}
+			assertStatusCode(html, result.getStatusLine().getStatusCode(), HttpStatus.SC_OK);
+			return html;
+		}
+
 		@Override
 		protected String doRun() throws Exception {
+			LOG.debug("Checking if already logged in");
 			String myAccountHtml = doMyAccountGET();
 
 			if (username == null && myAccountHtml == null) {
-				// not logged in and no new username given
-				throw new ServerOperationException("Failed to login with username '" + username + "'", "");
+				/* not logged in & no username supplied */
+				LOG.debug("Not logged in and no username given");
+				throw new ServerOperationException("Failed to auto-login", null);
 			}
 
 			if (myAccountHtml != null) {
-				// already logged in
+				/* already logged in */
 				TagNode myAccount = cleaner.clean(myAccountHtml);
 				String loggedInAs = CGOABHtmlUtils.getUsernameFromMyAccount(myAccount);
-				if (username != null && username.equals(loggedInAs)) {
-					// logged in as someone else, logout first before
-					// logging back in
-					doLogoutGET();
+				LOG.debug("Already logged in as [" + loggedInAs + "]");
+				if (username != null && !username.equals(loggedInAs)) {
+					/* already logged in as someone else, logout first */
+					doLogoutGET(this);
 				} else {
-					// logged in as expected user or no new username was
-					// given
+					/* logged in as expected user */
 					currentUsername = loggedInAs;
 					currentRealname = CGOABHtmlUtils.getRealnameFromMyAccount(myAccount);
 					return loggedInAs;
 				}
+			} else {
+
 			}
 
+			LOG.debug("Logging in as {}", username);
 			String loginHtml = doLoginPOST(username, password);
 
 			// we could test post result for:
@@ -753,22 +749,24 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 			// Success: "Logging in xyz..." page, (META redirect)
 			// Failure: "Password incorrect"
 			//
-			// to be more flexible just check /my/ directly
+			// to be more flexible just (re)check result of /my/
 
 			myAccountHtml = doMyAccountGET();
 			if (myAccountHtml == null) {
-				// password/username incorrect
+				/* still not logged in */
+				LOG.debug("Failed to log in");
 				throw new ServerOperationException("Failed to login with username '" + username + "'", loginHtml);
 			}
 			TagNode myAccount = cleaner.clean(myAccountHtml);
 			currentUsername = CGOABHtmlUtils.getUsernameFromMyAccount(myAccount);
-			assert currentUsername.equals(username);
+			Assert.equals(currentUsername, username);
 			currentRealname = CGOABHtmlUtils.getRealnameFromMyAccount(myAccount);
+			LOG.debug("Sucessfully logged in as {} ({})", currentUsername, currentRealname);
 			return username;
 		}
 	}
 
-	class LogoutTask extends Task<Void> {
+	class LogoutTask extends CancellableHttpTask<Void> {
 
 		public LogoutTask(CompletionCallback<Void> callback) {
 			super(callback);
@@ -776,7 +774,7 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 
 		@Override
 		protected Void doRun() throws Exception {
-			doLogoutGET();
+			doLogoutGET(this);
 			return null;
 		}
 	}
@@ -813,30 +811,15 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 		}
 	}
 
+	/* no-op implementation */
 	private static class PhotoUploadProgressAdapter implements PhotoUploadProgressListener {
 		@Override
 		public void uploadPhotoProgress(Photo photo, long bytes, long total) {
 		}
 	}
 
-	static class RequestBuilder {
-
-		List<NameValuePair> d = new ArrayList<NameValuePair>();
-
-		public void add(String name, String value) {
-			d.add(new BasicNameValuePair(name, value));
-		}
-
-		public UrlEncodedFormEntity createFormEntity() {
-			try {
-				return new UrlEncodedFormEntity(d);
-			} catch (UnsupportedEncodingException e) {
-				throw new RuntimeException(e);
-			}
-		}
-	}
-
 	public static class ServerOperationException extends RuntimeException implements HtmlProvider {
+		private static final long serialVersionUID = 1L;
 		private final String html;
 
 		public ServerOperationException(String message, String html) {
