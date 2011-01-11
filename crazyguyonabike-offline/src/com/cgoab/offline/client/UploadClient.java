@@ -10,7 +10,7 @@ import com.cgoab.offline.model.Photo;
  * to the CGOAB server.
  * <p>
  * Operations execute asynchronously however only one operation can ever be in
- * progress at a given time. An {@link IllegalStateException} will be thrown if
+ * progress at a given time. An {@link IllegalStateException} is thrown if this
  * constraint is violated. Typically the callback passed into an operation will
  * be used to listen for completion before proceeding with the next operation
  * and so on.
@@ -26,12 +26,12 @@ public interface UploadClient {
 	 * Logs into the CGOAB server.
 	 * 
 	 * @param username
-	 *            username to log in with, if null will try to auto-login using
-	 *            any previously saved cookie.
+	 *            username to use. If <tt>null</tt> attempts to auto-login using
+	 *            previously saved cookie.
 	 * @param password
-	 *            password to log in with
+	 *            password to use
 	 * @param callback
-	 *            callback to run when the operation completes
+	 *            callback to invoke with the logged in username or exception
 	 */
 	public void login(String username, String password, CompletionCallback<String> callback);
 
@@ -40,8 +40,7 @@ public interface UploadClient {
 	public String getCurrentUserRealName();
 
 	/**
-	 * Loads a listing of the documents (journals & articles) authored by the
-	 * current user.
+	 * Loads document listing for current user.
 	 * 
 	 * @return
 	 * @throws Exception
@@ -49,9 +48,9 @@ public interface UploadClient {
 	public void getDocuments(CompletionCallback<List<DocumentDescription>> callback);
 
 	/**
-	 * Creates a new page at the end of the document this client is bound too (
-	 * {@link #initialize(int, CompletionCallback)} must be called first) but
-	 * does <b>NOT</b> upload any photos.
+	 * Creates a new page at the end of the document that the client is bound
+	 * too ( {@link #initialize(int, CompletionCallback)} must be called first)
+	 * but does <b>NOT</b> upload any photos.
 	 * 
 	 * @param page
 	 * @param callback
@@ -90,7 +89,7 @@ public interface UploadClient {
 	 * fail if the client detects any changes to the html forms hosted on the
 	 * server.
 	 */
-	public void initialize(int docId, CompletionCallback<Void> callback);
+	public void initialize(int documentId, CompletionCallback<Void> callback);
 
 	/**
 	 * Logs out of the server, does nothing if not already logged in.
@@ -125,5 +124,4 @@ public interface UploadClient {
 	 * Disposes of any resources used by the client.
 	 */
 	public void dispose();
-
 }

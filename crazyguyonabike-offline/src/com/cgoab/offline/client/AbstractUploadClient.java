@@ -6,21 +6,19 @@ import java.util.concurrent.Executor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.cgoab.offline.client.web.DefaultWebUploadClient;
-
 public abstract class AbstractUploadClient implements UploadClient {
 	protected final Logger LOG = LoggerFactory.getLogger(getClass());
 	private Task<?> currentTask;
 	private final Object lock = new Object();
 	private Thread worker;
 
-	protected final Task<Object> DEATH = new Task<Object>(null) {
+	private final Task<Object> DEATH = new Task<Object>(null) {
 		@Override
 		protected Object doRun() throws Exception {
-			throw new AssertionError("SHOULD NOT RUN");
+			throw new AssertionError("SHOULD NEVER RUN");
 		}
 	};
-	private String threadName = "ClientThread";
+	private String threadName = "UploadClient";
 	private Executor callbackExecutor;
 
 	public AbstractUploadClient(Executor executor) {
@@ -52,6 +50,7 @@ public abstract class AbstractUploadClient implements UploadClient {
 							}
 						}
 						if (toRun == DEATH) {
+							/* quit */
 							return;
 						} else {
 							toRun.invoke();
@@ -119,21 +118,22 @@ public abstract class AbstractUploadClient implements UploadClient {
 			Throwable ex = null;
 			T result = null;
 			try {
+				long start = System.currentTimeMillis();
+				LOG.debug("Starting [{}]", this);
 				result = doRun();
+				LOG.debug("[{}] completed in {}ms", this, System.currentTimeMillis() - start);
 			} catch (Throwable t) {
-				LOG.info("Task " + this + " failed", t);
+				LOG.info("[" + this + "] failed", t);
 				ex = t;
 			}
 
-			/* Clean-up and callback */
-
 			synchronized (lock) {
-				// clear to allow callback to add more work (ie, recurse)
+				/* clear task so callback can add more work */
 				currentTask = null;
 			}
 
-			// invoke listener outside of try/catch
-			Callback<T> cmd = new Callback<T>(callback, result, ex);
+			/* listener invoked outside try/catch AND outside lock */
+			CallbackRunner<T> cmd = new CallbackRunner<T>(callback, result, ex);
 			if (callbackExecutor != null) {
 				callbackExecutor.execute(cmd);
 			} else {
@@ -152,12 +152,12 @@ public abstract class AbstractUploadClient implements UploadClient {
 		}
 	}
 
-	static class Callback<T> implements Runnable {
+	static class CallbackRunner<T> implements Runnable {
 		private final CompletionCallback<T> callback;
 		private final Throwable ex;
 		private final T result;
 
-		public Callback(CompletionCallback<T> callback, T result, Throwable ex) {
+		public CallbackRunner(CompletionCallback<T> callback, T result, Throwable ex) {
 			this.callback = callback;
 			this.ex = ex;
 			this.result = result;

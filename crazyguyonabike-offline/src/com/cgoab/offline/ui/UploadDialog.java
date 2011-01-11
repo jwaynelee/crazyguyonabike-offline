@@ -44,6 +44,9 @@ import com.cgoab.offline.client.CompletionCallback;
 import com.cgoab.offline.client.DocumentDescription;
 import com.cgoab.offline.client.UploadClient;
 import com.cgoab.offline.client.mock.MockClient;
+import com.cgoab.offline.client.web.AbstractFormBinder.InitializationErrorException;
+import com.cgoab.offline.client.web.AbstractFormBinder.InitializationException;
+import com.cgoab.offline.client.web.AbstractFormBinder.InitializationWarningException;
 import com.cgoab.offline.client.web.HtmlProvider;
 import com.cgoab.offline.model.Journal;
 import com.cgoab.offline.model.Page;
@@ -222,7 +225,7 @@ public class UploadDialog {
 
 			@Override
 			public void retryNotify(Throwable exception, int retryCount) {
-				// don't care about retries
+				/* ignore */
 			}
 		});
 	}
@@ -304,28 +307,33 @@ public class UploadDialog {
 		uploader.setListener(new UploadListener());
 
 		/* first initialise the client */
-		log("Checking server using docId " + selectedDocument.getDocumentId());
+		log("Checking for server changes using document-id " + selectedDocument.getDocumentId());
 		client.initialize(selectedDocument.getDocumentId(), new CompletionCallback<Void>() {
 			@Override
 			public void onCompletion(Void result) {
-				log("Finished initialization");
+				log("Initialization complete");
+				startUpload();
+			}
+
+			private void startUpload() {
 				log("Starting upload of " + pages.size() + " pages to " + selectedDocument.getDocumentId() + " ("
 						+ selectedDocument.getTitle() + ")");
 				uploader.start();
 			}
 
 			public void onError(Throwable exception) {
-				showError("Checking server",
-						"Failed to check for server changes. This may be because the server has been changed "
-								+ "since this version was released. Check you are using the latest version and "
-								+ "contact the author.", exception);
-				btnCancel.removeSelectionListener(cancelCurrentOperationListener);
-				btnCancel.addSelectionListener(new SelectionAdapter() {
-					@Override
-					public void widgetSelected(SelectionEvent e) {
-						shell.close();
+				if (exception instanceof InitializationException) {
+					if (showInitializationException((InitializationException) exception)) {
+						startUpload();
+						return;
 					}
-				});
+				} else {
+					showError("Initialization", "Error during initialization", exception);
+				}
+
+				/* allow form to be closed */
+				btnCancel.removeSelectionListener(cancelCurrentOperationListener);
+				btnCancel.addSelectionListener(closeShellListener);
 			}
 
 			@Override
@@ -570,6 +578,34 @@ public class UploadDialog {
 		this.pages = pages;
 	}
 
+	private boolean showInitializationException(InitializationException t) {
+		if (t instanceof InitializationErrorException) {
+			log("Detected fatal server changes");
+			MessageBox box = new MessageBox(shell, SWT.ICON_ERROR | SWT.OK);
+			box.setText("Detected fatal server changes");
+			box.setMessage("Potentially fatal server changes detected (details below).\n\nThese changes "
+					+ "indicate the server has changed since this software was released. "
+					+ "Check for updates and contact the author if you are already using the latest verersion.\n\n"
+					+ t.getMessage());
+			box.open();
+		} else if (t instanceof InitializationWarningException) {
+			log("Detected server changes");
+			MessageBox box = new MessageBox(shell, SWT.ICON_ERROR | SWT.YES | SWT.NO);
+			box.setText("Detected server changes");
+			box.setMessage("Server changes detected (details below). Do you want to proceed with the upload?\n\nThese changes "
+					+ "indicate the server has changed since this software was released, however no fatal changes "
+					+ "were detected so it may be safe to continue. Check for updates and contact the author "
+					+ "if you are already using the latest verersion.\n\n" + t.getMessage());
+			if (box.open() == SWT.YES) {
+				/* continue */
+				return true;
+			}
+		} else {
+			throw new IllegalArgumentException("Unexpected exception type: " + t);
+		}
+		return false;
+	}
+
 	private void showError(final String action, final String message, final Throwable t) {
 		if (t instanceof HtmlProvider) {
 			ErrorBoxWithHtml p = new ErrorBoxWithHtml(shell);
@@ -577,7 +613,7 @@ public class UploadDialog {
 			p.setTitle("Error " + action);
 			p.setMessage(message + "\n\nException: " + t.toString());
 			p.open();
-		} else {
+		} else { /* all other exceptions */
 			MessageBox box = new MessageBox(shell, SWT.ICON_ERROR | SWT.OK);
 			box.setText("Error " + action);
 			box.setMessage(message + "\n\nException: " + t.toString());
@@ -585,17 +621,13 @@ public class UploadDialog {
 		}
 	}
 
-	// TODO load the next days photos whilst uploading previous day???
-	private Image getOrLoadThumbnail(Photo photo) {
-
+	private Image getThumbnail(Photo photo) {
 		Future<Thumbnail> result = thumbnailProvider.get(photo.getFile(), null, null);
-
-		// block until it loads
 		try {
 			return new Image(shell.getDisplay(), result.get().imageData);
 		} catch (Exception e) {
-			return null; // ignore errors loading thumb, we are just trying
-							// to be helpful...
+			/* ignore, just trying to be helpful */
+			return null;
 		}
 	}
 
@@ -625,7 +657,7 @@ public class UploadDialog {
 				previousPhoto.dispose();
 			}
 
-			Image thumbnail = getOrLoadThumbnail(photo);
+			Image thumbnail = getThumbnail(photo);
 			if (thumbnail != null) {
 				photoPreview.setImage(thumbnail);
 			}
@@ -634,7 +666,7 @@ public class UploadDialog {
 			photoProgressBar.setState(SWT.NORMAL);
 			photoProgressBar.setSelection(0);
 
-			/* duplicate logic done in web-upload-client */
+			/* report actual uploaded photo size */
 			File file = photo.getResizedPhoto();
 			boolean resized;
 			if (file == null) {
@@ -646,7 +678,6 @@ public class UploadDialog {
 
 			log("Uploading photo " + file.getName() + " (" + (resized ? "resized to " : "")
 					+ Utils.formatBytes(file.length()) + ")");
-
 		}
 
 		@Override
@@ -669,7 +700,7 @@ public class UploadDialog {
 			result = new UploadResult(false, currentPage, currentPhoto);
 
 			// TODO we could offer "retry" here if the error looks transient and
-			// was not retried automatically?
+			// was for some reason not retried automatically?
 
 			showError("uploading", "Upload failed. Some pages may not be fully uploaded. Fix the error and retry",
 					error);
@@ -677,12 +708,7 @@ public class UploadDialog {
 			// leave the shell open, allow user to read
 			// the log and then close via cancel
 			btnCancel.removeSelectionListener(cancelCurrentOperationListener);
-			btnCancel.addSelectionListener(new SelectionAdapter() {
-				@Override
-				public void widgetSelected(SelectionEvent e) {
-					shell.close();
-				}
-			});
+			btnCancel.addSelectionListener(closeShellListener);
 		}
 
 		@Override

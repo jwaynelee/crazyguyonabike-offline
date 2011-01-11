@@ -6,15 +6,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import org.htmlcleaner.HtmlCleaner;
 import org.htmlcleaner.TagNode;
 import org.htmlcleaner.XPatherException;
 
-/**
- * 1) download /doc/edit/page/pic and /doc/edit/page, build html-form, make sure
- * expected properties are in form, merge new ones and warn user if new/missing
- * params detected.
- */
 public class FormFinder {
 	private static void addAll(Object[] nodes, HtmlForm target) throws XPatherException {
 		for (Object input : nodes) {
@@ -88,15 +82,6 @@ public class FormFinder {
 			}
 		}
 		return null;
-	}
-
-	public static void main(String[] args) throws Exception {
-		HtmlCleaner cleaner = new HtmlCleaner();
-		TagNode tag = cleaner.clean(FormFinder.class.getResourceAsStream("/EditPage.html"));
-		System.out.println(FormFinder.findFormWithName(tag, "form"));
-
-//		tag = new HtmlCleaner().clean(FormFinder.class.getResourceAsStream("/AddPhoto.html"));
-//		System.out.println(findFormWithAction(tag, "doc/edit/page/pic/"));
 	}
 
 	public static HtmlForm parse(TagNode root) throws XPatherException {
@@ -200,15 +185,22 @@ public class FormFinder {
 
 		@Override
 		public String toString() {
-			StringBuilder b = new StringBuilder("---------------------------------\n");
-			b.append("form [action=");
-			b.append(action).append(", method=");
-			b.append(method).append(", name=");
-			b.append(name).append("]\n---------------------------------\n");
+			StringBuffer b = new StringBuffer();
+			b.append("form [action=").append(action).append(", ");
+			b.append("method=").append(method).append(", ");
+			b.append("name=").append(name).append("]\n");
 			for (Entry<String, FormItem> item : items.entrySet()) {
 				b.append(item.getValue()).append("\n");
 			}
 			return b.toString();
+		}
+
+		public Map<String, Object> newDefaultProperties() {
+			HashMap<String, Object> properties = new HashMap<String, Object>();
+			for (Entry<String, FormItem> item : items.entrySet()) {
+				properties.put(item.getKey(), item.getValue().getValue());
+			}
+			return properties;
 		}
 
 	}
