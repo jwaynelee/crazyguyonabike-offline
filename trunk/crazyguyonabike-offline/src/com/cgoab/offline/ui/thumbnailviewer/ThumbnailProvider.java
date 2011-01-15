@@ -13,6 +13,8 @@ import com.drew.metadata.Metadata;
  */
 public interface ThumbnailProvider {
 
+	public static final String KEY = ThumbnailProvider.class.getName();
+
 	/**
 	 * Returns a future that provides the thumbnail, either loaded from file or
 	 * from some cache.
@@ -44,12 +46,10 @@ public interface ThumbnailProvider {
 	public static class Thumbnail {
 		public final Metadata meta;
 		public final ImageData imageData;
-		public final Object source;
 
-		public Thumbnail(Metadata meta, ImageData image, Object data) {
+		public Thumbnail(Metadata meta, ImageData image) {
 			this.meta = meta;
 			this.imageData = image;
-			this.source = data;
 		}
 	}
 

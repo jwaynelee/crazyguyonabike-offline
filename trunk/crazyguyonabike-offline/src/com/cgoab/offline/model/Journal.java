@@ -1,5 +1,7 @@
 package com.cgoab.offline.model;
 
+import java.beans.PropertyChangeListener;
+import java.beans.PropertyChangeSupport;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -22,9 +24,12 @@ import com.cgoab.offline.util.Assert;
 public class Journal {
 
 	private static final Pattern DAY_PATTERN = Pattern.compile("^[dD]ay (\\d+)");
+	public static final String HIDE_UPLOADED_CONTENT = "hideUploadedContent";
 	public static final long NEVER_SAVED_TIMESTAMP = -1;
+	public static final String RESIZE_IMAGES_BEFORE_UPLOAD = "resizeImagesBeforeUpload";
 	public static final int UNSET_DOC_ID = -1;
-
+	public static final String USE_EXIF_THUMBNAIL = "useExifThumbnail";
+	private Map<String, Object> data = new HashMap<String, Object>();
 	private int docIdHint = UNSET_DOC_ID;
 	private File file;
 	private boolean hideUploadedContent = true;
@@ -33,39 +38,38 @@ public class Journal {
 	private List<JournalListener> listeners = new ArrayList<JournalListener>();
 	private Map<String, Page> loadedPhotos = new HashMap<String, Page>();
 	private String name;
-	private int nextLocalPageId = 0;
+
 	private List<Page> pages = new ArrayList<Page>();
+
 	private Boolean resizeImagesBeforeUpload = null; // null = unset
-	private Boolean useExifThumbnail = null; // null = unset
+
+	private PropertyChangeSupport support = new PropertyChangeSupport(this);
+
+	private Boolean useExifThumbnail;
 
 	public Journal(File file, String name) {
 		this.name = name;
 		this.file = file;
 	}
 
-	public void addListener(JournalListener listener) {
+	public void addJournalListener(JournalListener listener) {
 		if (!listeners.contains(listener)) {
 			listeners.add(listener);
 		}
 	}
 
-	public void addPage(Page newPage) {
+	void addPage(Page newPage) {
 		Assert.isTrue(newPage.getJournal() == this);
-		Assert.isTrue(newPage.getLocalId() != Page.UNSET_LOCAL_ID);
 		if (pages.contains(newPage)) {
 			throw new IllegalArgumentException("Page is already added to journal!");
-		}
-		if (nextLocalPageId <= newPage.getLocalId()) {
-			nextLocalPageId = newPage.getLocalId() + 1;
-		}
-		for (Page p : pages) {
-			if (newPage.getLocalId() == p.getLocalId()) {
-				throw new AssertionError("Duplicate local page id");
-			}
 		}
 		pages.add(newPage);
 		firePageAdded(newPage);
 		setDirty(true);
+	}
+
+	public void addPropertyChangeListener(PropertyChangeListener listener) {
+		support.addPropertyChangeListener(listener);
 	}
 
 	/**
@@ -77,7 +81,6 @@ public class Journal {
 	 */
 	public Page createNewPage() {
 		Page page = new Page(this);
-		page.setLocalId(nextLocalPageId++);
 		String title = "NEW PAGE";
 		if (pages.size() > 0) {
 			Page previousPage = pages.get(pages.size() - 1);
@@ -133,6 +136,16 @@ public class Journal {
 		for (JournalListener listener : new ArrayList<JournalListener>(listeners)) {
 			listener.photosRemoved(photos, page);
 		}
+	}
+
+	/**
+	 * Associates some transient data with this journal instance.
+	 * 
+	 * @param key
+	 * @return
+	 */
+	public Object getData(String key) {
+		return data.get(key);
 	}
 
 	public int getDocIdHint() {
@@ -194,15 +207,6 @@ public class Journal {
 		return useExifThumbnail;
 	}
 
-	void photosAdded(List<Photo> photos, Page page) {
-		for (Photo photo : photos) {
-			Page duplicate = loadedPhotos.put(photo.getFile().getName(), page);
-			// should already be checked in Page, check for sanity
-			Assert.isNull(duplicate, "Photo " + photo + " already exists on page " + duplicate);
-		}
-		firePhotosAdded(photos, page);
-	}
-
 	// private String getImageName(Photo photo) {
 	// String name = photo.getImageName();
 	// if (!StringUtils.isEmpty(name)) {
@@ -211,15 +215,22 @@ public class Journal {
 	// return photo.getFile().getName();
 	// }
 
+	void photosAdded(List<Photo> photos, Page page) {
+		if (photos.size() > 0) {
+			for (Photo photo : photos) {
+				Page duplicate = loadedPhotos.put(photo.getFile().getName(), page);
+				/* should already be checked, check again for sanity */
+				Assert.isNull(duplicate, "Photo [" + photo + "] already exists on page " + duplicate);
+			}
+			firePhotosAdded(photos, page);
+		}
+	}
+
 	void photosRemoved(List<Photo> photos, Page page) {
 		for (Photo photo : photos) {
 			loadedPhotos.remove(photo.getFile().getName());
 		}
 		firePhotosRemoved(photos, page);
-	}
-
-	public void removeListener(JournalListener listener) {
-		listeners.remove(listener);
 	}
 
 	// void checkForDuplicatePhotoInJournal(Photo photo) {
@@ -229,12 +240,33 @@ public class Journal {
 	// }
 	// }
 
+	public void removeListener(JournalListener listener) {
+		listeners.remove(listener);
+	}
+
 	public void removePage(Page page) {
 		Assert.isTrue(page.getJournal() == this);
 		pages.remove(page);
-		firePhotosRemoved(page.getPhotos(), page);
+		photosRemoved(page.getPhotos(), page);
 		firePageRemoved(page);
 		setDirty(true);
+	}
+
+	public void removePropertyChangeListener(PropertyChangeListener listener) {
+		support.removePropertyChangeListener(listener);
+	}
+
+	/**
+	 * Retrieves some transient data associated with this journal, may not be
+	 * null.
+	 * 
+	 * @param key
+	 * @param value
+	 */
+	public void setData(String key, Object value) {
+		Assert.notNull(key, "key must not be null");
+		Assert.notNull(value, "value must not be null");
+		data.put(key, value);
 	}
 
 	public void setDirty(boolean state) {
@@ -248,7 +280,8 @@ public class Journal {
 	}
 
 	public void setHideUploadedContent(boolean hideUploadedContent) {
-		this.hideUploadedContent = hideUploadedContent;
+		support.firePropertyChange(HIDE_UPLOADED_CONTENT, this.hideUploadedContent,
+				this.hideUploadedContent = hideUploadedContent);
 		setDirty(true);
 	}
 
@@ -268,12 +301,13 @@ public class Journal {
 	 * @param resizeImagesBeforeUpload
 	 */
 	public void setResizeImagesBeforeUpload(boolean resizeImagesBeforeUpload) {
-		this.resizeImagesBeforeUpload = resizeImagesBeforeUpload;
+		support.firePropertyChange(RESIZE_IMAGES_BEFORE_UPLOAD, this.resizeImagesBeforeUpload,
+				this.resizeImagesBeforeUpload = resizeImagesBeforeUpload);
 		setDirty(true);
 	}
 
 	public void setUseExifThumbnail(boolean useExifThumbnail) {
-		this.useExifThumbnail = useExifThumbnail;
+		support.firePropertyChange(USE_EXIF_THUMBNAIL, this.useExifThumbnail, this.useExifThumbnail = useExifThumbnail);
 		setDirty(true);
 	}
 

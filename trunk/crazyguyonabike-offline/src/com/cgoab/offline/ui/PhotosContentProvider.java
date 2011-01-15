@@ -3,7 +3,8 @@ package com.cgoab.offline.ui;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Date;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -12,7 +13,7 @@ import java.util.Map.Entry;
 import org.eclipse.jface.viewers.StructuredSelection;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.MessageBox;
-import org.omg.CORBA.UserException;
+import org.eclipse.swt.widgets.Shell;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,13 +25,12 @@ import com.cgoab.offline.model.PageNotEditableException;
 import com.cgoab.offline.model.Photo;
 import com.cgoab.offline.model.UploadState;
 import com.cgoab.offline.ui.thumbnailviewer.CachingThumbnailProvider;
+import com.cgoab.offline.ui.thumbnailviewer.CachingThumbnailProviderFactory;
+import com.cgoab.offline.ui.thumbnailviewer.ThumbnailProvider;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailViewer;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailViewerContentProvider;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailViewerEventListener;
-import com.cgoab.offline.util.Assert;
-import com.cgoab.offline.util.resizer.ImageMagickResizeTask.MagicNotAvailableException;
-import com.drew.metadata.Metadata;
-import com.drew.metadata.exif.ExifDirectory;
+import com.cgoab.offline.util.resizer.ImageMagickResizerServiceFactory;
 
 /**
  * Links thumbnail viewer to model
@@ -41,12 +41,15 @@ public class PhotosContentProvider implements ThumbnailViewerContentProvider, Th
 
 	private ThumbnailViewer viewer;
 
+	private ThumbnailView view;
+
 	private Page currentPage;
 
-	private PageEditor editor;
+	private Shell shell;
 
-	public PhotosContentProvider(PageEditor editor) {
-		this.editor = editor;
+	public PhotosContentProvider(Shell shell, ThumbnailView view) {
+		this.shell = shell;
+		this.view = view;
 	}
 
 	@Override
@@ -77,7 +80,7 @@ public class PhotosContentProvider implements ThumbnailViewerContentProvider, Th
 			// ignore, it is already uploaded, nothing we can do
 			return true;
 		}
-		MessageBox error = new MessageBox(editor.getShell(), SWT.ICON_ERROR | SWT.YES | SWT.NO);
+		MessageBox error = new MessageBox(shell, SWT.ICON_ERROR | SWT.YES | SWT.NO);
 		error.setText("Failed to load image");
 		error.setMessage("Failed to load image " + photo.getFile() + " due to:\n\n" + exception.getMessage()
 				+ "\n\nDo you want to keep this photo?");
@@ -105,7 +108,7 @@ public class PhotosContentProvider implements ThumbnailViewerContentProvider, Th
 
 	@Override
 	public void itemsRemoved(Object[] selection) {
-		MessageBox box = new MessageBox(editor.getShell(), SWT.ICON_QUESTION | SWT.YES | SWT.NO);
+		MessageBox box = new MessageBox(shell, SWT.ICON_QUESTION | SWT.YES | SWT.NO);
 		box.setText("Confirm delete");
 		StringBuilder b = new StringBuilder("Are you sure you want to remove these ").append(selection.length).append(
 				" photo(s):\n\n");
@@ -162,118 +165,12 @@ public class PhotosContentProvider implements ThumbnailViewerContentProvider, Th
 			/* ignore */
 			return;
 		}
-		// HACK: manually refresh the page to reflect new order
-		editor.selectOrderByButton(currentPage.getPhotosOrder());
 		viewer.refresh();
-	}
-
-	public void addPhotosRetryIfDuplicates(File[] files, int insertionPoint) {
-		List<Photo> photos = new ArrayList<Photo>(files.length);
-		for (File f : files) {
-			photos.add(new Photo(f));
-		}
-
-		try {
-			currentPage.addPhotos(photos, insertionPoint);
-		} catch (InvalidInsertionPointException e) {
-			return;
-		} catch (PageNotEditableException e) {
-			return;
-		} catch (DuplicatePhotoException e) {
-			StringBuilder b = new StringBuilder("The following photos are already added to this journal:\n\n");
-			int i = 0;
-			Map<Photo, Page> duplicates = e.getDuplicatePhotos();
-			for (Iterator<Entry<Photo, Page>> it = duplicates.entrySet().iterator(); it.hasNext();) {
-				Entry<Photo, Page> next = it.next();
-				if (i++ == 10) {
-					b.append("  ").append("... ").append(duplicates.size() - i).append(" more\n");
-					break;
-				}
-				b.append("  ").append(next.getKey().getFile().getName());
-				if (next.getValue() == null) {
-					b.append("\n");
-				} else if (next.getValue() == currentPage) {
-					b.append(" (this page)\n");
-				} else {
-					b.append(" (page " + next.getValue().getTitle() + ")\n");
-				}
-			}
-			b.append("\nIf you need to attach a duplicate photo, copy to a new file first.");
-			int nonDuplicatePhotos = photos.size() - duplicates.size();
-			int style = SWT.ICON_WARNING;
-			if (nonDuplicatePhotos > 0) {
-				b.append("Do you want to continue with the duplicates removed?");
-				style |= SWT.YES | SWT.NO;
-			} else {
-				style |= SWT.OK;
-			}
-			MessageBox msg = new MessageBox(editor.getShell(), style);
-			msg.setText("Duplicate image(s) detected");
-			msg.setMessage(b.toString());
-			if (msg.open() != SWT.YES) {
-				return;
-			}
-			photos.removeAll(duplicates.keySet());
-			try {
-				currentPage.addPhotos(photos, insertionPoint);
-			} catch (DuplicatePhotoException e1) {
-				return; /* can't happen! */
-			} catch (InvalidInsertionPointException e1) {
-				return; /* ignore */
-			} catch (PageNotEditableException e1) {
-				return; /* ignore */
-			}
-		}
-
-		/* before refresh, ask if EXIF thumbnails should be used */
-		Journal journal = currentPage.getJournal();
-		if (journal.isUseExifThumbnail() == null) {
-			MessageBox box = new MessageBox(editor.getShell(), SWT.ICON_QUESTION | SWT.YES | SWT.NO);
-			box.setText("Use embedded thumnails?");
-			box.setMessage("Do you want to use embedded JPEG thumbnails if available?\n\n"
-					+ "Embedded thumnbails load quicker but may be of poor quality. If you"
-					+ " don't use them a new thumbnail will be created for each photo, "
-					+ "providing crisper thumbnails but taking longer to load.");
-			CachingThumbnailProvider provider = editor.getThumbnailProviderFactory().getThumbnailProvider(journal);
-			boolean useExif = box.open() == SWT.YES;
-			provider.setUseExifThumbnail(useExif);
-			journal.setUseExifThumbnail(useExif);
-			editor.toggleUseExifThumbnailAction.setChecked(useExif);
-		}
-
-		viewer.refresh();
-		viewer.setSelection(new StructuredSelection(photos), true);
-
-		Boolean resize = journal.isResizeImagesBeforeUpload();
-		if (resize == null) {
-			MessageBox box = new MessageBox(editor.getShell(), SWT.ICON_QUESTION | SWT.YES | SWT.NO | SWT.CANCEL);
-			box.setText("Resize photos?");
-			box.setMessage("Do you always want photos added to this journal to be resized before uploading?");
-			switch (box.open()) {
-			case SWT.YES:
-				resize = Boolean.TRUE;
-				break;
-			case SWT.NO:
-				resize = Boolean.FALSE;
-				break;
-			}
-
-			if (resize != null) {
-				if (resize == Boolean.TRUE) {
-					// from no one any new photos will be auto-resized
-					if (!editor.registerPhotoResizer(journal, false)) {
-						return;
-					}
-				}
-				journal.setResizeImagesBeforeUpload(resize);
-				editor.toggleResizePhotos.setChecked(true);
-			}
-		}
 	}
 
 	@Override
 	public void itemsAdded(File[] newItems, int insertionPoint) {
-		addPhotosRetryIfDuplicates(newItems, adjustInsertionPointForHiddenPhotos(insertionPoint));
+		view.addPhotosRetryIfDuplicates(newItems, adjustInsertionPointForHiddenPhotos(insertionPoint));
 	}
 
 	// @Override

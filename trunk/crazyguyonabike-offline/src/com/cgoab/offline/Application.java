@@ -19,9 +19,10 @@ import org.eclipse.swt.widgets.Shell;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.cgoab.offline.client.UploadClientFactory;
 import com.cgoab.offline.client.web.DefaultWebUploadClientFactory;
 import com.cgoab.offline.client.web.FileCookieStore;
-import com.cgoab.offline.ui.PageEditor;
+import com.cgoab.offline.ui.ApplicationWindow;
 import com.cgoab.offline.ui.Preferences;
 import com.cgoab.offline.ui.thumbnailviewer.CachingThumbnailProviderFactory;
 import com.cgoab.offline.ui.thumbnailviewer.FitWithinResizeStrategy;
@@ -47,7 +48,7 @@ public class Application implements Runnable {
 	private ImageMagickResizerServiceFactory resizerFactory;
 	private Display display;
 	private boolean configuredLogging;
-	private DefaultWebUploadClientFactory uploadFactory;
+	private UploadClientFactory uploadFactory;
 
 	public void setThumbnailFactory(CachingThumbnailProviderFactory thumbnailFactory) {
 		this.thumbnailFactory = thumbnailFactory;
@@ -99,7 +100,7 @@ public class Application implements Runnable {
 		return app;
 	}
 
-	private void setUploadFactory(DefaultWebUploadClientFactory uploadFactory) {
+	private void setUploadFactory(UploadClientFactory uploadFactory) {
 		this.uploadFactory = uploadFactory;
 	}
 
@@ -125,7 +126,7 @@ public class Application implements Runnable {
 		Shell shell = null;
 		try {
 			shell = new Shell(display);
-			PageEditor editor = new PageEditor(shell);
+			ApplicationWindow editor = new ApplicationWindow(shell);
 			editor.setThumbnailProviderFactory(thumbnailFactory);
 			editor.setResizerServiceFactory(resizerFactory);
 			editor.setPreferences(preferences);

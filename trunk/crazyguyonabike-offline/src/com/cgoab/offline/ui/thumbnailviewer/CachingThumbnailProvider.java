@@ -46,10 +46,6 @@ import com.drew.metadata.jpeg.JpegDirectory;
  */
 public class CachingThumbnailProvider implements ThumbnailProvider, FutureCompletionListener<Thumbnail> {
 
-	private enum ThumbnailSource {
-		RESIZED, EXIF
-	};
-
 	private static final String THUMBNAIL_EXTENSION = ".png";
 
 	private static Logger LOG = LoggerFactory.getLogger(ThumbnailProvider.class);
@@ -82,7 +78,7 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 		}
 		this.executor = executor;
 		this.display = display;
-		this.cache = new ThumbnailCache(16 * 1024 * 1024); // 16mb
+		this.cache = new ThumbnailCache(16 * 1024 * 1024); // ~16mb
 		this.resizer = resizer;
 	}
 
@@ -151,8 +147,7 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 		SWTUtils.assertOnUIThread();
 		LOG.debug("Request for thumbnail of [{}]", source.getAbsolutePath());
 
-		// 0) file does not exist (or was deleted) clear cache and return an
-		// exception
+		// 0) file does not exist (or was deleted)
 		if (!source.exists()) {
 			LOG.debug("Source image does not exist, removing from cache(s)");
 			cache.remove(source);
@@ -163,20 +158,18 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 			return new CompletedFuture<Thumbnail>(null, new FileNotFoundException(source.getAbsolutePath()));
 		}
 
-		// 1) check local cache
+		// 1) check in-memory cache
 		Thumbnail result = cache.get(source);
 		if (result != null) {
 			CompletedFuture<Thumbnail> fr = new CompletedFuture<Thumbnail>(result, null);
 			if (listener != null) {
-				/*
-				 * Call the listener inline as the future is completed.
-				 */
+				/* invoke listener inline as the future is completed */
 				listener.onCompletion(fr, data);
 			}
 			return fr;
 		}
 
-		// 2) create a job to check file cache or create a thumbnail
+		// 2) create a job to check file cache or create the thumbnail
 		File destination = getNameInCache(source);
 		GetThumbnailTask task = new GetThumbnailTask(source, destination, resizer, SWT.HIGH, display, this,
 				new CallbackHolder(source, listener, data));
@@ -224,6 +217,7 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 				// 2) cache thumbnail
 				try {
 					Thumbnail thumb = result.get();
+					// TODO only cache resized thumbnails?
 					cache.add(holder.source, thumb);
 				} catch (InterruptedException e) {
 					/* can't happen, future is already done */
@@ -350,7 +344,6 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 			if (meta == null) {
 				return SWT.NONE;
 			}
-
 			if (!meta.containsDirectory(ExifDirectory.class)) {
 				return SWT.NONE;
 			}
@@ -360,7 +353,7 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 			}
 			Object o = exif.getObject(ExifDirectory.TAG_ORIENTATION);
 			if (o != null && o instanceof Integer) {
-				// from http://sylvana.net/jpegcrop/exif_orientation.html
+				/* from http://sylvana.net/jpegcrop/exif_orientation.html */
 				switch ((Integer) o) {
 				case 1: /* 0 */
 					return SWT.NONE;
@@ -406,8 +399,7 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 				if (exifThumb != null) {
 					try {
 						int rotation = detectRotation(meta);
-						return new Thumbnail(meta, resizeThumbnailFromExif(exifThumb, meta, rotation),
-								ThumbnailSource.EXIF);
+						return new Thumbnail(meta, resizeThumbnailFromExif(exifThumb, meta, rotation));
 					} catch (Exception e) {
 						LOG.warn("Failed to create thumnail from embedded thumbnail", e);
 					}
@@ -422,7 +414,7 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 					// TODO cache meta in cache directory?
 					// TODO check dimensions of file are suitable
 					ImageData data = new ImageData(destination.getAbsolutePath());
-					return new Thumbnail(loadMeta(), data, ThumbnailSource.RESIZED);
+					return new Thumbnail(loadMeta(), data);
 				} catch (SWTException e) {
 					// failed to load, continue to (re)create the thumbnail
 					LOG.info("Failed to load thumbnail [" + destination.getName() + "]", e);
@@ -433,13 +425,13 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 
 			// 3) resize image to create thumbnail
 			ImageData data = createThumbnail(rotation);
-			Thumbnail result = new Thumbnail(meta, data, ThumbnailSource.RESIZED);
+			Thumbnail result = new Thumbnail(meta, data);
 
 			// 4) finally add a new task to write the thumbnail to disk
 			//
-			// A race is created. If the "save" task does not complete
+			// A race is created. If the "callback" does not run
 			// before another request is made to load the same thumbnail we'll
-			// recreate it all over and add another save task.
+			// recreate it all over (as it won't be in the cache).
 			try {
 				executor.submit(new SaveThumbnailTask(data, destination));
 			} catch (RejectedExecutionException e) {
@@ -462,7 +454,7 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 
 			/*
 			 * LX3 produces thumbnails with black bars when the aspect ratio not
-			 * 3:2, correct by copying only a portion of thumbnail to copy
+			 * 3:2, correct by copying only a portion of thumbnail to target
 			 */
 
 			Point idealThumbSize = resizer.resize(imageSize);

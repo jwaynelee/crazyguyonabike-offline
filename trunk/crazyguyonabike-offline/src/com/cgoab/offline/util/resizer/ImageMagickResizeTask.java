@@ -79,8 +79,8 @@ public class ImageMagickResizeTask extends ListenableCancellableTask<File> {
 		args.add(cmdPath);
 		args.add(source.getAbsolutePath());
 		args.add("-resize");
-		/* shrink shortest side to 1400px but don't enlarge */
-		args.add("1400x1400^>");
+		/* shrink shortest side to 1000px but don't enlarge */
+		args.add("1000x1000^>");
 		args.add("-quality");
 		args.add(String.valueOf(JPEG_QUALITY));
 		args.add(destination.getAbsolutePath());
@@ -173,7 +173,7 @@ public class ImageMagickResizeTask extends ListenableCancellableTask<File> {
 		String magickPath = new File(testMagickPath).getParent() + File.separator + MAGICK_COMMAND;
 		if (!new File(magickPath).exists()) {
 			if (OS.isWindows() && new File(magickPath + ".exe").exists()) {
-				// ok
+				/* OK; windows cmd searches for exe when resolving binary */
 			} else {
 				throw new MagicNotAvailableException("ImageMagick was found, but '" + MAGICK_COMMAND
 						+ "' binary does not exist!");

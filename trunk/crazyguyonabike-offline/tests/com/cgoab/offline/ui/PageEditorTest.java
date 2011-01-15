@@ -24,7 +24,7 @@ public class PageEditorTest {
 
 	private Display display;
 	private Shell rootShell;
-	private PageEditor editor;
+	private ApplicationWindow editor;
 	private CachingThumbnailProviderFactory thumbnailFactory;
 
 	static {
@@ -39,7 +39,7 @@ public class PageEditorTest {
 			public void run() {
 				Display display = new Display();
 				rootShell = new Shell(display);
-				editor = new PageEditor(rootShell);
+				editor = new ApplicationWindow(rootShell);
 				editor.setPreferences(new Preferences());
 				FitWithinResizeStrategy resizer = new FitWithinResizeStrategy(new Point(
 						ThumbnailViewer.THUMBNAIL_WIDTH, ThumbnailViewer.THUMBNAIL_HEIGHT));

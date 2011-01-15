@@ -4,6 +4,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -13,15 +14,23 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
+import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.MessageBox;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.cgoab.offline.model.Journal;
+import com.cgoab.offline.model.JournalAdapter;
+import com.cgoab.offline.model.Page;
 import com.cgoab.offline.model.Photo;
+import com.cgoab.offline.model.UploadState;
 import com.cgoab.offline.ui.util.SWTUtils;
 import com.cgoab.offline.ui.util.UIExecutor;
+import com.cgoab.offline.util.Assert;
 import com.cgoab.offline.util.FutureCompletionListener;
 import com.cgoab.offline.util.JobListener;
+import com.cgoab.offline.util.resizer.ImageMagickResizeTask.MagicNotAvailableException;
 
 public class ImageMagikResizerService implements FutureCompletionListener<File>, ResizerService {
 
@@ -60,6 +69,7 @@ public class ImageMagikResizerService implements FutureCompletionListener<File>,
 	public File getPhotoFolder() {
 		return photoFolder;
 	}
+
 
 	private boolean hasJpegExtension(File f) {
 		String name = f.getName().toLowerCase();

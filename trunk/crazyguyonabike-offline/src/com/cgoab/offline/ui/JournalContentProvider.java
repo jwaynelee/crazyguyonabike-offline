@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.eclipse.jface.viewers.IStructuredContentProvider;
 import org.eclipse.jface.viewers.ITreeContentProvider;
+import org.eclipse.jface.viewers.StructuredSelection;
 import org.eclipse.jface.viewers.TreeViewer;
 import org.eclipse.jface.viewers.Viewer;
 
@@ -11,7 +12,6 @@ import com.cgoab.offline.model.Journal;
 import com.cgoab.offline.model.JournalListener;
 import com.cgoab.offline.model.Page;
 import com.cgoab.offline.model.Photo;
-import com.cgoab.offline.util.Assert;
 
 public class JournalContentProvider implements IStructuredContentProvider, ITreeContentProvider, JournalListener {
 
@@ -44,6 +44,7 @@ public class JournalContentProvider implements IStructuredContentProvider, ITree
 	@Override
 	public void pageAdded(Page page) {
 		treeViewer.refresh();
+		treeViewer.setSelection(new StructuredSelection(page), true);
 	}
 
 	@Override
@@ -67,7 +68,7 @@ public class JournalContentProvider implements IStructuredContentProvider, ITree
 			((JournalHolder) oldInput).getJournal().removeListener(this);
 		}
 		if (newInput != null) {
-			((JournalHolder) newInput).getJournal().addListener(this);
+			((JournalHolder) newInput).getJournal().addJournalListener(this);
 		}
 	}
 

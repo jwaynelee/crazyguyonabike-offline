@@ -2,10 +2,9 @@ package com.cgoab.offline.ui.thumbnailviewer;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Collection;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
@@ -53,7 +52,6 @@ import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Menu;
 import org.eclipse.swt.widgets.MenuItem;
 
-import com.cgoab.offline.model.Journal;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailProvider.Thumbnail;
 import com.cgoab.offline.ui.util.SWTUtils;
 import com.cgoab.offline.util.FutureCompletionListener;
@@ -69,14 +67,6 @@ public class ThumbnailViewer extends Canvas {
 	static final int TEXT_HEIGHT = 20;
 	public static ResizeStrategy RESIZE_STRATEGY = new FitWithinResizeStrategy(new Point(THUMBNAIL_WIDTH,
 			THUMBNAIL_HEIGHT));
-
-	private static final Collection<String> extensions;
-	static {
-		extensions = new HashSet<String>();
-		extensions.add(".jpg");
-		extensions.add(".jpeg");
-		extensions.add(".gif");
-	}
 
 	private static boolean hasValidExtension(String fileName) {
 		String lower = fileName.toLowerCase();
@@ -512,22 +502,15 @@ public class ThumbnailViewer extends Canvas {
 			if (onInvalidImage(holder.getData(), exception)) {
 				holder.setFailedToLoad(true);
 			} else {
-				// remove from list
-				thumbnails.remove(holder);
-				updateXValues();
+				remove(new Object[] { holder.getData() });
+				return;
 			}
 		}
 
 		if (isThumbnailVisible(holder)) {
-			// TODO clip redraw?
+			// TODO clip redraw
 			redraw();
 		}
-
-		// /* TODO call back into controller to notify it that we now have
-		// meta-data that can be inspected */
-		// for(ThumbnailViewerEventListener l : eventListeners){
-		// l.itemMetaDataAvailable(holder.getData(), holder.getMeta());
-		// }
 	}
 
 	private void handleDeleteKey() {
@@ -935,7 +918,9 @@ public class ThumbnailViewer extends Canvas {
 		Set<Object> oldSelection = new HashSet<Object>(selected.size());
 		for (Iterator<ThumbnailHolder> i = thumbnails.iterator(); i.hasNext();) {
 			ThumbnailHolder th = i.next();
-			oldSelection.add(th.getData());
+			if (selected.contains(th)) {
+				oldSelection.add(th.getData());
+			}
 			th.dispose();
 			i.remove();
 		}
@@ -947,7 +932,7 @@ public class ThumbnailViewer extends Canvas {
 		if (input != null) {
 			Object[] newThumbs = contentProvider.getThumbnails(input);
 			for (ViewerFilter filter : filters) {
-				newThumbs = filter.filter(null, (Object) null, newThumbs);
+				newThumbs = filter.filter(null, input, newThumbs);
 			}
 			// if anything is still selected then scroll to show the first item
 			int x = PADDING_INSIDE;

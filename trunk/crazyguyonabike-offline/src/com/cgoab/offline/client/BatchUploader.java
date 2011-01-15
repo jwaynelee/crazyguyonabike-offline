@@ -9,7 +9,6 @@ import org.slf4j.LoggerFactory;
 import com.cgoab.offline.model.Page;
 import com.cgoab.offline.model.Photo;
 import com.cgoab.offline.model.UploadState;
-import com.cgoab.offline.util.Assert;
 
 /**
  * Provides the strategy to upload multiple pages, updating the model as
@@ -173,12 +172,12 @@ public class BatchUploader {
 	}
 
 	private void fireBeforeUploadPage(Page page) {
-		LOG.info("Starting upload of page #{} [{}]", page.getLocalId(), getShortDescription(page));
+		LOG.info("Starting upload of page #{} [{}]", page, getShortDescription(page));
 		listener.beforeUploadPage(page);
 	}
 
 	private void fireAfterUploadPage(Page page) {
-		LOG.info("Finished upload of page #{}", page.getLocalId());
+		LOG.info("Finished upload of page #{}", page);
 		listener.afterUploadPage(page);
 	}
 

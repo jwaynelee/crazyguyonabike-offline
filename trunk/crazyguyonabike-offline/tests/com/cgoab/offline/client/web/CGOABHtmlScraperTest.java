@@ -1,12 +1,16 @@
-package com.cgoab.service.impl;
+package com.cgoab.offline.client.web;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 
 import org.htmlcleaner.HtmlCleaner;
+import org.htmlcleaner.XPatherException;
 import org.junit.Assert;
 import org.junit.Test;
 
+import com.cgoab.offline.client.DocumentDescription;
+import com.cgoab.offline.client.DocumentType;
 import com.cgoab.offline.client.web.CGOABHtmlUtils;
 
 public class CGOABHtmlScraperTest {
@@ -18,6 +22,28 @@ public class CGOABHtmlScraperTest {
 	File addNewPageDateError = new File("TestData/ErrorAddNewPageDateOlderThanPrevious.htm");
 	File errorAddSamePhotoName = new File("TestData/ErrorAddPhotoSameName.htm");
 	HtmlCleaner cleaner = new HtmlCleaner();
+
+	@Test
+	public void getDocuments() throws Exception {
+		List<DocumentDescription> documents = CGOABHtmlUtils.extractDocuments(cleaner.clean(getClass().getResourceAsStream("MyPage.htm")));
+		DocumentDescription d1 = documents.get(0);
+		Assert.assertEquals("TEST Journal", d1.getTitle());
+		Assert.assertEquals(7953, d1.getDocumentId());
+		Assert.assertEquals("Not yet published", d1.getStatus());
+		Assert.assertEquals(DocumentType.JOURNAL, d1.getType());
+		
+		DocumentDescription d2 = documents.get(1);
+		Assert.assertEquals("Ben Voyage", d2.getTitle());
+		Assert.assertEquals(5221, d2.getDocumentId());
+		Assert.assertEquals("Work in progress", d2.getStatus());
+		Assert.assertEquals(DocumentType.JOURNAL, d2.getType());
+		
+		DocumentDescription d3 = documents.get(2);
+		Assert.assertEquals("Dublin to Cork the Long Way", d3.getTitle());
+		Assert.assertEquals(5192, d3.getDocumentId());
+		Assert.assertEquals("Not yet published", d3.getStatus());
+		Assert.assertEquals(DocumentType.JOURNAL, d3.getType());
+	}
 
 	@Test
 	public void getDocId() {

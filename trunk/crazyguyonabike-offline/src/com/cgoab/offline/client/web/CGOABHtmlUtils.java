@@ -28,16 +28,16 @@ public class CGOABHtmlUtils {
 
 	/**
 	 * Creates document decsriptions from table found using
-	 * <tt>/body/table[5]/tbody/tr/td/table/tbody/tr</tt>.
+	 * <tt>//table[@id='documents']/tbody/tr</tt>.
 	 * 
 	 * @param root
 	 * @return
 	 * @throws XPatherException
 	 */
 	public static List<DocumentDescription> extractDocuments(TagNode root) throws XPatherException {
-		Object[] table = root.evaluateXPath("/body/table[5]/tbody/tr/td/table/tbody/tr");
+		Object[] table = root.evaluateXPath("//table[@id='documents']/tbody/tr");
 		List<DocumentDescription> journals = new ArrayList<DocumentDescription>();
-		// tr[1] is table header, tr[2] onwards are journal listings...
+		// tr[0] is table header, tr[1] onwards are journal listings...
 		for (int i = 1; i < table.length; ++i) {
 			journals.add(createJournal((TagNode) table[i]));
 		}

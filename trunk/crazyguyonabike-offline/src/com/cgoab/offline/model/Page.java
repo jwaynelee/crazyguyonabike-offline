@@ -1,5 +1,7 @@
 package com.cgoab.offline.model;
 
+import java.beans.PropertyChangeListener;
+import java.beans.PropertyChangeSupport;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -22,37 +24,48 @@ import com.cgoab.offline.util.Assert;
  */
 public class Page {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(Page.class);
+	public static final String BOLD = "bold";
 
-	public static enum EditFormat {
-		AUTO, LIST, MANUAL
-	}
+	public static final String HEADING_STYLE = "headingStyle";
 
-	public static enum HeadingStyle {
-		LARGE, MEDIUM, SMALL
-	}
+	public static final String HEADLINE = "headline";
 
-	public static enum PhotosOrder {
-		/*
-		 * DATE, -- removed as order done before meta loaded and file-mod date
-		 * is inacurate, file name is simpler way to derive order
-		 */
-		MANUAL, NAME;
-	}
+	public static final String INDENT = "indent";
 
 	public static final int INDENT_MAX = 10;
 
 	public static final int INDENT_MIN = 1;
 
+	public static final String ITALIC = "italic";
+
+	private static final Logger LOGGER = LoggerFactory.getLogger(Page.class);
+
+	public static final String PHOTOS_ORDER = "photosOrder";
+
+	public static final String TITLE = "title";
+
 	public static final int UNSET_LOCAL_ID = -1;
 
 	public static final int UNSET_SERVER_ID = -1;
+
+	private static Comparator<Photo> getComparator(PhotosOrder order) {
+		switch (order) {
+		case NAME:
+			return FileNameComparator.INSTANCE;
+		case MANUAL:
+			return null;
+			// case DATE:
+			// return FileDateComparator.INSTANCE;
+		default:
+			throw new IllegalArgumentException("Invalid order " + order);
+		}
+	}
 
 	private boolean bold = false;
 
 	private LocalDate date = new LocalDate(); // default to today
 
-	private float distance;
+	private int distance;
 
 	private EditFormat editFormat = EditFormat.AUTO;
 
@@ -66,13 +79,13 @@ public class Page {
 
 	private Journal journal;
 
-	private int localId = UNSET_LOCAL_ID;
-
 	private PhotosOrder order = PhotosOrder.NAME;
 
 	private final List<Photo> photos = new ArrayList<Photo>();
 
 	private int serverId = UNSET_SERVER_ID;
+
+	private final PropertyChangeSupport support = new PropertyChangeSupport(this);
 
 	private IDocument textDocument;
 
@@ -82,89 +95,8 @@ public class Page {
 
 	private boolean visible = true;
 
-	public Page() {
-	}
-
 	public Page(Journal journal) {
 		this.journal = journal;
-	}
-
-	public LocalDate getDate() {
-		return date;
-	}
-
-	public float getDistance() {
-		return distance;
-	}
-
-	public String getEditComment() {
-		return null;
-	}
-
-	public EditFormat getFormat() {
-		return editFormat;
-	}
-
-	public HeadingStyle getHeadingStyle() {
-		return headingStyle;
-	}
-
-	public String getHeadline() {
-		return headline;
-	}
-
-	public int getIndent() {
-		return indent;
-	}
-
-	public Journal getJournal() {
-		return journal;
-	}
-
-	public int getLocalId() {
-		return localId;
-	}
-
-	/**
-	 * Returns an unmodifiable copy of the photos attached to this page ordered
-	 * as specified by {@link #getPhotosOrder()}.
-	 * 
-	 * @return
-	 */
-	public List<Photo> getPhotos() {
-		return Collections.unmodifiableList(new ArrayList<Photo>(photos));
-	}
-
-	public PhotosOrder getPhotosOrder() {
-		return order;
-	}
-
-	/**
-	 * Returns the ID this page was given when it was uploaded to the server or
-	 * {@value #UNSET_SERVER_ID} if this page is not yet uploaded.
-	 * 
-	 * @return
-	 */
-	public int getServerId() {
-		return serverId;
-	}
-
-	public UploadState getState() {
-		return uploadState;
-	}
-
-	public String getText() {
-		return textDocument == null ? null : textDocument.get();
-	}
-
-	public String getTitle() {
-		return title;
-	}
-
-	private void assertIsEditable() throws PageNotEditableException {
-		if (getState() == UploadState.UPLOADED) {
-			throw new PageNotEditableException();
-		}
 	}
 
 	/**
@@ -227,16 +159,22 @@ public class Page {
 		journal.photosAdded(photosToAdd, this);
 	}
 
-	public boolean isBold() {
-		return bold;
+	public void addPropertyChangeListener(PropertyChangeListener listener) {
+		support.addPropertyChangeListener(listener);
 	}
 
-	public boolean isItalic() {
-		return italic;
+	private void assertIsEditable() throws PageNotEditableException {
+		if (getState() == UploadState.UPLOADED) {
+			throw new PageNotEditableException();
+		}
 	}
 
-	public boolean isVisible() {
-		return visible;
+	private void assertPageOwnsPhotos(List<Photo> photosToCheck) {
+		for (Photo photo : photosToCheck) {
+			if (!photos.contains(photo)) {
+				throw new IllegalArgumentException("Page does not own photo " + photo);
+			}
+		}
 	}
 
 	/**
@@ -265,12 +203,88 @@ public class Page {
 		return;
 	}
 
-	private void assertPageOwnsPhotos(List<Photo> photosToCheck) {
-		for (Photo photo : photosToCheck) {
-			if (!photos.contains(photo)) {
-				throw new IllegalArgumentException("Page does not own photo " + photo);
-			}
-		}
+	public LocalDate getDate() {
+		return date;
+	}
+
+	public int getDistance() {
+		return distance;
+	}
+
+	public String getEditComment() {
+		return null;
+	}
+
+	public EditFormat getFormat() {
+		return editFormat;
+	}
+
+	public HeadingStyle getHeadingStyle() {
+		return headingStyle;
+	}
+
+	public String getHeadline() {
+		return headline;
+	}
+
+	public int getIndent() {
+		return indent;
+	}
+
+	public Journal getJournal() {
+		return journal;
+	}
+
+	public IDocument getOrCreateTextDocument() {
+		return textDocument == null ? (textDocument = new Document()) : textDocument;
+	}
+
+	/**
+	 * Returns an unmodifiable copy of the photos attached to this page ordered
+	 * as specified by {@link #getPhotosOrder()}.
+	 * 
+	 * @return
+	 */
+	public List<Photo> getPhotos() {
+		return Collections.unmodifiableList(new ArrayList<Photo>(photos));
+	}
+
+	public PhotosOrder getPhotosOrder() {
+		return order;
+	}
+
+	/**
+	 * Returns the ID this page was given when it was uploaded to the server or
+	 * {@value #UNSET_SERVER_ID} if this page is not yet uploaded.
+	 * 
+	 * @return
+	 */
+	public int getServerId() {
+		return serverId;
+	}
+
+	public UploadState getState() {
+		return uploadState;
+	}
+
+	public String getText() {
+		return textDocument == null ? null : textDocument.get();
+	}
+
+	public String getTitle() {
+		return title;
+	}
+
+	public boolean isBold() {
+		return bold;
+	}
+
+	public boolean isItalic() {
+		return italic;
+	}
+
+	public boolean isVisible() {
+		return visible;
 	}
 
 	public void movePhotos(List<Photo> toMove, int insertionPoint) throws InvalidInsertionPointException,
@@ -325,15 +339,19 @@ public class Page {
 		journal.photosRemoved(toRemove, this);
 	}
 
+	public void removePropertyChangeListener(PropertyChangeListener listener) {
+		support.removePropertyChangeListener(listener);
+	}
+
 	public void setBold(boolean bold) {
-		this.bold = bold;
+		support.firePropertyChange(BOLD, this.bold, this.bold = bold);
 	}
 
 	public void setDate(LocalDate date) {
 		this.date = date;
 	}
 
-	public void setDistance(float distance) {
+	public void setDistance(int distance) {
 		this.distance = distance;
 	}
 
@@ -343,11 +361,11 @@ public class Page {
 
 	public void setHeadingStyle(HeadingStyle headingStyle) {
 		Assert.notNull(headingStyle);
-		this.headingStyle = headingStyle;
+		support.firePropertyChange(HEADING_STYLE, this.headingStyle, this.headingStyle = headingStyle);
 	}
 
 	public void setHeadline(String headline) {
-		this.headline = headline;
+		support.firePropertyChange(HEADLINE, this.headline, this.headline = headline);
 	}
 
 	public void setIndent(int indent) {
@@ -357,28 +375,11 @@ public class Page {
 		if (indent < INDENT_MIN) {
 			throw new IndexOutOfBoundsException("indent must be >= " + INDENT_MIN);
 		}
-		this.indent = indent;
+		support.firePropertyChange(INDENT, this.indent, this.indent = indent);
 	}
 
 	public void setItalic(boolean italic) {
-		this.italic = italic;
-	}
-
-	public void setLocalId(int id) {
-		localId = id;
-	}
-
-	private static Comparator<Photo> getComparator(PhotosOrder order) {
-		switch (order) {
-		case NAME:
-			return FileNameComparator.INSTANCE;
-		case MANUAL:
-			return null;
-			// case DATE:
-			// return FileDateComparator.INSTANCE;
-		default:
-			throw new IllegalArgumentException("Invalid order " + order);
-		}
+		support.firePropertyChange(ITALIC, this.italic, this.italic = italic);
 	}
 
 	void setPhotos(List<Photo> p) {
@@ -387,7 +388,7 @@ public class Page {
 	}
 
 	public void setPhotosOrder(PhotosOrder order) {
-		this.order = order;
+		support.firePropertyChange(PHOTOS_ORDER, this.order, this.order = order);
 	}
 
 	public void setServerId(int id) {
@@ -397,25 +398,32 @@ public class Page {
 	public void setState(UploadState uploadState) {
 		this.uploadState = uploadState;
 	}
-
-	public IDocument getOrCreateTextDocument() {
-		return textDocument == null ? (textDocument = new Document()) : textDocument;
-	}
-
 	public void setText(String text) {
 		getOrCreateTextDocument().set(text);
 	}
-
 	public void setTitle(String title) {
-		this.title = title;
+		support.firePropertyChange(TITLE, this.title, this.title = title);
 	}
-
 	public void setVisible(boolean visible) {
 		this.visible = visible;
 	}
-
 	@Override
 	public String toString() {
 		return String.format("Page [%s : %s] - %s", title, headline, uploadState);
+	}
+	public static enum EditFormat {
+		AUTO, LIST, MANUAL
+	}
+
+	public static enum HeadingStyle {
+		LARGE, MEDIUM, SMALL
+	}
+
+	public static enum PhotosOrder {
+		/*
+		 * DATE, -- removed as order done before meta loaded and file-mod date
+		 * is inacurate, file name is simpler way to derive order
+		 */
+		MANUAL, NAME;
 	}
 }

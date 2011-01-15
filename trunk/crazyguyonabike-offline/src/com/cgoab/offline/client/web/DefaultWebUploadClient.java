@@ -386,7 +386,6 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 				/* throws if we have a problem */
 				LOG.debug("Found edit-page form {}, validating", pageForm);
 				pageBinder = new PageBinder();
-
 				pageBinder.setDocumentId(docId);
 				if (!pageBinder.initialize(pageForm, errorMessages)) {
 					fatal = true;
@@ -428,19 +427,23 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 					}
 				}
 			} finally {
-				// 3) delete the temporary page just created
-				if (pageId != null && pageId.getValue() != null) {
-					LOG.debug("Deleting temporary page {}", pageId);
-					HttpGet deletePage = new HttpGet(createURI("/doc/edit/page/",
-							"command=do_delete&page_id=" + pageId.getValue() + "&from=editcontents"));
-					response = execute(deletePage);
-					int code = response.getStatusLine().getStatusCode();
-					if (code != HttpStatus.SC_MOVED_PERMANENTLY) {
-						LOG.warn(
-								"Unexpected status code {} deleting temporary page, it may need to be deleted manually",
-								code);
+				// 3) delete the temporary page we just created
+				try {
+					if (pageId != null && pageId.getValue() != null) {
+						LOG.debug("Deleting temporary page {}", pageId);
+						HttpGet deletePage = new HttpGet(createURI("/doc/edit/page/", "command=do_delete&page_id="
+								+ pageId.getValue() + "&from=editcontents"));
+						response = execute(deletePage);
+						int code = response.getStatusLine().getStatusCode();
+						if (code != HttpStatus.SC_MOVED_PERMANENTLY) {
+							LOG.warn(
+									"Unexpected status code {} deleting temporary page, it may need to be deleted manually",
+									code);
+						}
+						response.getEntity().consumeContent();
 					}
-					response.getEntity().consumeContent();
+				} catch (Throwable e) {
+					LOG.warn("Unexpected exception deleting temporary page, it may need to be deleted manually", e);
 				}
 			}
 
@@ -505,7 +508,7 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 			String html = EntityUtils.toString(result.getEntity());
 			int statusCode = result.getStatusLine().getStatusCode();
 			if (isRedirect(statusCode)) {
-				// page-id can be found in redirect header
+				/* page-id should be in the redirect header */
 				result.getEntity().consumeContent();
 				Header locationHeader = result.getFirstHeader("Location");
 				if (locationHeader == null) {
@@ -514,14 +517,14 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 				String location = locationHeader.getValue();
 				Matcher match = PAGE_ID_PATTERN.matcher(location);
 				if (!match.matches()) {
-					throw new ServerOperationException("Could not find page_id in url '" + location + "'", html);
+					throw new ServerOperationException("Could not find page_id in url [" + location + "]", html);
 				}
 				return Integer.parseInt(match.group(1));
 			} else if (statusCode == HttpStatus.SC_OK) {
-				// the page contains the error message
+				/* page html is the error message */
 				throw new ServerOperationException("Failed to add page", html);
 			} else {
-				throw new IllegalStateException("Unexpected status code '" + statusCode + "'");
+				throw new IllegalStateException("Unexpected status code [" + statusCode + "]");
 			}
 		}
 	}
@@ -621,13 +624,12 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 
 			int statusCode = response.getStatusLine().getStatusCode();
 			if (isRedirect(statusCode)) {
-				// ok, expected
-				// TODO assert is a redirect to /doc/edit/page/?...
+				/* TODO assert is a redirect to /doc/edit/page/? */
 				return null;
 			} else if (statusCode == HttpStatus.SC_OK) {
 				throw new ServerOperationException("Error adding photo " + photo.getFile(), html);
 			} else {
-				throw new IllegalStateException("Unexpected status code '" + statusCode + "'");
+				throw new IllegalStateException("Unexpected status code [" + statusCode + "]");
 			}
 		}
 	}
@@ -650,7 +652,7 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 
 	class LoginTask extends CancellableHttpTask<String> {
 
-		private static final String LOGING_PATH = "/login/index.html";
+		private static final String LOGIN_PATH = "/login/index.html";
 		final String password;
 		final String username;
 
@@ -662,7 +664,7 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 
 		private LoginBinder initializeBinder() throws URISyntaxException, ClientProtocolException, IOException,
 				XPatherException {
-			HttpGet get = new HttpGet(createURI(LOGING_PATH, null));
+			HttpGet get = new HttpGet(createURI(LOGIN_PATH, null));
 			HttpResponse response = execute(get);
 			String html = EntityUtils.toString(response.getEntity());
 			assertStatusCode(html, response.getStatusLine().getStatusCode(), HttpStatus.SC_OK);
@@ -685,7 +687,7 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 		private String doLoginPOST(String username, String password) throws ClientProtocolException, IOException,
 				URISyntaxException, XPatherException {
 			LoginBinder binder = initializeBinder();
-			HttpPost post = new HttpPost(createURI(LOGING_PATH, null));
+			HttpPost post = new HttpPost(createURI(LOGIN_PATH, null));
 			post.setEntity(createFormEntity(binder.bind(username, password)));
 			HttpResponse result = execute(post);
 			String html = EntityUtils.toString(result.getEntity());

@@ -54,3 +54,7 @@ Add launch scripts (for mac at least)
 --- bugs
 
 Cancel upload screen during login crashes due to WidgetDisposed
+Thumbnail viewer - items removed, update scroll bar
+Bug in undo, not applied for caption text box
+Add undo to delete Page operation
+Refactor code; extract EditorView etc...

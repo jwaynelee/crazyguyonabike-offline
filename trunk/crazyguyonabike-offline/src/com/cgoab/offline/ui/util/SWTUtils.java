@@ -2,6 +2,7 @@ package com.cgoab.offline.ui.util;
 
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.KeyEvent;
+import org.eclipse.swt.graphics.FontData;
 import org.eclipse.swt.graphics.ImageData;
 import org.eclipse.swt.widgets.Display;
 
@@ -68,5 +69,14 @@ public class SWTUtils {
 		}
 		int mods = event.stateMask & SWT.MODIFIER_MASK;
 		return mods + key;
+	}
+
+	public static FontData[] createModifiedFontData(FontData[] originalData, int additionalStyle) {
+		FontData[] styleData = new FontData[originalData.length];
+		for (int i = 0; i < styleData.length; i++) {
+			FontData base = originalData[i];
+			styleData[i] = new FontData(base.getName(), base.getHeight(), base.getStyle() | additionalStyle);
+		}
+		return styleData;
 	}
 }

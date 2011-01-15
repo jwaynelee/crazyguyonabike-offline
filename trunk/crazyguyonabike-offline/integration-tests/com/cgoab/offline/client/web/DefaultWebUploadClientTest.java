@@ -1,4 +1,4 @@
-package com.cgoab.offline.client.impl;
+package com.cgoab.offline.client.web;
 
 import java.util.Scanner;
 import java.util.concurrent.CountDownLatch;
@@ -90,7 +90,7 @@ public class DefaultWebUploadClientTest {
 			latch.countDown();
 		}
 	}
-
+	
 	@Test
 	public void testLogin_sucess() throws InterruptedException {
 		Callback<String> testCb = new Callback<String>();
