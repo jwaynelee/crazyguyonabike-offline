@@ -31,16 +31,12 @@ public class CachingThumbnailProviderFactory {
 		this.folderExtension = folderExtension;
 	}
 
-	public CachingThumbnailProvider getThumbnailProvider(Journal journal) {
-		return providers.get(journal);
-	}
-
 	public CachingThumbnailProvider getOrCreateThumbnailProvider(Journal journal) {
 		CachingThumbnailProvider service = providers.get(journal);
 		if (service == null) {
 			File thumbFolder = getOrCreateThumbnailsFolder(journal);
 			service = new CachingThumbnailProvider(executor, thumbFolder, display, resizer);
-			providers.put(journal, service);
+			journal.setData(ThumbnailProvider.KEY, service);
 		}
 		return service;
 	}

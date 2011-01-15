@@ -3,6 +3,7 @@ package com.cgoab.offline.util.resizer;
 import java.io.File;
 import java.util.List;
 
+import com.cgoab.offline.model.Journal;
 import com.cgoab.offline.model.Photo;
 import com.cgoab.offline.util.JobListener;
 
@@ -10,6 +11,8 @@ import com.cgoab.offline.util.JobListener;
  * Service to resize photos.
  */
 public interface ResizerService {
+
+	public static final String KEY = ResizerService.class.getName();
 
 	public abstract void addJobListener(JobListener listener);
 

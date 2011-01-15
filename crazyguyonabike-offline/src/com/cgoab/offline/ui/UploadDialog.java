@@ -1,7 +1,6 @@
 package com.cgoab.offline.ui;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Future;
@@ -86,13 +85,20 @@ public class UploadDialog {
 	private final SelectionListener cancelCurrentOperationListener = new SelectionAdapter() {
 		@Override
 		public void widgetSelected(SelectionEvent e) {
+			System.err.println("CANCEL OP");
 			client.cancel();
 		}
 	};
 
 	private UploadClient client;
 
-	private SelectionListener closeShellListener;
+	private SelectionListener closeShellListener = new SelectionAdapter() {
+		@Override
+		public void widgetSelected(SelectionEvent e) {
+			System.err.println("CLOSE SHELL");
+			shell.close();
+		}
+	};
 
 	private TableViewer documentTable;
 
@@ -112,16 +118,30 @@ public class UploadDialog {
 
 	private Label statusLine;
 
+	private ThumbnailProvider thumbnailProvider;
+
 	private Text txtUsername, txtPassword;
 
 	private Text uploadStatus;
 
 	public UploadDialog(Shell parent) {
 		shell = new Shell(parent, SWT.APPLICATION_MODAL | SWT.DIALOG_TRIM);
+		
+		/* stop shell closing on 'esc' */
+		shell.addListener(SWT.Traverse, new Listener() {
+			@Override
+			public void handleEvent(Event event) {
+				if (event.detail == SWT.TRAVERSE_ESCAPE) {
+					event.doit = false;
+				}
+			}
+		});
+		
+		/* dispose last uploaded image on close */
 		shell.addListener(SWT.Close, new Listener() {
 			@Override
 			public void handleEvent(Event e) {
-				// dispose of the final image to be uploaded
+				System.out.println("CLOSE");
 				Image img = photoPreview.getImage();
 				if (img != null) {
 					img.dispose();
@@ -146,7 +166,7 @@ public class UploadDialog {
 				if (inputElement == null) {
 					return null;
 				}
-				return ((List<DocumentDescription>) inputElement).toArray();
+				return ((List<?>) inputElement).toArray();
 			}
 
 			@Override
@@ -201,9 +221,11 @@ public class UploadDialog {
 			statusLine.setText("Logging in as \"" + username + "\"...");
 		}
 
+		startOperation();
 		client.login(username, password, new CompletionCallback<String>() {
 			@Override
 			public void onCompletion(final String actualUsername) {
+				finishOperation();
 				log("Logged in as " + actualUsername);
 				statusLine.setText("Logged in as \"" + actualUsername + "\" (" + client.getCurrentUserRealName() + ")");
 				if (username == null) {
@@ -215,6 +237,7 @@ public class UploadDialog {
 
 			@Override
 			public void onError(final Throwable t) {
+				finishOperation();
 				statusLine.setText(NOT_LOGGED_IN_TXT);
 				setEnabledTo(true, txtUsername, txtPassword, btnLogin);
 				if (username != null) {
@@ -233,15 +256,18 @@ public class UploadDialog {
 	private void doLogout() {
 		setEnabledTo(false, btnLogout);
 		statusLine.setText("Logging out...");
+		startOperation();
 		client.logout(new CompletionCallback<Void>() {
 			@Override
 			public void onCompletion(Void result) {
+				finishOperation();
 				restoreUI();
 			}
 
 			@Override
 			public void onError(Throwable exception) {
 				// TODO handle error?
+				finishOperation();
 				restoreUI();
 			}
 
@@ -259,27 +285,9 @@ public class UploadDialog {
 		});
 	}
 
-	/**
-	 * Make sure all photos are available
-	 * 
-	 * @throws IOException
-	 */
-	private void prepareForUpload() {
-		// TODO make sure every photo exists...
-	}
-
-	private ThumbnailProvider thumbnailProvider;
-
 	private void doUpload() {
 		// disable UI
 		setEnabledTo(false, btnUpload, btnLogout, documentTable.getTable());
-
-		prepareForUpload();
-
-		// remove the cancellation action and instead cancel this operation
-		btnCancel.removeSelectionListener(closeShellListener);
-		btnCancel.addSelectionListener(cancelCurrentOperationListener);
-
 		final DocumentDescription selectedDocument = (DocumentDescription) ((IStructuredSelection) documentTable
 				.getSelection()).getFirstElement();
 		selectedDocument.getDocumentId();
@@ -308,20 +316,17 @@ public class UploadDialog {
 
 		/* first initialise the client */
 		log("Checking for server changes using document-id " + selectedDocument.getDocumentId());
+		startOperation();
 		client.initialize(selectedDocument.getDocumentId(), new CompletionCallback<Void>() {
 			@Override
 			public void onCompletion(Void result) {
+				finishOperation();
 				log("Initialization complete");
 				startUpload();
 			}
 
-			private void startUpload() {
-				log("Starting upload of " + pages.size() + " pages to " + selectedDocument.getDocumentId() + " ("
-						+ selectedDocument.getTitle() + ")");
-				uploader.start();
-			}
-
 			public void onError(Throwable exception) {
+				finishOperation();
 				if (exception instanceof InitializationException) {
 					if (showInitializationException((InitializationException) exception)) {
 						startUpload();
@@ -330,18 +335,36 @@ public class UploadDialog {
 				} else {
 					showError("Initialization", "Error during initialization", exception);
 				}
-
-				/* allow form to be closed */
-				btnCancel.removeSelectionListener(cancelCurrentOperationListener);
-				btnCancel.addSelectionListener(closeShellListener);
 			}
 
 			@Override
 			public void retryNotify(Throwable exception, int retryCount) {
 				/* ignore */
 			}
+
+			private void startUpload() {
+				startOperation();
+				log("Starting upload of " + pages.size() + " pages to " + selectedDocument.getDocumentId() + " ("
+						+ selectedDocument.getTitle() + ")");
+				uploader.start();
+			}
 		});
 
+	}
+
+	private void finishOperation() {
+		btnCancel.addSelectionListener(closeShellListener);
+		btnCancel.removeSelectionListener(cancelCurrentOperationListener);
+	}
+
+	private Image getThumbnail(Photo photo) {
+		Future<Thumbnail> result = thumbnailProvider.get(photo.getFile(), null, null);
+		try {
+			return new Image(shell.getDisplay(), result.get().imageData);
+		} catch (Exception e) {
+			/* ignore, just trying to be helpful */
+			return null;
+		}
 	}
 
 	private void log(final String str) {
@@ -497,12 +520,6 @@ public class UploadDialog {
 		data.minimumWidth = 100;
 		btnCancel.setLayoutData(data);
 		btnCancel.setText("Cancel");
-		closeShellListener = new SelectionAdapter() {
-			@Override
-			public void widgetSelected(SelectionEvent e) {
-				shell.close();
-			}
-		};
 		btnCancel.addSelectionListener(closeShellListener);
 
 		btnUpload = new Button(buttons, SWT.PUSH);
@@ -517,7 +534,7 @@ public class UploadDialog {
 				doUpload();
 			}
 		});
-
+		shell.setDefaultButton(btnLogin);
 		shell.pack();
 		shell.open();
 
@@ -534,9 +551,11 @@ public class UploadDialog {
 	}
 
 	private void refreshDocumentList(final int defaultSelection) {
+		startOperation();
 		client.getDocuments(new CompletionCallback<List<DocumentDescription>>() {
 			@Override
 			public void onCompletion(final List<DocumentDescription> result) {
+				finishOperation();
 				log("Found " + result.size() + " documents on the server");
 				documentTable.getTable().setEnabled(true);
 				documentTable.setInput(result);
@@ -554,6 +573,8 @@ public class UploadDialog {
 
 			@Override
 			public void onError(Throwable exception) {
+				finishOperation();
+				log("Failed to get documents [" + exception.getMessage() + "]");
 				showError("get documents", "Failed to get your document list from the server", exception);
 			}
 
@@ -576,6 +597,29 @@ public class UploadDialog {
 
 	public void setPages(List<Page> pages) {
 		this.pages = pages;
+	}
+
+	public void setThumbnailProvider(ThumbnailProvider thumbnailProvider) {
+		this.thumbnailProvider = thumbnailProvider;
+	}
+
+	public void setUploadClient(UploadClient client) {
+		this.client = client;
+	}
+
+	private void showError(final String action, final String message, final Throwable t) {
+		if (t instanceof HtmlProvider) {
+			ErrorBoxWithHtml p = new ErrorBoxWithHtml(shell);
+			p.setHtml(((HtmlProvider) t).getHtml());
+			p.setTitle("Error " + action);
+			p.setMessage(message + "\n\nException: " + t.toString());
+			p.open();
+		} else { /* all other exceptions */
+			MessageBox box = new MessageBox(shell, SWT.ICON_ERROR | SWT.OK);
+			box.setText("Error " + action);
+			box.setMessage(message + "\n\nException: " + t.toString());
+			box.open();
+		}
 	}
 
 	private boolean showInitializationException(InitializationException t) {
@@ -606,29 +650,9 @@ public class UploadDialog {
 		return false;
 	}
 
-	private void showError(final String action, final String message, final Throwable t) {
-		if (t instanceof HtmlProvider) {
-			ErrorBoxWithHtml p = new ErrorBoxWithHtml(shell);
-			p.setHtml(((HtmlProvider) t).getHtml());
-			p.setTitle("Error " + action);
-			p.setMessage(message + "\n\nException: " + t.toString());
-			p.open();
-		} else { /* all other exceptions */
-			MessageBox box = new MessageBox(shell, SWT.ICON_ERROR | SWT.OK);
-			box.setText("Error " + action);
-			box.setMessage(message + "\n\nException: " + t.toString());
-			box.open();
-		}
-	}
-
-	private Image getThumbnail(Photo photo) {
-		Future<Thumbnail> result = thumbnailProvider.get(photo.getFile(), null, null);
-		try {
-			return new Image(shell.getDisplay(), result.get().imageData);
-		} catch (Exception e) {
-			/* ignore, just trying to be helpful */
-			return null;
-		}
+	private void startOperation() {
+		btnCancel.addSelectionListener(cancelCurrentOperationListener);
+		btnCancel.removeSelectionListener(closeShellListener);
 	}
 
 	private class UploadListener implements BatchUploaderListener {
@@ -682,6 +706,7 @@ public class UploadDialog {
 
 		@Override
 		public void finished(List<Page> uploaded) {
+			finishOperation();
 			log("Upload complete (" + uploaded.size() + " pages uploaded)");
 			MessageBox box = new MessageBox(shell, SWT.ICON_INFORMATION | SWT.OK);
 			box.setText("Upload completed");
@@ -694,6 +719,7 @@ public class UploadDialog {
 		@Override
 		public void finishedWithError(List<Page> pagesThatUploaded, List<Page> pagesNotUploaded, Page currentPage,
 				Photo currentPhoto, Throwable error) {
+			finishOperation();
 			log("Upload failed on page " + currentPage.getTitle());
 			overallProgressBar.setState(SWT.ERROR);
 			photoProgressBar.setState(SWT.ERROR);
@@ -707,8 +733,6 @@ public class UploadDialog {
 
 			// leave the shell open, allow user to read
 			// the log and then close via cancel
-			btnCancel.removeSelectionListener(cancelCurrentOperationListener);
-			btnCancel.addSelectionListener(closeShellListener);
 		}
 
 		@Override
@@ -769,13 +793,5 @@ public class UploadDialog {
 		public boolean isComplete() {
 			return complete;
 		}
-	}
-
-	public void setThumbnailProvider(ThumbnailProvider thumbnailProvider) {
-		this.thumbnailProvider = thumbnailProvider;
-	}
-
-	public void setUploadClient(UploadClient client) {
-		this.client = client;
 	}
 }

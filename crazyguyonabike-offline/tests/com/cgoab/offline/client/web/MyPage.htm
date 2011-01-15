@@ -1,0 +1,513 @@
+<HTML xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml">
+
+<HEAD>
+	<META http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"/>
+	<META HTTP-EQUIV="Pragma" CONTENT="no-cache"><TITLE>benrowlands</TITLE>
+<script language="JavaScript" type="text/javascript">
+<!--
+      function el(x)
+      {
+         return (typeof x == "string") ? document.getElementById(x) : x;
+      }
+      
+
+   
+
+   
+
+   var request = null;
+
+      function createRequest()
+      {
+	request = null;
+	try
+	{
+		request = new XMLHttpRequest();
+	}
+	catch (trymicrosoft)
+	{
+		try
+		{
+			request = new ActiveXObject("Msxm12.XMLHTTP");
+		}
+		catch (othermicrosoft)
+		{
+			try
+			{
+				request = new ActiveXObject("Microsoft.XMLHTTP");
+			}
+			catch (failed)
+			{
+				request = null;
+			}
+		}
+	}
+      }
+
+      var context = '';
+   var type = '';
+   var id = 0;
+   var id_field = '';
+   var action = '';
+   var rating = '';
+   var counter = 0;
+
+   function doRatingsCallback()
+   {
+	if (request.readyState == 4)
+	{
+		var result = request.responseText;
+		if (result.substring(0,5) == 'Error')
+		{
+			if (result.indexOf ('logged in') > -1)
+			{
+				window.location = '/login/?referer=' + escape(window.location);
+			}
+			else
+			{
+				alert (result);
+			}
+		}
+		else
+		{
+			document.getElementById ('divRatings_' + type + '_' + id + '_' + counter).innerHTML = result;
+			if (action == 'toggle')
+			{
+				document.getElementById('RatingCollapsedScore_' + type + '_' + id + '_' + counter).innerHTML = 'Score';
+				document.getElementById('divRatings_' + type + '_' + id + '_' + counter).style.display = 'block';
+				document.getElementById('divRatingsContainer_' + type + '_' + id + '_' + counter).style.zIndex = 100;
+				document.getElementById('divRatings_' + type + '_' + id + '_' + counter).style.zIndex = 50;
+			}
+		}
+		action = '';
+	}
+   }
+
+   function closeRatingsMenu ()
+   {
+	if (id > 0 && action == '')
+	{
+		document.getElementById('RatingCollapsedScore_' + type + '_' + id + '_' + counter).innerHTML = 
+		    document.getElementById('RatingScore_' + type + '_' + id + '_' + counter).innerHTML;
+		document.getElementById('divRatings_' + type + '_' + id + '_' + counter).style.display = 'none';
+		document.getElementById('divRatingsContainer_' + type + '_' + id + '_' + counter).style.zIndex = 1;
+		document.getElementById('divRatings_' + type + '_' + id + '_' + counter).style.zIndex = 1;
+		id = 0;
+	}
+	var old_context = context;
+	context = '';
+	return (old_context == '') ? true : false;
+   }
+
+   function toggleRatings (the_type, the_id_field, the_id, version, format, filter, the_counter)
+   {
+	createRequest();
+	if (request == null)
+	{
+		return true;
+	}
+	else
+	{
+		context = 'toggleRatings';
+		action = '';
+		if (the_id == id)
+		{
+			closeRatingsMenu ();
+			context = 'toggleRatings';
+		}
+		else
+		{
+			closeRatingsMenu ();
+			context = 'toggleRatings';
+			type = the_type;
+			id = the_id;
+			id_field = the_id_field;
+			counter = the_counter;
+			action = 'toggle';
+			var url = "/ajax/doRatings.html?id_field=" + the_id_field + "&id=" + the_id + "&counter=" + counter + "&v=" + version + "&format=" + format + "&filter=" + filter;
+			request.open("GET", url, true);
+			request.onreadystatechange = doRatingsCallback;
+			var result = request.send(null);
+		}
+		return false;
+	}
+   }
+
+   function doRating (the_type, the_id_field, the_id, the_counter, the_rating, the_delta, version, format, filter, do_confirm)
+   {
+	context = 'doRating';
+	type = the_type;
+	id = the_id;
+	id_field = the_id_field;
+	rating = the_rating;
+	counter = the_counter;
+	createRequest();
+	if (request == null)
+	{
+		return true;
+	}
+	else
+	{
+		if ((do_confirm == 1 && (( the_rating != 'miscategorized' && the_rating != 'troll' && the_rating != 'abuse' && the_rating != 'spam' && the_rating != 'offtopic' ) || confirm ("Are you sure you want to use this rating? It should not be used lightly. If you click 'Ok' then the webmaster will be notified so further action can be taken.") )) || do_confirm == 0)
+		{
+			action = 'do_rating';
+			var url = "/ajax/doRatings.html?id_field=" + the_id_field + "&id=" + the_id + "&counter=" + counter + "&rating=" + the_rating + "&filter=" + filter + "&delta=" + the_delta + "&v=" + version + "&format=" + format;
+			request.open("GET", url, true);
+			request.onreadystatechange = doRatingsCallback;
+			var result = request.send(null);
+		}
+		return false;
+	}
+   }
+
+
+
+   
+
+   var bookmark_type;
+   var bookmark_id;
+   var bookmark_counter;
+
+   function doBookmark_callback()
+   {
+	if (request.readyState == 4)
+	{
+		var result = request.responseText;
+
+		if (result == 'OK')
+		{
+			var element = document.getElementById ('bookmark_' + bookmark_type + '_' + bookmark_id + '_' + bookmark_counter);
+			//element.innerHTML = 'Bookmark&#10003;';
+			element.innerHTML = 'BOOKMARK';
+		}
+		else
+		{
+			alert(result);
+		}
+	}
+   }
+
+   function doBookmark (type, id, counter)
+   {
+        bookmark_type = type;
+	bookmark_id = id;
+	bookmark_counter = counter;
+	createRequest();
+	if (request == null)
+	{
+		return true;
+	}
+	else
+	{
+		var url = '/ajax/bookmark.html?type=' + type + '&id=' + id;
+		request.open("GET", url, true);
+		request.onreadystatechange = doBookmark_callback;
+		var result = request.send(null);
+		return false;
+	}
+   }
+
+//-->
+</script>
+<style type="text/css">
+	   </style>
+
+</HEAD>
+
+<BODY BGCOLOR="beige"
+      onload="do_onload();"
+      onunload="do_onunload();"
+      
+
+	onclick="javascript:closeRatingsMenu();"
+	><a NAME="top"></A>
+<a href="/email/guestbook/message/?email=117001387"  onClick="event.returnValue = false; return false;"></A>
+   <a href="/email/guestbook/post/?email=117001387"  onClick="event.returnValue = false; return false;"><img src="/images/guestbook.gif"  WIDTH=1 HEIGHT=1 BORDER="0" ALIGN="RIGHT"></A>
+
+
+	<TABLE CELLPADDING="1" WIDTH=100%>
+		<TR>
+			<TD BGCOLOR="white" WIDTH=5%>
+				<NOBR>&nbsp;
+				        <a href="http://www.crazyguyonabike.com/?o=RpmwT" 
+					   ALT=""
+					   style="text-decoration:none;"
+					   TITLE=""><BIG><B>crazyguyonabike</B></BIG></A>&nbsp;</NOBR>
+				</TD>
+			<TD WIDTH=25% ALIGN="LEFT">
+			   <TABLE CELLPADDING="1">
+			      <TR>
+			 	<TD>
+				   <NOBR>
+					Topic: <B>Bicycle Touring</B>
+					[<a href="http://www.topicwise.com/?o=RpmwT">change</A>]
+					</NOBR>
+				   </TD>
+			      </TR>
+			   </TABLE>
+			</TD>
+			<TD ALIGN="RIGHT" WIDTH=70%>
+				<TABLE CELLPADDING="1">
+				   <TR>
+					<TD><a href="/website/about/?o=RpmwT">About</A>&nbsp;</TD>
+					   <TD><a href="/website/help/?o=RpmwT">Help</A>&nbsp;</TD>
+					      <TD><a href="/website/faq/?o=RpmwT">FAQ</A>&nbsp;</TD>
+					   <TD><a href="/website/sitemap/?o=RpmwT">Sitemap</A>&nbsp;</TD>
+					   <TD><a href="/website/options/?o=RpmwT">Options</A>&nbsp;</TD>
+					   <TD><a href="/website/sponsors/?o=RpmwT">Sponsors</A>&nbsp;</TD>
+					   <TD><a href="/website/sponsors/donate/?o=RpmwT">Donate</A>&nbsp;</TD>
+					   <form action="/search/"  METHOD=GET STYLE="margin-bottom: 0">
+					         <TD><input type="TEXT" name="term" SIZE=10 MAXLENGTH=60 value=""></TD>
+					         <TD><input type="SUBMIT" value="Search"></NOBR></TD>
+					         <input type="HIDDEN" name="expand" value="auto">
+					      </FORM>
+					   </TR>
+				</TABLE>
+			</TD>
+		</TR>
+	</TABLE>
+
+	<HR>
+
+
+
+   <TABLE BORDER="0" CELLPADDING="3" CELLSPACING="0"><TR><TD BGCOLOR="beige">&nbsp;<A HREF="/?o=RpmwT" >Home</A></TD>
+<TD BGCOLOR="#00ccff">&nbsp;<BIG><B>My</B></BIG>&nbsp;</TD>
+<TD BGCOLOR="beige">&nbsp;<A HREF="/doc/?o=RpmwT&doctype=journal" >Journals</A><FONT COLOR="red">*</FONT></TD>
+<TD BGCOLOR="beige">&nbsp;<A HREF="/doc/?o=RpmwT&doctype=article" >Articles</A><FONT COLOR="red">*</FONT></TD>
+<TD BGCOLOR="beige">&nbsp;<A HREF="/forum/?o=RpmwT" >Forums</A><FONT COLOR="red">*</FONT></TD>
+<TD BGCOLOR="beige">&nbsp;<A HREF="/reviews/?o=RpmwT" >Reviews</A><FONT COLOR="red">*</FONT></TD>
+<TD BGCOLOR="beige">&nbsp;<A HREF="/resources/?o=RpmwT" >Resources</A><FONT COLOR="green">*</FONT></TD>
+<TD BGCOLOR="beige">&nbsp;<A HREF="/classifieds/?o=RpmwT" >Classifieds</A><FONT COLOR="red">*</FONT></TD>
+<TD BGCOLOR="beige">&nbsp;<A HREF="/serendipity/?o=RpmwT" >Serendipity</A></TD>
+<TD BGCOLOR="beige">&nbsp;<A HREF="/ratings/?o=RpmwT" >Ratings</A><FONT COLOR="red">*</FONT></TD>
+<TD BGCOLOR="beige">&nbsp;<A HREF="/directory/?o=RpmwT" >Directory</A></TD>
+<TD BGCOLOR="beige">&nbsp;<A HREF="/search/?o=RpmwT" >Search</A></TD>
+<TD BGCOLOR="beige">&nbsp;<A HREF="/website/?o=RpmwT" >Website</A></TD>
+</TR><TR>
+<TD BGCOLOR="#00ccff" COLSPAN=14><TABLE BORDER="0" CELLPADDING="3" CELLSPACING="0"><TR><TD BGCOLOR="white">&nbsp;<A HREF="/my/account/?o=RpmwT" >Account</A></TD>
+<TD BGCOLOR="white">&nbsp;<A HREF="/my/topics/?o=RpmwT" >Topics</A></TD>
+<TD BGCOLOR="white">&nbsp;<A HREF="/my/options/?o=RpmwT" >Options</A></TD>
+<TD BGCOLOR="white">&nbsp;<A HREF="/my/replies/?o=RpmwT" >Replies</A></TD>
+<TD BGCOLOR="white">&nbsp;<A HREF="/my/reviews/?o=RpmwT" >Reviews</A></TD>
+<TD BGCOLOR="white">&nbsp;<A HREF="/my/resources/?o=RpmwT" >Resources</A></TD>
+<TD BGCOLOR="white">&nbsp;<A HREF="/my/classifieds/?o=RpmwT" >Classifieds</A></TD>
+<TD BGCOLOR="white">&nbsp;<A HREF="/my/relations/?o=RpmwT" >Relations</A></TD>
+<TD BGCOLOR="white">&nbsp;<A HREF="/my/bookmarks/?o=RpmwT" >Bookmarks</A></TD>
+<TD BGCOLOR="white">&nbsp;<A HREF="/my/ratings/?o=RpmwT" >Ratings</A></TD>
+<TD BGCOLOR="white">&nbsp;<A HREF="/my/downloads/?o=RpmwT" >Downloads</A></TD>
+<TD BGCOLOR="white">&nbsp;<A HREF="/my/donations/?o=RpmwT" >Donations</A></TD>
+<TD BGCOLOR="white">&nbsp;<A HREF="/my/ads/?o=RpmwT" >Ads</A></TD>
+</TR>
+</TABLE>
+</TD>
+</TR>
+
+</TABLE>
+<HR>
+
+<H1>Welcome, benrowlands</H1>
+   
+   <HR>
+
+   
+
+   
+
+   <TABLE>
+   <TR>
+      <TD>
+      <form action="new/"  METHOD="POST" STYLE="margin-bottom: 0">
+            <input type="SUBMIT" value="Create new journal or article ">
+         </FORM>
+      </TD>
+      <TD>&nbsp;&nbsp;&nbsp;</TD>
+         <TD>
+            <form action="/directory/edit/"  METHOD="GET" STYLE="margin-bottom: 0">
+	       <input type="submit" value="Edit Profile ">
+	       <input type="HIDDEN" name="user" value="benrowlands">
+	       <input type="HIDDEN" name="command" value="update">
+	    </FORM>
+         </TD>
+         <TD>
+            <form action="/directory/"  METHOD="GET" STYLE="margin-bottom: 0">
+	       <input type="submit" value="View Profile ">
+	       <input type="HIDDEN" name="user" value="benrowlands">
+	       <input type="HIDDEN" name="v" value="I">
+	    </FORM>
+         </TD>
+	 <TD>&nbsp;&nbsp;&nbsp;</TD>
+      <TD>
+         <form action="/my/account/"  METHOD="GET" STYLE="margin-bottom: 0">
+	    <input type="submit" value="Change email or password ">
+         </FORM>
+	 <TD>&nbsp;&nbsp;&nbsp;</TD>
+      </TD>
+      <TD>
+            <form action="/logout/"  METHOD="GET" STYLE="margin-bottom: 0">
+	       <input type="submit" value="Logout ">
+            </FORM>
+      </TD>
+   </TR>
+   </TABLE>
+
+   <HR>
+      
+
+   <TABLE>
+        <TR>
+	  <TD>
+            <form action="/website/sponsors/donate/"  METHOD="GET" STYLE="margin-bottom: 0">
+	       <input type="submit" value="Donate or Subscribe ">
+	       <input type="HIDDEN" name="from" value="my">
+            </FORM>
+	  </TD>
+          <TD>
+	    &nbsp;&nbsp;<a href="/website/faq/#why_donate">Why donate?</A>
+	    |
+	    <B>Your last donation was:</B>
+	    [No donations recorded]
+	    </TD>
+	  <TD>
+		</TD>
+	</TR>
+      </TABLE>
+
+   <HR>
+
+
+
+   
+
+   <OL>
+   </OL>
+
+   
+
+   <TABLE CELLPADDING="0">
+      <TR>
+         <TD BGCOLOR="gainsboro">
+	 <TABLE ID="documents" BORDER="0" CELLSPACING="1" CELLPADDING="1">
+
+	    <TR BGCOLOR="gainsboro">
+	       <TH ALIGN="LEFT">Sequence</TH>
+	       <TH ALIGN="LEFT">Type</TH>
+	       <TH ALIGN="LEFT">Title</TH>
+	       <TH ALIGN="LEFT">Updated</TH>
+	       <TH ALIGN="LEFT">Status</TH>
+	       <TH ALIGN="RIGHT">Hits</TH>
+	    </TR>
+
+	    <TR>
+		  <TH ALIGN="CENTER" BGCOLOR="beige">
+		     <img src="/images/arrow_up_white.gif"  WIDTH=12 HEIGHT=12 BORDER="0" ALT="First">
+		     1 <a href="./?o=RpmwT&doc_id=7953&doc_sequence=1&command=move_down&t=1"><img src="/images/arrow_down_gray.gif"  WIDTH=12 HEIGHT=12 BORDER="0" ALT="Move down"></A>
+		     </TH>
+		  <TD ALIGN="LEFT" VALIGN="TOP" BGCOLOR="beige">
+		     &nbsp;Journal&nbsp;
+		  </TD>
+		  <TD ALIGN="LEFT" VALIGN="TOP" BGCOLOR="beige">
+		     <a href="/doc/?o=RpmwT&doc_id=7953&v=3O">TEST Journal</A>
+		     <FONT COLOR="green">*</FONT>
+		     </TD>
+		  <TD ALIGN="LEFT" VALIGN="TOP" BGCOLOR="beige">
+		      Tue 11 Jan 2011 08:19 PST </TD>
+		  <TD ALIGN="LEFT" VALIGN="TOP" BGCOLOR="beige">
+		      <TABLE CELLPADDING="0" CELLSPACING="0"><TR><TD><B>Not&nbsp;yet&nbsp;published</B></TD></TR></TABLE> </TD>
+		  <TD ALIGN="RIGHT" VALIGN="TOP" BGCOLOR="beige">
+		      <NOBR>&nbsp;0&nbsp;</NOBR>
+		  </TD>
+	       </TR>
+
+	       <TR>
+		  <TH ALIGN="CENTER" BGCOLOR="beige">
+		     <a href="./?o=RpmwT&doc_id=5221&doc_sequence=2&command=move_up&t=1"><img src="/images/arrow_up_gray.gif"  WIDTH=12 HEIGHT=12 BORDER="0" ALT="Move up"></A>
+		     2 <a href="./?o=RpmwT&doc_id=5221&doc_sequence=2&command=move_down&t=1"><img src="/images/arrow_down_gray.gif"  WIDTH=12 HEIGHT=12 BORDER="0" ALT="Move down"></A>
+		     </TH>
+		  <TD ALIGN="LEFT" VALIGN="TOP" BGCOLOR="beige">
+		     &nbsp;Journal&nbsp;
+		  </TD>
+		  <TD ALIGN="LEFT" VALIGN="TOP" BGCOLOR="beige">
+		     <a href="/doc/?o=RpmwT&doc_id=5221&v=1Zw">Ben Voyage</A>
+		     </TD>
+		  <TD ALIGN="LEFT" VALIGN="TOP" BGCOLOR="beige">
+		      Fri 10 Dec 2010 08:15 PST </TD>
+		  <TD ALIGN="LEFT" VALIGN="TOP" BGCOLOR="beige">
+		      <TABLE CELLPADDING="0" CELLSPACING="0"><TR><TD>Work&nbsp;in&nbsp;progress</TD><TD><A HREF="/doc/featured/?o=RpmwT&feature_id=367#367"><IMG SRC="/images/gold_star.gif"
+			       ALT="Featured Journal #367"
+			       TITLE="Featured Journal #367"
+			       WIDTH="12"
+			       HEIGHT="12"
+			       BORDER="0"></A></TD></TR></TABLE> </TD>
+		  <TD ALIGN="RIGHT" VALIGN="TOP" BGCOLOR="beige">
+		      <NOBR>&nbsp;331,878&nbsp;</NOBR>
+		  </TD>
+	       </TR>
+
+	       <TR>
+		  <TH ALIGN="CENTER" BGCOLOR="beige">
+		     <a href="./?o=RpmwT&doc_id=5192&doc_sequence=3&command=move_up&t=1"><img src="/images/arrow_up_gray.gif"  WIDTH=12 HEIGHT=12 BORDER="0" ALT="Move up"></A>
+		     3 <img src="/images/arrow_down_white.gif"  WIDTH=12 HEIGHT=12 BORDER="0" ALT="Last">
+		     </TH>
+		  <TD ALIGN="LEFT" VALIGN="TOP" BGCOLOR="beige">
+		     &nbsp;Journal&nbsp;
+		  </TD>
+		  <TD ALIGN="LEFT" VALIGN="TOP" BGCOLOR="beige">
+		     <a href="/doc/?o=RpmwT&doc_id=5192&v=32">Dublin to Cork the Long Way</A>
+		     </TD>
+		  <TD ALIGN="LEFT" VALIGN="TOP" BGCOLOR="beige">
+		      Wed 3 Nov 2010 01:32 PST </TD>
+		  <TD ALIGN="LEFT" VALIGN="TOP" BGCOLOR="beige">
+		      <TABLE CELLPADDING="0" CELLSPACING="0"><TR><TD><B>Not&nbsp;yet&nbsp;published</B></TD></TR></TABLE> </TD>
+		  <TD ALIGN="RIGHT" VALIGN="TOP" BGCOLOR="beige">
+		      <NOBR>&nbsp;0&nbsp;</NOBR>
+		  </TD>
+	       </TR>
+
+	       </TABLE>
+	 </TD>
+      </TR>
+      </TABLE>
+
+   
+<P>
+   <HR>
+   <TABLE WIDTH=100% ID="bottom">
+      <TR>
+	<TD ALIGN="LEFT">Website Copyright &copy;
+2000-2011
+by Neil Gunton
+Wed Jan 12 13:44:09 2011
+PST
+&nbsp;&nbsp;&nbsp;&nbsp;
+<a href="#top">Top</A>
+&nbsp;&nbsp;
+<a href="/link/">Link</A>
+&nbsp;&nbsp;
+<a href="/report/"  TITLE="Report problems with this page to the webmaster">Report</A>
+</TD>
+	<TD ALIGN="RIGHT"><a href="/email/guestbook/message/?email=520763736"  onClick="event.returnValue = false; return false;"><img src="/images/guestbook.gif"  WIDTH=1 HEIGHT=1 BORDER="0" ALIGN="RIGHT"></A></TD>
+	</TR>
+   </TABLE>
+</BODY>
+
+<script language="JavaScript" type="text/javascript">
+<!--
+      function do_onload()
+      {
+        
+		if (top != window)
+		{
+			top.location.href = window.location.href;
+		}
+	        }
+
+      function do_onunload()
+      {
+	 }
+
+      ;
+
+//-->
+</script>
+</HTML>

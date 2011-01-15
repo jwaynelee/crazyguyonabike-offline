@@ -3,14 +3,8 @@ package com.cgoab.offline.model;
 import static org.junit.Assert.assertEquals;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
-
-import javax.xml.stream.XMLStreamException;
-
-import nu.xom.ParsingException;
-import nu.xom.ValidityException;
 
 import org.joda.time.LocalDate;
 import org.junit.Test;
@@ -48,7 +42,6 @@ public class JournalXmlLoaderTest {
 			Page tp = tj.getPages().get(i);
 			Page lp = lj.getPages().get(i);
 
-			assertEquals(tp.getLocalId(), lp.getLocalId());
 			assertEquals(tp.getTitle(), lp.getTitle());
 			assertEquals(tp.getHeadline(), lp.getHeadline());
 			assertEquals(tp.getText(), lp.getText());
@@ -76,7 +69,6 @@ public class JournalXmlLoaderTest {
 
 	static Page newPage(Journal j, int id) {
 		Page p = new Page(j);
-		p.setLocalId(id);
 		p.setTitle("TITLE");
 		p.setHeadline("HEADLINE");
 		p.setText("Some text with\nnewlines and <b>html</b> <a href=\"foo\">tags</a>");

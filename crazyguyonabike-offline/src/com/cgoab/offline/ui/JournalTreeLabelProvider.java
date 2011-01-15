@@ -1,9 +1,13 @@
 package com.cgoab.offline.ui;
 
+import static com.cgoab.offline.ui.util.SWTUtils.createModifiedFontData;
+
 import java.net.URL;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 
 import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.jface.viewers.StyledCellLabelProvider;
@@ -28,27 +32,29 @@ public class JournalTreeLabelProvider extends StyledCellLabelProvider {
 	private Font italicFont;
 	private Font boldItalicFont;
 	private Shell shell;
+	private Set<String> labelProperties = new HashSet<String>();
 
 	public JournalTreeLabelProvider(TreeViewer viewer, Shell shell) {
 		this.shell = shell;
 		FontData[] defaultFont = viewer.getTree().getFont().getFontData();
-		boldFont = new Font(shell.getDisplay(), getModifiedFontData(defaultFont, SWT.BOLD));
-		italicFont = new Font(shell.getDisplay(), getModifiedFontData(defaultFont, SWT.ITALIC));
-		boldItalicFont = new Font(shell.getDisplay(), getModifiedFontData(defaultFont, SWT.BOLD | SWT.ITALIC));
+		boldFont = new Font(shell.getDisplay(), createModifiedFontData(defaultFont, SWT.BOLD));
+		italicFont = new Font(shell.getDisplay(), createModifiedFontData(defaultFont, SWT.ITALIC));
+		boldItalicFont = new Font(shell.getDisplay(), createModifiedFontData(defaultFont, SWT.BOLD | SWT.ITALIC));
+		labelProperties.add(Page.BOLD);
+		labelProperties.add(Page.ITALIC);
+		labelProperties.add(Page.HEADING_STYLE);
+		labelProperties.add(Page.INDENT);
+		labelProperties.add(Page.TITLE);
+		labelProperties.add(Page.HEADLINE);
 	}
 
-	private static FontData[] getModifiedFontData(FontData[] originalData, int additionalStyle) {
-		FontData[] styleData = new FontData[originalData.length];
-		for (int i = 0; i < styleData.length; i++) {
-			FontData base = originalData[i];
-			styleData[i] = new FontData(base.getName(), base.getHeight(), base.getStyle() | additionalStyle);
-		}
-		return styleData;
+	@Override
+	public boolean isLabelProperty(Object element, String property) {
+		return labelProperties.contains(property);
 	}
 
 	@Override
 	public void update(ViewerCell cell) {
-
 		Object obj = cell.getElement();
 		if (obj instanceof Journal) {
 			Journal journal = (Journal) obj;
@@ -129,7 +135,7 @@ public class JournalTreeLabelProvider extends StyledCellLabelProvider {
 
 	public static ImageDescriptor getImageDescriptor(String name) {
 		String iconPath = "/icons/";
-		URL resource = PageEditor.class.getResource(iconPath + name);
+		URL resource = ApplicationWindow.class.getResource(iconPath + name);
 		if (resource == null) {
 			return ImageDescriptor.getMissingImageDescriptor();
 		}

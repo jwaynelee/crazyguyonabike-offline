@@ -11,6 +11,13 @@ import org.slf4j.LoggerFactory;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailProvider.Thumbnail;
 import com.cgoab.offline.util.Utils;
 
+/**
+ * Cache that puts a (rough) bound on how many bytes it will hold, items expired
+ * in LRU order.
+ * 
+ * @TODO strip out ununsed meta-data?
+ * @TODO take into account size of meta-data?
+ */
 class ThumbnailCache {
 
 	private static final Logger LOG = LoggerFactory.getLogger(ThumbnailCache.class);
@@ -19,16 +26,23 @@ class ThumbnailCache {
 
 	private int bytes;
 
-	private LinkedHashMap<File, ThumbnailCache.CacheEntry> lruMap = new LinkedHashMap<File, ThumbnailCache.CacheEntry>(64, 0.75f, true) {
+	private LinkedHashMap<File, ThumbnailCache.CacheEntry> lruMap = new LinkedHashMap<File, ThumbnailCache.CacheEntry>(
+			64, 0.75f, true) {
 		private static final long serialVersionUID = 1L;
 
 		@Override
 		protected boolean removeEldestEntry(Map.Entry<File, ThumbnailCache.CacheEntry> eldest) {
-			// delete oldest entry
+			/* delete oldest entry if too big */
 			if (bytes > maxSizeInBytes) {
-				LOG.debug("Expiring eldest entry [{}] as cache size {}kb exceeded limit {}kb)", new Object[] {
-						eldest.getKey(), Utils.formatBytes(bytes), Utils.formatBytes(maxSizeInBytes) });
+				LOG.debug("Expiring eldest entry [{}] as cache size {}kb exceeded limit {}kb)",
+						new Object[] { eldest.getKey(), Utils.formatBytes(bytes), Utils.formatBytes(maxSizeInBytes) });
 				entryRemoved(eldest.getValue().thumb.imageData);
+				/*
+				 * TODO: loop() and terminate when map is under max size,
+				 * currently a large entry may push us well over the limit, but
+				 * we only remove a single item. Since we are caching similar
+				 * sized thumbnails this probably isn't necessary.
+				 */
 				return true;
 			}
 			return false;
@@ -43,17 +57,6 @@ class ThumbnailCache {
 		lruMap.clear();
 		bytes = 0;
 	}
-
-	// public void clearAllFrom(ThumbnailSource source) {
-	// for (Iterator<Entry<File, CacheEntry>> i =
-	// lruMap.entrySet().iterator(); i.hasNext();) {
-	// Entry<File, CacheEntry> next = i.next();
-	// if (next.getValue().thumb.source == source) {
-	// i.remove();
-	// entryRemoved(next.getValue().thumb.imageData);
-	// }
-	// }
-	// }
 
 	public ThumbnailCache.CacheEntry remove(File file) {
 		LOG.debug("Removing thumnail for [{}]", file);
@@ -75,8 +78,6 @@ class ThumbnailCache {
 	 * @param image
 	 */
 	public void add(File file, Thumbnail thumb) {
-		// entry.ref= new SoftReference<ImageAndMetaDataPair>(new
-		// ImageAndMetaDataPair(image, meta));
 		LOG.debug("Caching thumbnail for [{}] in [{}]", file.getName(), this);
 		ThumbnailCache.CacheEntry entry = new CacheEntry(file.lastModified(), thumb);
 		bytes += sizeof(thumb.imageData);
@@ -91,14 +92,15 @@ class ThumbnailCache {
 	}
 
 	private static int sizeof(ImageData image) {
+		/* TODO include meta-data? */
 		return sizeof(image.data) + sizeof(image.alphaData) + sizeof(image.maskData);
 	}
 
 	/**
 	 * Retrieves the image data associated with the given file name.
 	 * 
-	 * Null will be returned if the cache has expired the item (low memory)
-	 * or if the file was changed since it was last cached.
+	 * Returns <tt>null</tt> if the cache has expired the item (got low on
+	 * memory) or if the file was changed since it was last cached.
 	 * 
 	 * @param file
 	 * @return

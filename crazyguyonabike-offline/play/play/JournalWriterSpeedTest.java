@@ -26,18 +26,16 @@ public class JournalWriterSpeedTest {
 		for (int i = 0; i < NJOURNALS; i++) {
 			Journal journal = new Journal(new File(TEST_DIR + File.separator + "test" + i + ".xml"), "Journal#" + i);
 			for (int p = 0; p < 500; ++p) {
-				Page page = new Page(journal);
+				Page page = journal.createNewPage();
 				page.setText("this is a long line of text that is perhaps the longest line of text I am ever going to write but wowo isn't it very long");
 				page.setDistance(10);
 				page.setTitle("Page#" + p);
-				page.setLocalId(p);
 				for (int j = 0; j < 10; ++j) {
 					Photo photo = new Photo();
 					photo.setFile(new File("foo.jpg"));
 					photo.setCaption("Caption for photo " + j);
 					page.addPhotos(Arrays.asList(photo), -1);
 				}
-				journal.addPage(page);
 			}
 			journals.add(journal);
 		}

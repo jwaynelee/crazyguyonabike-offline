@@ -40,17 +40,13 @@ public class ImageMagickResizerServiceFactory {
 		this.folderExtension = folderExtension;
 	}
 
-	public ResizerService getResizerFor(Journal journal) {
-		return trackers.get(journal);
-	}
-
 	public ResizerService getOrCreateResizerFor(Journal source) throws MagicNotAvailableException {
 		ResizerService tracker = trackers.get(source);
 		if (tracker == null) {
 			String cmdPath = getOrInitializeMagickPath();
 			File photoFolder = getOrCreatePhotoFolder(source);
 			tracker = new ImageMagikResizerService(photoFolder, executor, display, cmdPath);
-			trackers.put(source, tracker);
+			source.setData(ResizerService.KEY, tracker);
 		}
 		return tracker;
 	}

@@ -4,7 +4,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 
 /**
- * A ask that when submitted to a {@link ListenableThreadPoolExecutor} provides
+ * A task that when submitted to a {@link ListenableThreadPoolExecutor} provides
  * notification to clients via the {@link FutureCompletionListener} interface.
  */
 public abstract class ListenableCancellableTask<T> implements Callable<T> {

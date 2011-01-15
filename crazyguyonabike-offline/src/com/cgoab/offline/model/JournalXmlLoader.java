@@ -73,7 +73,6 @@ public class JournalXmlLoader {
 	private static final String NAME_ATTR = "name";
 	private static final String PAGE_EL = "page";
 	private static final String UPLOAD_STATE_ATTR = "state";
-	private static final String LOCAL_ID_ATTR = "localId";
 	private static final String SERVER_ID_ATTR = "serverId";
 	private static final String VISIBLE_ATTR = "visible";
 	private static final String FORMAT_ATTR = "format";
@@ -133,7 +132,6 @@ public class JournalXmlLoader {
 		for (int i = 0; i < pages.size(); ++i) {
 			Element elPage = pages.get(i);
 			Page newPage = new Page(journal);
-			newPage.setLocalId(Integer.parseInt(elPage.getAttributeValue(LOCAL_ID_ATTR)));
 			newPage.setServerId(Integer.parseInt(elPage.getAttributeValue(SERVER_ID_ATTR)));
 			newPage.setState(UploadState.valueOf(elPage.getAttributeValue(UPLOAD_STATE_ATTR)));
 			newPage.setBold(Boolean.valueOf(elPage.getAttributeValue(BOLD_ATTR)));
@@ -146,7 +144,7 @@ public class JournalXmlLoader {
 			// simple elements
 			newPage.setTitle(StringUtils.trimToNull(elPage.getFirstChildElement(TITLE_EL).getValue()));
 			newPage.setHeadline(StringUtils.trimToNull(elPage.getFirstChildElement(HEADLINE_EL).getValue()));
-			newPage.setDistance(Float.parseFloat(elPage.getFirstChildElement(DISTANCE_EL).getValue()));
+			newPage.setDistance(Integer.parseInt(elPage.getFirstChildElement(DISTANCE_EL).getValue()));
 			newPage.setDate(new LocalDate(elPage.getFirstChildElement(DATE_EL).getValue()));
 
 			Element textXml = elPage.getFirstChildElement(TEXT_EL);
@@ -196,18 +194,11 @@ public class JournalXmlLoader {
 		Page firstNewPage = null;
 		Page previousPage = null;
 		List<Page> pages = journal.getPages();
-		Set<Integer> localIds = new HashSet<Integer>();
 		Set<Integer> serverIds = new HashSet<Integer>();
 
 		for (int i = 0; i < pages.size(); ++i) {
 			Page page = pages.get(i);
 			Assert.same(journal, page.getJournal(), "Page is not related to the journal");
-			int localId = page.getLocalId();
-
-			// local-id
-			Assert.isTrue(localId != Page.UNSET_LOCAL_ID, "unset local ID");
-			Assert.isFalse(localIds.contains(page.getLocalId()), "duplicate local ID");
-			localIds.add(localId);
 
 			// server-id
 			int serverId = page.getServerId();
@@ -349,7 +340,6 @@ public class JournalXmlLoader {
 			/* pages & photos */
 			for (Page page : journal.getPages()) {
 				xml.writeStartElement(PAGE_EL);
-				xml.writeAttribute(LOCAL_ID_ATTR, Integer.toString(page.getLocalId()));
 				xml.writeAttribute(SERVER_ID_ATTR, Integer.toString(page.getServerId()));
 				xml.writeAttribute(UPLOAD_STATE_ATTR, page.getState().toString());
 				xml.writeAttribute(VISIBLE_ATTR, Boolean.toString(page.isVisible()));
@@ -360,7 +350,7 @@ public class JournalXmlLoader {
 				xml.writeAttribute(INDENT_ATTR, Integer.toString(page.getIndent()));
 				writeElement(xml, TITLE_EL, StringUtils.nullToEmpty(page.getTitle()));
 				writeElement(xml, HEADLINE_EL, StringUtils.nullToEmpty(page.getHeadline()));
-				writeElement(xml, DISTANCE_EL, Float.toString(page.getDistance()));
+				writeElement(xml, DISTANCE_EL, Integer.toString(page.getDistance()));
 				writeElement(xml, DATE_EL, page.getDate().toString());
 				String text = page.getText();
 				if (text != null) {

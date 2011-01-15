@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.eclipse.jface.action.Action;
+import org.eclipse.jface.viewers.StructuredSelection;
+import org.eclipse.jface.viewers.TreeViewer;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.MessageBox;
 import org.eclipse.swt.widgets.Shell;
@@ -13,38 +15,32 @@ import com.cgoab.offline.client.UploadClientFactory;
 import com.cgoab.offline.client.mock.MockClient;
 import com.cgoab.offline.model.Journal;
 import com.cgoab.offline.model.Page;
+import com.cgoab.offline.model.Photo;
 import com.cgoab.offline.ui.UploadDialog.UploadResult;
-import com.cgoab.offline.ui.thumbnailviewer.CachingThumbnailProviderFactory;
-import com.cgoab.offline.util.resizer.ImageMagickResizerServiceFactory;
+import com.cgoab.offline.ui.thumbnailviewer.ThumbnailProvider;
+import com.cgoab.offline.ui.thumbnailviewer.ThumbnailViewer;
+import com.cgoab.offline.util.resizer.ResizerService;
 
 /**
  * Opens an {@link UploadDialog} and updates the UI as appropriate.
  */
 public class UploadAction extends Action {
 
-	private PageEditor editor;
 	private Shell shell;
 	private Preferences preferences;
-	private CachingThumbnailProviderFactory thumbnailFactory;
-	private ImageMagickResizerServiceFactory resizerFactory;
 	private UploadClientFactory factory;
+	private ThumbnailViewer thumbnails;
+	private TreeViewer tree;
 
-	public UploadAction(Shell shell, PageEditor editor) {
+	public UploadAction(Shell shell, ThumbnailViewer thumbnails, TreeViewer tree) {
 		super("Upload Journal");
 		this.shell = shell;
-		this.editor = editor;
+		this.thumbnails = thumbnails;
+		this.tree = tree;
 	}
 
 	public void setUploadFactory(UploadClientFactory factory) {
 		this.factory = factory;
-	}
-
-	public void setThumbnailFactory(CachingThumbnailProviderFactory thumbnailFactory) {
-		this.thumbnailFactory = thumbnailFactory;
-	}
-
-	public void setResizerFactory(ImageMagickResizerServiceFactory resizerFactory) {
-		this.resizerFactory = resizerFactory;
 	}
 
 	public void setPreferences(Preferences preferences) {
@@ -61,16 +57,17 @@ public class UploadAction extends Action {
 
 	@Override
 	public void run() {
-		Journal journal = editor.getCurrentJournal();
-		editor.saveJournal(journal, false);
+		Journal journal = JournalSelectionService.getInstance().getCurrentJournal();
+		JournalUtils.saveJournal(journal, false, shell);
 
 		// block until all photos in journal are resized
-		if (editor.blockUntilPhotosResized(journal)) {
-			return; // user cancelled the wait
+		ResizerService service = (ResizerService) journal.getData(ResizerService.KEY);
+		if (!JournalUtils.blockUntilPhotosResized(service, shell)) {
+			return; // wait cancelled
 		}
 
 		UploadDialog dialog = new UploadDialog(shell);
-		dialog.setThumbnailProvider(thumbnailFactory.getOrCreateThumbnailProvider(journal));
+		dialog.setThumbnailProvider((ThumbnailProvider) journal.getData(ThumbnailProvider.KEY));
 
 		/**
 		 * Filter out already uploaded pages...
@@ -135,13 +132,34 @@ public class UploadAction extends Action {
 		journal.setDirty(true);
 
 		// save the new upload state of pages & photos
-		editor.saveJournal(journal, false);
+		JournalUtils.saveJournal(journal, false, shell);
 
 		// notify editor: uploaded pages are removed & error labels applied
 		if (result.isComplete()) {
-			editor.afterUpload(null, null);
+			afterUpload(null, null);
 		} else {
-			editor.afterUpload(result.getLastPage(), result.getLastPhoto());
+			afterUpload(result.getLastPage(), result.getLastPhoto());
+		}
+	}
+
+	public void afterUpload(Page errorPage, Photo errorPhoto) {
+		/* refresh to get new labels (updated/error) */
+		tree.refresh();
+
+		if (errorPage == null) {
+			// TODO Fix displayPage(null);
+		} else {
+			// selection event triggers refresh of thumnail viewer
+			tree.setSelection(new StructuredSelection(errorPage), true);
+
+			if (errorPage == JournalSelectionService.getInstance().getSelectedPage()) {
+				// HACK: force refresh of thumbnail viewer
+				thumbnails.refresh();
+			}
+
+			if (errorPhoto != null) {
+				thumbnails.setSelection(new StructuredSelection(errorPhoto), true);
+			}
 		}
 	}
 }
