@@ -4,8 +4,9 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,7 +18,6 @@ import org.apache.commons.fileupload.ProgressListener;
 import org.apache.commons.fileupload.RequestContext;
 import org.apache.commons.fileupload.disk.DiskFileItem;
 import org.apache.commons.fileupload.disk.DiskFileItemFactory;
-import org.apache.commons.fileupload.servlet.ServletFileUpload;
 import org.apache.http.Header;
 import org.apache.http.HeaderElement;
 import org.apache.http.HttpEntity;
@@ -45,7 +45,16 @@ import testutils.fakeserver.ServerModel.ServerPhoto;
 
 import com.cgoab.offline.client.DocumentDescription;
 import com.cgoab.offline.client.web.CGOABHtmlUtils;
+import com.cgoab.offline.util.Utils;
 
+/**
+ * A fake CGOAB for testing
+ * 
+ * <ul>
+ * <li>Single user "Billy Bob", username "bob", password "secret"
+ * <li>User has a three documents { "doc1" (1), "doc2" (2), "doc3" (3) }
+ * </ul>
+ */
 public class FakeCGOABServer {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(FakeCGOABServer.class);
@@ -84,18 +93,22 @@ public class FakeCGOABServer {
 		}
 	}
 
+	public BasicHttpServer getHttpServer() {
+		return server;
+	}
+
 	public void shutdown() {
 		server.shutdown();
 	}
 
 	public HttpRequestHandlerRegistry createRegistry() {
 		HttpRequestHandlerRegistry registry = new HttpRequestHandlerRegistry();
-		registry.register("/login/index.html", new DoLoginHandler());
+		registry.register("/login/index.html", new LoginHandler());
 		registry.register("/logout/", new LogoutHandler());
 		registry.register("/my/account/", new MyAccountHandler());
 		registry.register("/my/", new MyHandler());
-		registry.register("/doc/edit/page/", new EditPageHandler());
-		registry.register("/doc/edit/page/pic/", new AddPhotoHandler());
+		registry.register("/doc/edit/page/", new PageHandler());
+		registry.register("/doc/edit/page/pic/", new PicHandler());
 		return registry;
 	}
 
@@ -112,63 +125,72 @@ public class FakeCGOABServer {
 		public final void handle(HttpRequest request, HttpResponse response, HttpContext context) throws HttpException,
 				IOException {
 			LOGGER.info(getClass().getSimpleName());
-			doHandle(request, response, context);
+			try {
+				doHandle(request, response, context);
+			} catch (Exception e) {
+				throw new RuntimeException(e);
+			}
 		}
 
 		protected abstract void doHandle(HttpRequest request, HttpResponse response, HttpContext context)
-				throws HttpException, IOException;
+				throws Exception;
 	}
 
-	class AddPhotoHandler extends BaseHandler {
+	class PicHandler extends BaseHandler {
 		@Override
 		public void doHandle(HttpRequest request, HttpResponse response, HttpContext context) throws HttpException,
 				IOException {
-
-			final HttpEntity entity = ((HttpEntityEnclosingRequest) request).getEntity();
-			Wrapper wrapper = new Wrapper(entity);
-			DiskFileItemFactory factory = new DiskFileItemFactory();
-			FileUpload upload = new FileUpload(factory);
-			try {
-				upload.setProgressListener(new ProgressListener() {
-					@Override
-					public void update(long pBytesRead, long pContentLength, int pItems) {
-						try {
-							Thread.sleep(50);
-						} catch (InterruptedException e) {
-						}
-						LOGGER.info("Read " + pBytesRead + " (" + pItems + ")");
-						/* fail the upload after 60% */
-						if (((float) pBytesRead / pContentLength) > 0.6)
-							throw new IllegalStateException("");
-					}
-				});
-				List<FileItem> items = upload.parseRequest(wrapper);
-
-				ServerPhoto photo = new ServerPhoto();
-				int pageId = 0;
-				for (FileItem fileItem : items) {
-					if (fileItem instanceof DiskFileItem) {
-						if (fileItem.isFormField()) {
-							if (fileItem.getFieldName().equals("page_id")) {
-								pageId = Integer.parseInt(fileItem.getString());
-							}
-							System.out.println(fileItem.getFieldName() + " - " + fileItem.getString());
-						} else {
-							DiskFileItem item = (DiskFileItem) fileItem;
-							photo.setFilename(item.getName());
-							photo.setSize((int) item.getSize());
-						}
-					}
-				}
-				ServerPage page = model.getPage(pageId);
-				if (page != null) {
-					page.addPhoto(photo);
-				}
-			} catch (FileUploadException e) {
-				e.printStackTrace();
+			if (!isLoggedIn(request)) {
+				respondWithHtml(response, "LoginPage.htm");
+				return;
 			}
-			// expect redirect
-			response.setStatusCode(HttpStatus.SC_MOVED_PERMANENTLY);
+
+			if ("GET".equals(method(request))) {
+				respondWithHtml(response, "AddPic.htm");
+			} else {
+				final HttpEntity entity = ((HttpEntityEnclosingRequest) request).getEntity();
+				Wrapper wrapper = new Wrapper(entity);
+				DiskFileItemFactory factory = new DiskFileItemFactory();
+				FileUpload upload = new FileUpload(factory);
+				try {
+					upload.setProgressListener(new ProgressListener() {
+						@Override
+						public void update(long pBytesRead, long pContentLength, int pItems) {
+							LOGGER.info("Read {} ({}%)", Utils.formatBytes(pBytesRead),
+									String.format("%3.1f", 100 * (float) pBytesRead / pContentLength));
+							/* fail the upload after 60% */
+							// if (((float) pBytesRead / pContentLength) > 0.6)
+							// throw new IllegalStateException("");
+						}
+					});
+					List<FileItem> items = upload.parseRequest(wrapper);
+
+					ServerPhoto photo = new ServerPhoto();
+					int pageId = 0;
+					for (FileItem fileItem : items) {
+						if (fileItem instanceof DiskFileItem) {
+							if (fileItem.isFormField()) {
+								if (fileItem.getFieldName().equals("page_id")) {
+									pageId = Integer.parseInt(fileItem.getString());
+								}
+								System.out.println(fileItem.getFieldName() + " - " + fileItem.getString());
+							} else {
+								DiskFileItem item = (DiskFileItem) fileItem;
+								photo.setFilename(item.getName());
+								photo.setSize((int) item.getSize());
+							}
+						}
+					}
+					ServerPage page = model.getPage(pageId);
+					if (page != null) {
+						page.addPhoto(photo);
+					}
+				} catch (FileUploadException e) {
+					e.printStackTrace();
+				}
+				// expect redirect
+				response.setStatusCode(HttpStatus.SC_MOVED_PERMANENTLY);
+			}
 		}
 	}
 
@@ -199,24 +221,31 @@ public class FakeCGOABServer {
 		}
 	}
 
-	class EditPageHandler extends BaseHandler {
+	class PageHandler extends BaseHandler {
 		@Override
-		public void doHandle(HttpRequest request, HttpResponse response, HttpContext context) throws HttpException,
-				IOException {
-			Map<String, String> params = parse(request);
-			ServerPage page = new ServerPage();
-			page.setHeadline(params.get("headline"));
-			page.setTitle(params.get("title"));
-			page.setText(params.get("text"));
-			ServerJournal journal = model.getJournal(Integer.parseInt(params.get("doc_id")));
-			int pageId = journal.addPage(page);
-			response.setStatusCode(HttpStatus.SC_MOVED_PERMANENTLY);
-			response.addHeader(new BasicHeader("Location", "/doc/?page_id=" + pageId));
+		public void doHandle(HttpRequest request, HttpResponse response, HttpContext context) throws Exception {
+			if (!isLoggedIn(request)) {
+				respondWithHtml(response, "LoginPage.htm");
+			} else {
+				Map<String, String> params = parse(request);
+				if (method(request).equals("GET")) {
+					String cmd = params.get("command");
+					if ("do_delete".equals(cmd)) {
+						int pageId = Integer.parseInt(params.get("page_id"));
+						ServerPage page = model.getPage(pageId);
+						page.getJournal().deletePage(page);
+					} else {
+						respondWithHtml(response, "EditPage.htm");
+					}
+				} else {
+					ServerPage page = new ServerPage(params);
+					ServerJournal journal = model.getJournal(Integer.parseInt(params.get("doc_id")));
+					int pageId = journal.addPage(page);
+					response.setStatusCode(HttpStatus.SC_MOVED_PERMANENTLY);
+					response.addHeader(new BasicHeader("Location", "/doc/edit/page/pic/?page_id=" + pageId));
+				}
+			}
 		}
-	}
-
-	private URL getResource(String resource) {
-		return getClass().getResource(resource);
 	}
 
 	void copy(URL url, OutputStream out) {
@@ -265,16 +294,7 @@ public class FakeCGOABServer {
 
 			/* check for valid cookie */
 			if (isLoggedIn(request)) {
-				EntityTemplate body = new EntityTemplate(new ContentProducer() {
-					@Override
-					public void writeTo(OutputStream outstream) throws IOException {
-						copy(getResource("MyAccountPage.htm"), outstream);
-					}
-				});
-				body.setContentType("text/html; charset=UTF-8");
-				response.setEntity(body);
-				response.setStatusCode(HttpStatus.SC_OK);
-				return;
+				respondWithHtml(response, "MyAccountPage.htm");
 			} else {
 				// reidrect
 				response.setStatusCode(HttpStatus.SC_MOVED_PERMANENTLY);
@@ -287,15 +307,7 @@ public class FakeCGOABServer {
 		public void doHandle(HttpRequest request, HttpResponse response, HttpContext context) throws HttpException,
 				IOException {
 			if (isLoggedIn(request)) {
-				EntityTemplate body = new EntityTemplate(new ContentProducer() {
-					@Override
-					public void writeTo(OutputStream outstream) throws IOException {
-						copy(getResource("MyPage.htm"), outstream);
-					}
-				});
-				body.setContentType("text/html; charset=UTF-8");
-				response.setEntity(body);
-				response.setStatusCode(HttpStatus.SC_OK);
+				respondWithHtml(response, "MyPage.htm");
 			} else {
 				// reidrect
 				response.setStatusCode(HttpStatus.SC_MOVED_PERMANENTLY);
@@ -303,33 +315,28 @@ public class FakeCGOABServer {
 		}
 	}
 
-	class StaticHandler extends BaseHandler {
-		URL url;
+	// class StaticHandler extends BaseHandler {
+	// String file;
+	//
+	// public StaticHandler(String file) {
+	// this.file = file;
+	// }
+	//
+	// @Override
+	// public void doHandle(HttpRequest request, HttpResponse response,
+	// HttpContext context) throws HttpException,
+	// IOException {
+	// respondWithHtml(response, file);
+	// }
+	// }
 
-		public StaticHandler(URL url) {
-			this.url = url;
-		}
-
-		@Override
-		public void doHandle(HttpRequest request, HttpResponse response, HttpContext context) throws HttpException,
-				IOException {
-			EntityTemplate body = new EntityTemplate(new ContentProducer() {
-				@Override
-				public void writeTo(OutputStream outstream) throws IOException {
-					copy(url, outstream);
-				}
-			});
-			body.setContentType("text/html; charset=UTF-8");
-			response.setEntity(body);
-			response.setStatusCode(HttpStatus.SC_OK);
-		}
-	}
-
-	static Map<String, String> parse(HttpRequest request) throws IOException {
+	static Map<String, String> parse(HttpRequest request) throws IOException, URISyntaxException {
+		List<NameValuePair> params;
 		if (!(request instanceof HttpEntityEnclosingRequest)) {
-			return Collections.emptyMap();
+			params = URLEncodedUtils.parse(new URI(request.getRequestLine().getUri()), null);
+		} else {
+			params = URLEncodedUtils.parse(((HttpEntityEnclosingRequest) request).getEntity());
 		}
-		List<NameValuePair> params = URLEncodedUtils.parse(((HttpEntityEnclosingRequest) request).getEntity());
 		Map<String, String> map = new HashMap<String, String>(params.size());
 		for (NameValuePair param : params) {
 			map.put(param.getName(), param.getValue());
@@ -337,21 +344,65 @@ public class FakeCGOABServer {
 		return map;
 	}
 
-	class DoLoginHandler extends BaseHandler {
+	// private static void bind(InputStream in, OutputStream output, Map<String,
+	// String> bindings) {
+	// try {
+	// BufferedReader reader = new BufferedReader(new InputStreamReader(in));
+	// String line;
+	// while ((line = reader.readLine()) != null) {
+	// for (Entry<String, String> e : bindings.entrySet()) {
+	// line = line.replaceAll(".*\\${" + e.getKey() + "}.*", e.getValue());
+	// }
+	// output.write(line.getBytes());
+	// }
+	// } catch (IOException e) {
+	// LOGGER.error("error copying", e);
+	// } finally {
+	// try {
+	// in.close();
+	// } catch (IOException e) {
+	// }
+	// }
+	// }
+
+	private static void respondWithHtml(HttpResponse response, String file) {
+		final InputStream in = FakeCGOABServer.class.getResourceAsStream(file);
+		EntityTemplate entity = new EntityTemplate(new ContentProducer() {
+			@Override
+			public void writeTo(OutputStream out) throws IOException {
+				Utils.copy(in, out);
+			}
+		});
+		entity.setContentType("text/html; charset=UTF-8");
+		response.setEntity(entity);
+		response.setStatusCode(HttpStatus.SC_OK);
+	}
+
+	private static String method(HttpRequest request) {
+		return request.getRequestLine().getMethod().toUpperCase();
+	}
+
+	class LoginHandler extends BaseHandler {
 
 		@Override
 		public void doHandle(HttpRequest request, HttpResponse response, HttpContext context) throws HttpException,
-				IOException {
-			if (!request.getRequestLine().getMethod().toUpperCase().equals("POST")) {
-				throw new UnsupportedOperationException();
+				IOException, URISyntaxException {
+			if (method(request).equals("POST")) {
+				// expect form entity
+				Map<String, String> params = parse(request);
+				String username = params.get("username");
+				String password = params.get("password");
+				if (username.equals("bob") && password.equals("secret")) {
+					String id = model.loggedIn(username);
+					LOGGER.info("Logged in as {}; id={}", username, id);
+					response.addHeader("Set-Cookie", "id=" + id + "; path=/; domain=localhost");
+					response.setStatusCode(HttpStatus.SC_OK);
+					return;
+				}
+				LOGGER.error("Password/username not correct");
 			}
-			// expect form entity
-			Map<String, String> params = parse(request);
-			String username = params.get("username");
-			String id = model.loggedIn(username);
-			LOGGER.info("Logged in as {}; id={}", username, id);
-			response.addHeader("Set-Cookie", "id=" + id + "; path=/; domain=localhost");
-			response.setStatusCode(HttpStatus.SC_OK);
+			respondWithHtml(response, "LoginPage.htm");
 		}
+
 	}
 }

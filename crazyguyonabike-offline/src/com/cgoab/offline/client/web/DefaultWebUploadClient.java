@@ -356,18 +356,18 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 
 	class InitializeFormsTask extends CancellableHttpTask<Void> {
 
-		private final int docId;
+		private final int documentId;
 
 		public InitializeFormsTask(CompletionCallback<Void> callback, int docId) {
 			super(callback);
-			this.docId = docId;
+			this.documentId = docId;
 		}
 
 		@Override
 		protected Void doRun() throws Exception {
 			// 1) load edit-page form
-			LOG.debug("Initializing client using document {}", docId);
-			HttpGet getEditPage = new HttpGet(createURI("/doc/edit/page/", "command=add&doc_id=" + docId
+			LOG.debug("Initializing client using document {}", documentId);
+			HttpGet getEditPage = new HttpGet(createURI("/doc/edit/page/", "command=add&doc_id=" + documentId
 					+ "&from=editcontents"));
 
 			HttpResponse response = execute(getEditPage);
@@ -386,7 +386,7 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 				/* throws if we have a problem */
 				LOG.debug("Found edit-page form {}, validating", pageForm);
 				pageBinder = new PageBinder();
-				pageBinder.setDocumentId(docId);
+				pageBinder.setDocumentId(documentId);
 				if (!pageBinder.initialize(pageForm, errorMessages)) {
 					fatal = true;
 				}
@@ -401,8 +401,11 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 			overrides.put("format", "auto");
 			overrides.put("text", "");
 			overrides.put("submit", "Upload Pic or File");
+			/* not needed, but handy for testing */
+			overrides.put("doc_id", "" + documentId);
 			postEditPhoto.setEntity(createFormEntity(pageForm.newMergedProperties(overrides)));
-			FormItem pageId = null;
+			// FormItem pageId = null;
+			int pageId = 0;
 			try {
 				LOG.debug("Creating temporary page to check add-photo form");
 				response = execute(postEditPhoto);
@@ -410,6 +413,7 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 				assertStatusCode(html, response.getStatusLine().getStatusCode(), HttpStatus.SC_MOVED_PERMANENTLY);
 				// TODO turn on follow redirects?
 				Header location = response.getFirstHeader("Location");
+				pageId = CGOABHtmlUtils.getPageId(location.getValue());
 				HttpGet get = new HttpGet(createURI(location.getValue(), null));
 				response = execute(get);
 				html = EntityUtils.toString(response.getEntity());
@@ -420,7 +424,7 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 					errorMessages.add("ERROR: AddPhoto form missing");
 				} else {
 					LOG.debug("Found add-photo form {}", photoForm);
-					pageId = photoForm.getItems().get("page_id");
+					// pageId = photoForm.getItems().get("page_id");
 					photoBinder = new PhotoBinder();
 					if (!photoBinder.initialize(photoForm, errorMessages)) {
 						fatal = true;
@@ -429,10 +433,10 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 			} finally {
 				// 3) delete the temporary page we just created
 				try {
-					if (pageId != null && pageId.getValue() != null) {
+					if (pageId != 0) {
 						LOG.debug("Deleting temporary page {}", pageId);
 						HttpGet deletePage = new HttpGet(createURI("/doc/edit/page/", "command=do_delete&page_id="
-								+ pageId.getValue() + "&from=editcontents"));
+								+ pageId + "&from=editcontents"));
 						response = execute(deletePage);
 						int code = response.getStatusLine().getStatusCode();
 						if (code != HttpStatus.SC_MOVED_PERMANENTLY) {

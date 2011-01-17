@@ -31,6 +31,11 @@ public class CachingThumbnailProviderFactory {
 		File thumbFolder = getOrCreateThumbnailsFolder(journal);
 		CachingThumbnailProvider service = new CachingThumbnailProvider(executor, thumbFolder, display, resizer);
 		journal.setData(ThumbnailProvider.KEY, service);
+		if (journal.isUseExifThumbnail() == Boolean.TRUE) {
+			service.setUseExifThumbnail(true);
+		} else {
+			service.setUseExifThumbnail(false);
+		}
 		return service;
 	}
 

@@ -1,6 +1,5 @@
 package com.cgoab.offline.util;
 
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -9,10 +8,9 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.text.DecimalFormat;
 import java.util.List;
-import java.util.jar.Attributes;
+import java.util.jar.Attributes.Name;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
-import java.util.jar.Attributes.Name;
 
 public class Utils {
 
@@ -45,7 +43,7 @@ public class Utils {
 	public static void copy(InputStream in, OutputStream out) throws IOException {
 		byte[] buff = new byte[1024 * 4];
 		int bytes;
-		while ((bytes = in.read(buff)) != 0) {
+		while ((bytes = in.read(buff)) > 0) {
 			out.write(buff, 0, bytes);
 		}
 	}

@@ -13,7 +13,7 @@ import com.cgoab.offline.Application;
 import com.cgoab.offline.client.CompletionCallback;
 import com.cgoab.offline.client.web.DefaultWebUploadClient;
 
-public class DefaultWebUploadClientTest {
+public class DefaultWebUploadClientUsingCGOABServerTest {
 
 	DefaultWebUploadClient impl = new DefaultWebUploadClient(Application.CRAZYGUYONABIKE_HOST,
 			Application.CRAZYGUYONABIKE_PORT, new BasicCookieStore(), null);

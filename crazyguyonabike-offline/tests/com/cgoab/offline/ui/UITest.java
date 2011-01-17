@@ -16,11 +16,14 @@ import org.junit.Test;
 
 import com.cgoab.offline.model.Journal;
 import com.cgoab.offline.model.JournalXmlLoader;
-import com.cgoab.offline.ui.thumbnailviewer.FitWithinResizeStrategy;
 import com.cgoab.offline.ui.thumbnailviewer.CachingThumbnailProviderFactory;
+import com.cgoab.offline.ui.thumbnailviewer.FitWithinResizeStrategy;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailViewer;
 
-public class PageEditorTest {
+/**
+ * High level UI integration tests.
+ */
+public class UITest {
 
 	private Display display;
 	private Shell rootShell;
@@ -35,7 +38,6 @@ public class PageEditorTest {
 	public void createUI() throws InterruptedException {
 		final CountDownLatch latch = new CountDownLatch(1);
 		new Thread(new Runnable() {
-
 			public void run() {
 				Display display = new Display();
 				rootShell = new Shell(display);
