@@ -7,7 +7,7 @@ import com.cgoab.offline.ui.JournalUtils;
 
 public class CloseJournalAction extends ActionWithCurrentJournal {
 
-	private Shell shell;
+	private final Shell shell;
 
 	public CloseJournalAction(Shell shell) {
 		super("Close Journal");

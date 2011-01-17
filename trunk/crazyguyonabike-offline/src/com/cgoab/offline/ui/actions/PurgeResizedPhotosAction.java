@@ -15,7 +15,7 @@ import com.cgoab.offline.util.resizer.ResizerService;
 
 public class PurgeResizedPhotosAction extends ActionWithCurrentJournal {
 
-	private Shell shell;
+	private final Shell shell;
 
 	public PurgeResizedPhotosAction(Shell shell) {
 		super(("Purge resized photos"));

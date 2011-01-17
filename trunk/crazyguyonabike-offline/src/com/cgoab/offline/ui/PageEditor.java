@@ -6,13 +6,21 @@ import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
 
+import org.eclipse.core.commands.operations.IOperationHistoryListener;
+import org.eclipse.core.commands.operations.IUndoContext;
+import org.eclipse.core.commands.operations.OperationHistoryEvent;
+import org.eclipse.core.commands.operations.OperationHistoryFactory;
 import org.eclipse.jface.text.Document;
 import org.eclipse.jface.text.IDocument;
 import org.eclipse.jface.text.ITextListener;
 import org.eclipse.jface.text.TextEvent;
 import org.eclipse.jface.text.TextViewer;
+import org.eclipse.jface.text.TextViewerUndoManager;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.StyledText;
+import org.eclipse.swt.events.FocusAdapter;
+import org.eclipse.swt.events.FocusEvent;
+import org.eclipse.swt.events.FocusListener;
 import org.eclipse.swt.events.ModifyEvent;
 import org.eclipse.swt.events.ModifyListener;
 import org.eclipse.swt.events.SelectionEvent;
@@ -78,11 +86,15 @@ public class PageEditor {
 
 	private DirtyCurrentPageListener dirtyCurrentPageListener = new DirtyCurrentPageListener();
 
+	private ApplicationWindow application;
+
+	private TextViewerUndoManager undoManager;
+
 	private enum EditorState {
 		DISABLED, EDITABLE, READONLY;
 	}
 
-	public PageEditor() {
+	public PageEditor(ApplicationWindow application) {
 		JournalSelectionService.getInstance().addListener(new JournalSelectionListener() {
 			@Override
 			public void selectionChanged(Object newSelection, Object oldSelection) {
@@ -97,6 +109,14 @@ public class PageEditor {
 			public void journalOpened(Journal journal) {
 			}
 		});
+		OperationHistoryFactory.getOperationHistory().addOperationHistoryListener(new IOperationHistoryListener() {
+			@Override
+			public void historyNotification(OperationHistoryEvent event) {
+				System.out.println(Arrays.toString(event.getOperation().getContexts()) + "=>" + event.getEventType()
+						+ " - " + event.getOperation().getLabel());
+			}
+		});
+		this.application = application;
 	}
 
 	private void setEditableState(Control control, boolean editable) {
@@ -358,6 +378,15 @@ public class PageEditor {
 		});
 
 		textInput = new TextViewer(editorComposite, SWT.WRAP | SWT.BORDER | SWT.V_SCROLL);
+		textInput.getTextWidget().addFocusListener(new FocusAdapter() {
+			@Override
+			public void focusGained(FocusEvent e) {
+				IUndoContext context = undoManager.getUndoContext();
+				application.setCurrentUndoContext(context);
+			}
+		});
+		undoManager = new TextViewerUndoManager(20);
+		undoManager.connect(textInput);
 		// undoManager = new TextViewerUndoManager(50);
 		// undoManager.connect(textInput);
 

@@ -17,7 +17,7 @@ public class CGOABHtmlScraperTest {
 
 	File errorFile = new File("TestData/ErrorPage.htm");
 	File homeFile = new File("TestData/HomePage.htm");
-	File loginFile = new File("TestData/LoginPage.htm");
+//	File loginFile = new File("TestData/LoginPage.htm");
 	File userAccountFile = new File("TestData/UserAccountPage.htm");
 	File addNewPageDateError = new File("TestData/ErrorAddNewPageDateOlderThanPrevious.htm");
 	File errorAddSamePhotoName = new File("TestData/ErrorAddPhotoSameName.htm");
@@ -97,10 +97,10 @@ public class CGOABHtmlScraperTest {
 		Assert.assertTrue(CGOABHtmlUtils.isUpdateAccountPage(cleaner.clean(userAccountFile)));
 	}
 
-	@Test
-	public void isLoginPage_loginPage() throws Exception {
-		Assert.assertTrue(CGOABHtmlUtils.isLoginPage(cleaner.clean(loginFile)));
-	}
+	// @Test
+	// public void isLoginPage_loginPage() throws Exception {
+	// Assert.assertTrue(CGOABHtmlUtils.isLoginPage(cleaner.clean(loginFile)));
+	// }
 
 	@Test
 	public void isLoginPage_homePage() throws Exception {

@@ -9,11 +9,10 @@ import com.cgoab.offline.model.Journal;
 import com.cgoab.offline.ui.JournalSelectionService;
 import com.cgoab.offline.ui.JournalSelectionService.JournalSelectionListener;
 import com.cgoab.offline.ui.ThumbnailView;
-import com.cgoab.offline.util.resizer.ImageMagickResizerServiceFactory;
 
 public class ToggleResizeImagesBeforeUpload extends Action {
 
-	private ThumbnailView thumbView;
+	private final ThumbnailView thumbView;
 
 	public ToggleResizeImagesBeforeUpload(ThumbnailView thumbnailView) {
 		super("Resize photos", Action.AS_CHECK_BOX);

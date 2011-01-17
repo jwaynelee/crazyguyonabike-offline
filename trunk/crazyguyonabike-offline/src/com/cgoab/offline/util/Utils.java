@@ -74,10 +74,10 @@ public class Utils {
 		}
 		float kb = (float) bytes / ORDER;
 		if (kb < ORDER) {
-			return Math.round(kb) + "KB";
+			return Math.round(kb) + "kb";
 		}
 		float mb = (float) kb / ORDER;
-		return new DecimalFormat("###.#MB").format(mb);
+		return new DecimalFormat("###.#mb").format(mb);
 	}
 
 	public static void print(List<?> toPrint) {

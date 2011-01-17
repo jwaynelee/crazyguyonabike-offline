@@ -12,7 +12,7 @@ import com.cgoab.offline.ui.NewJournalDialog;
 
 public class OpenJournalAction extends Action {
 
-	Shell shell;
+	private final Shell shell;
 
 	public OpenJournalAction(Shell shell) {
 		super("Open Journal");

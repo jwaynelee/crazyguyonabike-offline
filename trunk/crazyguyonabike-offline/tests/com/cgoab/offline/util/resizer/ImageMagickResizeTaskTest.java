@@ -30,7 +30,7 @@ public class ImageMagickResizeTaskTest {
 
 		// like with like
 		Assert.assertTrue(v6667.isAtLeast(v6667));
-		
+
 		Assert.assertTrue(v6667.isAtLeast(v6388));
 		Assert.assertFalse(v6388.isAtLeast(v6667));
 	}
@@ -47,7 +47,7 @@ public class ImageMagickResizeTaskTest {
 
 		// prepare for the test
 		File source = TestPhotos.getPhotoAsTempFile();
-		File target = File.createTempFile("out_", null);
+		File target = TestPhotos.createTempFileName(source);
 		source.deleteOnExit();
 		target.deleteOnExit();
 
@@ -61,14 +61,20 @@ public class ImageMagickResizeTaskTest {
 		// load up target and check size
 		Metadata targetMeta = JpegMetadataReader.readMetadata(target);
 		JpegDirectory tjDir = (JpegDirectory) targetMeta.getDirectory(JpegDirectory.class);
-		Assert.assertEquals(1400, tjDir.getImageHeight());
-		Assert.assertEquals(2489, tjDir.getImageWidth());
+		Assert.assertEquals(1000, tjDir.getImageHeight());
+		Assert.assertEquals(1778, tjDir.getImageWidth());
+
+		// check aspect ratio was maintained
+		float sourceAspect = (float) sjDir.getImageWidth() / sjDir.getImageHeight();
+		float targetAspect = (float) tjDir.getImageWidth() / tjDir.getImageHeight();
+		Assert.assertEquals(sourceAspect, targetAspect, 0.001); /* 1 pixel in 1000 */
 	}
 
 	@Test
 	public void testResizeBogusFileFails() throws IOException {
 		File source = File.createTempFile("in_bogus", null);
 		File target = File.createTempFile("out_bogus", null);
+
 		// create bogus jpeg file
 		TestPhotos.copyToTempFile(source, new ByteArrayInputStream(new byte[] { (byte) 0xFF, (byte) 0xD8, (byte) 0x00,
 				(byte) 0x00 }));

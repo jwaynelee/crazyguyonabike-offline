@@ -8,15 +8,11 @@ import org.eclipse.jface.action.Action;
 import com.cgoab.offline.model.Journal;
 import com.cgoab.offline.ui.JournalSelectionService;
 import com.cgoab.offline.ui.JournalSelectionService.JournalSelectionListener;
-import com.cgoab.offline.ui.thumbnailviewer.CachingThumbnailProviderFactory;
 
 public class ToggleUseExifThumbnailAction extends ActionWithCurrentJournal {
 
-	CachingThumbnailProviderFactory factory;
-
-	public ToggleUseExifThumbnailAction(CachingThumbnailProviderFactory factory) {
+	public ToggleUseExifThumbnailAction() {
 		super("Use EXIF thumbnail", Action.AS_CHECK_BOX);
-		this.factory = factory;
 		JournalSelectionService.getInstance().addListener(new JournalSelectionListener() {
 
 			PropertyChangeListener listener = new PropertyChangeListener() {

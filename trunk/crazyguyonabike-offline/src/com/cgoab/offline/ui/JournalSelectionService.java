@@ -40,7 +40,7 @@ public class JournalSelectionService {
 				current = null;
 			}
 
-			for (JournalSelectionListener l : listeners) {
+			for (JournalSelectionListener l : new ArrayList<JournalSelectionListener>(listeners)) {
 				l.selectionChanged(current, old);
 			}
 		}
@@ -93,12 +93,16 @@ public class JournalSelectionService {
 			/* ignore */
 		}
 		viewer.setInput(newJournal == null ? null : new JournalHolder(newJournal));
-		for (JournalSelectionListener listener : listeners) {
+		for (JournalSelectionListener listener : new ArrayList<JournalSelectionListener>(listeners)) {
 			if (newJournal == null) {
 				listener.journalClosed(previous);
 			} else {
 				listener.journalOpened(newJournal);
 			}
 		}
+	}
+
+	public void removeListener(JournalSelectionListener listener) {
+		listeners.remove(listener);
 	}
 }

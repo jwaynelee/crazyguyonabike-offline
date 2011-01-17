@@ -24,7 +24,7 @@
 	<classpathentry kind="lib" path="libs/org.eclipse.jface.text_3.6.1.r361_v20100825-0800.jar" sourcepath="C:/Program Files/Eclipse/plugins/org.eclipse.jface.text.source_3.6.1.r361_v20100825-0800.jar"/>
 	<classpathentry kind="lib" path="libs/org.eclipse.osgi_3.6.1.R36x_v20100806.jar"/>
 	<classpathentry kind="lib" path="libs/org.eclipse.osgi.util_3.2.100.v20100503.jar"/>
-	<classpathentry kind="lib" path="libs/org.eclipse.text_3.5.0.v20100601-1300.jar"/>
+	<classpathentry kind="lib" path="libs/org.eclipse.text_3.5.0.v20100601-1300.jar" sourcepath="C:/Program Files/Eclipse/plugins/org.eclipse.text.source_3.5.0.v20100601-1300.jar"/>
 	<classpathentry kind="lib" path="libs/log4j-1.2.16.jar" sourcepath="C:/libs/apache-log4j-1.2.16/src"/>
 	<classpathentry kind="lib" path="libs/slf4j-api-1.6.1.jar" sourcepath="C:/libs/slf4j-1.6.1/slf4j-api-1.6.1-sources.jar"/>
 	<classpathentry kind="lib" path="libs/slf4j-jcl-1.6.1.jar" sourcepath="C:/libs/slf4j-1.6.1/slf4j-jcl-1.6.1-sources.jar"/>
