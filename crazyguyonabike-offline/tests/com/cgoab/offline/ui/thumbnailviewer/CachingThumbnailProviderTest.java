@@ -16,7 +16,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import testdata.photos.TestPhotos;
+import testutils.photos.TestPhotos;
 
 import com.cgoab.offline.Application;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailProvider.Thumbnail;

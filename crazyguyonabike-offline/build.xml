@@ -7,8 +7,11 @@
 	<property name="version" value="0.1.0" />
 	<property name="main.jar.name" value="${ant.project.name}.${version}.jar" />
 	<property name="main.class" value="com.cgoab.offline.Application" />
+	<property name="test.jar.name" value="${ant.project.name}.${version}.tests.jar" />
+
 
 	<property name="src.dir" value="src" />
+	<property name="tests.dir" value="tests" />
 	<property name="lib.dir" value="libs" />
 	<property name="swt.dir" value="libsswt" />
 	<property name="scripts.dir" value="scripts" />
@@ -16,6 +19,7 @@
 	<property name="build.dir" value="build" />
 	<property name="classes.dir" value="${build.dir}/classes" />
 	<property name="main.classes.dir" value="${classes.dir}/main" />
+	<property name="tests.classes.dir" value="${classes.dir}/tests" />
 	<property name="temp.dir" value="${build.dir}/temp" />
 	<property name="jar.dir" value="${build.dir}/jar" />
 	<property name="release.dir" value="${build.dir}/release" />
@@ -24,7 +28,13 @@
 	<path id="classpath">
 		<fileset dir="${lib.dir}" includes="*.jar" />
 		<!-- for compiling it doesn't matter which SWT jar we use -->
-		<fileset dir="${swt.dir}" includes="swt-${swt.version}-win32.jar" />
+		<fileset dir="${swt.dir}" includes="swt-${swt.version}-win32_64.jar" />
+	</path>
+
+	<path id="classpath.test">
+		<path refid="classpath" />
+		<fileset dir="testlibs" includes="*.jar" />
+		<pathelement path="${jar.dir}/${main.jar.name}" />
 	</path>
 
 	<target name="clean">
@@ -54,6 +64,34 @@
 		</jar>
 	</target>
 
+	<target name="compile-tests" depends="jar-main">
+		<mkdir dir="${tests.classes.dir}" />
+		<javac srcdir="${tests.dir}" destdir="${tests.classes.dir}" debug="yes" classpathref="classpath.test" />
+	</target>
+
+	<target name="jar-tests" depends="compile-tests">
+		<mkdir dir="${jar.dir}" />
+		<jar destfile="${jar.dir}/${test.jar.name}" basedir="${tests.classes.dir}">
+			<fileset dir="${tests.dir}" excludes="*.java" />
+			<!-- .log, .properties etc -->
+		</jar>
+	</target>
+
+	<target name="run-tests" depends="jar-tests">
+		<mkdir dir="${temp.dir}/testoutput" />
+		<junit printsummary="yes">
+			<classpath refid="classpath.test" />
+			<classpath path="${jar.dir}/${test.jar.name}" />
+			<formatter type="xml" />
+			<batchtest fork="yes" todir="${temp.dir}/testoutput">
+				<fileset dir="${tests.dir}">
+					<exclude name="testutils/**" />
+					<include name="**/*Test*.java" />
+				</fileset>
+			</batchtest>
+		</junit>
+	</target>
+
 	<!--<target name="jar-boot" depends="compile-boot,jar-main">
 		<mkdir dir="${jar.dir}" />
 		<jar destfile="${jar.dir}/${boot.jar.name}" basedir="${boot.classes.dir}">
@@ -77,7 +115,7 @@
 	<property name="release.zip.name.win" value="${ant.project.name}.${version}-win.zip" />
 	<property name="release.zip.name.linux" value="${ant.project.name}.${version}-linux.zip" />
 
-	<target name="package-windows" depends="jar-main">
+	<target name="package-windows" depends="run-tests">
 		<launch4j>
 			<config headerType="gui" outfile="${jar.dir}/${ant.project.name}.exe" dontWrapJar="true" jarPath="${main.jar.name}" downloadurl="http://www.java.com/download" customprocname="true">
 				<classPath mainClass="${main.class}">
@@ -112,7 +150,7 @@
 	</target>
 
 
-	<target name="package-linux" depends="jar-main">
+	<target name="package-linux" depends="run-tests">
 		<mkdir dir="${release.dir}" />
 		<copy file="${scripts.dir}/cgoab-offline" tofile="${temp.dir}/cgoab-offline">
 			<filterchain>
