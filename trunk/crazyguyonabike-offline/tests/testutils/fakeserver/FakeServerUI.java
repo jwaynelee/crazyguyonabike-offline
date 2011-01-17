@@ -7,14 +7,9 @@ import org.eclipse.jface.viewers.ITreeContentProvider;
 import org.eclipse.jface.viewers.TreeViewer;
 import org.eclipse.jface.viewers.Viewer;
 import org.eclipse.swt.SWT;
-import org.eclipse.swt.events.SelectionAdapter;
-import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
-import org.eclipse.swt.layout.RowLayout;
-import org.eclipse.swt.widgets.Button;
-import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Shell;
 
@@ -46,7 +41,7 @@ public class FakeServerUI {
 		// i += 1;
 		// }
 		// });
-		
+
 		TreeViewer viewer = new TreeViewer(shell);
 		viewer.setContentProvider(new ServerModelProvider());
 		viewer.getTree().setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
@@ -76,6 +71,11 @@ public class FakeServerUI {
 		}
 
 		public void pageAdded(ServerPage page) {
+			viewer.refresh();
+		}
+
+		@Override
+		public void pageRemoved(ServerPage page) {
 			viewer.refresh();
 		}
 

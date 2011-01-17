@@ -169,11 +169,6 @@ public class ThumbnailView {
 				}
 
 				CachingThumbnailProvider provider = thumbnailFactory.createThumbnailProvider(journal);
-				if (journal.isUseExifThumbnail() != null) {
-					provider.setUseExifThumbnail(journal.isUseExifThumbnail() == Boolean.TRUE);
-				} else {
-					/* null = ask, false = disabled */
-				}
 				provider.addJobListener(statusListener.thumnailListener);
 				thumbViewer.setThumbnailProvider(provider);
 				journal.addPropertyChangeListener(journalPropertyListener);

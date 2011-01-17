@@ -1,4 +1,4 @@
-package com.cgoab.offline.client.service;
+package com.cgoab.offline.client;
 
 import java.io.File;
 import java.util.Arrays;
@@ -18,11 +18,8 @@ import com.cgoab.offline.client.BatchUploader.BatchUploaderListener;
 import com.cgoab.offline.client.CompletionCallback;
 import com.cgoab.offline.client.PhotoUploadProgressListener;
 import com.cgoab.offline.client.UploadClient;
-import com.cgoab.offline.model.DuplicatePhotoException;
-import com.cgoab.offline.model.InvalidInsertionPointException;
 import com.cgoab.offline.model.Journal;
 import com.cgoab.offline.model.Page;
-import com.cgoab.offline.model.PageNotEditableException;
 import com.cgoab.offline.model.Photo;
 import com.cgoab.offline.model.UploadState;
 

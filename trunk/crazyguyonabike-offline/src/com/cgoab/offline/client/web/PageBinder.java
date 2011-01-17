@@ -14,7 +14,6 @@ public class PageBinder extends AbstractFormBinder {
 
 		/* what we expect the form to look like */
 		registerUsedProperty("toc_heading_size");
-		registerUsedProperty("toc_heading_size");
 		registerUsedProperty("toc_heading_bold");
 		registerUsedProperty("toc_heading_italic");
 		registerUsedProperty("toc_level");
@@ -48,7 +47,7 @@ public class PageBinder extends AbstractFormBinder {
 		builder.put("toc_level", Integer.toString(page.getIndent()));
 		builder.put("visible", toOnOff(page.isVisible()));
 		builder.put("date", page.getDate().toString());
-		builder.put("distance", Float.toString(page.getDistance()));
+		builder.put("distance", Integer.toString(page.getDistance()));
 		builder.put("title", page.getTitle());
 		builder.put("headline", page.getHeadline());
 		builder.put("text", page.getText());

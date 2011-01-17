@@ -8,6 +8,9 @@ import java.util.Map;
 
 import org.eclipse.swt.graphics.Image;
 
+import testutils.fakeserver.ServerModel.ServerPage;
+
+import com.cgoab.offline.model.Page.HeadingStyle;
 import com.cgoab.offline.util.Assert;
 import com.cgoab.offline.util.Utils;
 
@@ -49,6 +52,12 @@ public class ServerModel {
 	void firePageAdded(ServerPage page) {
 		for (ModelListener listener : listeners) {
 			listener.pageAdded(page);
+		}
+	}
+
+	public void firePageRemoved(ServerPage page) {
+		for (ModelListener listener : listeners) {
+			listener.pageRemoved(page);
 		}
 	}
 
@@ -119,6 +128,8 @@ public class ServerModel {
 	public interface ModelListener {
 		void journalAdded(ServerJournal journal);
 
+		void pageRemoved(ServerPage page);
+
 		void pageAdded(ServerPage page);
 
 		void photoAdded(ServerPhoto photo);
@@ -128,7 +139,7 @@ public class ServerModel {
 		void userLoggedOut(String user);
 	}
 
-	static class ServerJournal {
+	public static class ServerJournal {
 		private int docId;
 		ServerModel model;
 		private String name;
@@ -145,6 +156,11 @@ public class ServerModel {
 			page.pageId = pages.size();
 			model.firePageAdded(page);
 			return page.pageId;
+		}
+
+		public void deletePage(ServerPage page) {
+			pages.remove(page);
+			model.firePageRemoved(page);
 		}
 
 		public int getDocId() {
@@ -165,13 +181,15 @@ public class ServerModel {
 		}
 	}
 
-	static class ServerPage {
-		private String headline;
+	public static class ServerPage {
 		ServerJournal journal;
 		private int pageId;
 		private List<ServerPhoto> photos = new ArrayList<ServerPhoto>();
-		private String text;
-		private String title;
+		private Map<String, String> params;
+
+		public ServerPage(Map<String, String> params) {
+			this.params = params;
+		}
 
 		public void addPhoto(ServerPhoto photo) {
 			photo.page = this;
@@ -179,7 +197,7 @@ public class ServerModel {
 			journal.model.firePhotoAdded(photo);
 		}
 
-		public Object getJournal() {
+		public ServerJournal getJournal() {
 			return journal;
 		}
 
@@ -191,25 +209,49 @@ public class ServerModel {
 			return photos;
 		}
 
-		public void setHeadline(String headline) {
-			this.headline = headline;
+		public int getIndent() {
+			return Integer.parseInt(params.get("toc_level"));
 		}
 
-		public void setText(String text) {
-			this.text = text;
+		public boolean isItalic() {
+			return "on".equals(params.get("toc_heading_italic"));
 		}
 
-		public void setTitle(String title) {
-			this.title = title;
+		public String getDate() {
+			return params.get("date");
+		}
+
+		public int getDistance() {
+			return Integer.parseInt(params.get("distance"));
+		}
+
+		public String getTitle() {
+			return params.get("title");
+		}
+
+		public String getHeadline() {
+			return params.get("headline");
+		}
+
+		public String getText() {
+			return params.get("text");
+		}
+
+		public boolean isBold() {
+			return "on".equals(params.get("toc_heading_bold"));
 		}
 
 		@Override
 		public String toString() {
-			return title + " : " + headline;
+			return getTitle() + " : " + getHeadline();
+		}
+
+		public HeadingStyle getHeadingStyle() {
+			return HeadingStyle.valueOf(params.get("toc_heading_size"));
 		}
 	}
 
-	static class ServerPhoto {
+	public static class ServerPhoto {
 		private String filename;
 		private Image image;
 		ServerPage page;
@@ -232,4 +274,5 @@ public class ServerModel {
 			return filename + " (" + Utils.formatBytes(size) + ")";
 		}
 	}
+
 }

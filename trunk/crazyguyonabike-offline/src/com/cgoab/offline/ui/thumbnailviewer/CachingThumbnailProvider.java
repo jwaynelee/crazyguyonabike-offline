@@ -82,7 +82,7 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 		this.resizer = resizer;
 	}
 
-	private File getNameInCache(File source) {
+	File getNameInCache(File source) {
 		String name = source.getName();
 		int id = name.lastIndexOf(".");
 		if (id > 0) {
