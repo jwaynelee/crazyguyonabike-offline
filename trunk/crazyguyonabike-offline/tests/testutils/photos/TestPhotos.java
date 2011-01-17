@@ -1,4 +1,4 @@
-package testdata.photos;
+package testutils.photos;
 
 import java.io.File;
 import java.io.FileOutputStream;

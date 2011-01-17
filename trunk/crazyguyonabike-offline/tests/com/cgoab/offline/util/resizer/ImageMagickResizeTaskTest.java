@@ -8,7 +8,7 @@ import org.apache.log4j.BasicConfigurator;
 import org.junit.Assert;
 import org.junit.Test;
 
-import testdata.photos.TestPhotos;
+import testutils.photos.TestPhotos;
 
 import com.cgoab.offline.util.Which;
 import com.cgoab.offline.util.resizer.ImageMagickResizeTask.MagickException;
@@ -73,7 +73,7 @@ public class ImageMagickResizeTaskTest {
 	@Test
 	public void testResizeBogusFileFails() throws IOException {
 		File source = File.createTempFile("in_bogus", null);
-		File target = File.createTempFile("out_bogus", null);
+		File target = TestPhotos.createTempFileName(source);
 
 		// create bogus jpeg file
 		TestPhotos.copyToTempFile(source, new ByteArrayInputStream(new byte[] { (byte) 0xFF, (byte) 0xD8, (byte) 0x00,

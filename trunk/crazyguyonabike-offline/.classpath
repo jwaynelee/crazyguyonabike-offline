@@ -33,7 +33,6 @@
 	<classpathentry kind="lib" path="testlibs/hamcrest-core-1.1.jar"/>
 	<classpathentry kind="lib" path="testlibs/jmock-2.5.1.jar"/>
 	<classpathentry kind="lib" path="testlibs/hamcrest-library-1.1.jar"/>
-	<classpathentry kind="con" path="org.eclipse.jdt.junit.JUNIT_CONTAINER/4"/>
 	<classpathentry kind="lib" path="testlibs/org.eclipse.swtbot.junit4_x_2.0.1.20101106_1831-73ca7af-dev-e36.jar"/>
 	<classpathentry kind="lib" path="testlibs/org.eclipse.swtbot.swt.finder_2.0.1.20101106_1831-73ca7af-dev-e36.jar"/>
 	<classpathentry kind="lib" path="testlibs/org.hamcrest_1.1.0.v20090501071000.jar"/>
@@ -43,5 +42,6 @@
 	<classpathentry kind="lib" path="testlibs/commons-fileupload-1.2.2.jar" sourcepath="C:/libs/commons-fileupload-1.2.2-src"/>
 	<classpathentry kind="lib" path="testlibs/commons-io-2.0.1.jar"/>
 	<classpathentry kind="lib" path="testlibs/servlet-api-2.5-20081211.jar"/>
+	<classpathentry kind="lib" path="testlibs/junit-4.9b1.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
