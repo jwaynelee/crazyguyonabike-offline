@@ -14,7 +14,7 @@ public class SaveAction extends Action {
 
 	static Logger LOG = LoggerFactory.getLogger(SaveAction.class);
 
-	Shell shell;
+	private final Shell shell;
 
 	public SaveAction(Shell shell) {
 		super("Save Journal");

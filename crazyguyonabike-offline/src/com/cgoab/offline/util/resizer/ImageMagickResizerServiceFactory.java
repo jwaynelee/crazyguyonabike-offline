@@ -18,12 +18,10 @@ import com.cgoab.offline.util.resizer.ImageMagickResizeTask.MagicNotAvailableExc
  * <p>
  * This implementation invokes a new ImageMagick sub-process per resize
  * operation. As such ImageMagik version 6.3.8-3 must be installed prior to
- * running this or {@link #getOrCreateResizerFor(Journal)} will fail with
+ * running this or {@link #createResizerFor(Journal)} will fail with
  * {@link MagicNotAvailableException}.
  */
 public class ImageMagickResizerServiceFactory {
-
-	private final Map<Object, ResizerService> trackers = new HashMap<Object, ResizerService>();
 
 	private final Display display;
 
@@ -40,14 +38,11 @@ public class ImageMagickResizerServiceFactory {
 		this.folderExtension = folderExtension;
 	}
 
-	public ResizerService getOrCreateResizerFor(Journal source) throws MagicNotAvailableException {
-		ResizerService tracker = trackers.get(source);
-		if (tracker == null) {
-			String cmdPath = getOrInitializeMagickPath();
-			File photoFolder = getOrCreatePhotoFolder(source);
-			tracker = new ImageMagikResizerService(photoFolder, executor, display, cmdPath);
-			source.setData(ResizerService.KEY, tracker);
-		}
+	public ResizerService createResizerFor(Journal source) throws MagicNotAvailableException {
+		String cmdPath = getOrInitializeMagickPath();
+		File photoFolder = getOrCreatePhotoFolder(source);
+		ResizerService tracker = new ImageMagikResizerService(photoFolder, executor, display, cmdPath);
+		source.setData(ResizerService.KEY, tracker);
 		return tracker;
 	}
 

@@ -58,14 +58,20 @@ public class Journal {
 		}
 	}
 
-	void addPage(Page newPage) {
+	public void addPage(Page newPage, int index) {
 		Assert.isTrue(newPage.getJournal() == this);
+		Assert.isTrue(index >= 0);
+		Assert.isTrue(index <= pages.size());
 		if (pages.contains(newPage)) {
 			throw new IllegalArgumentException("Page is already added to journal!");
 		}
-		pages.add(newPage);
+		pages.add(index, newPage);
 		firePageAdded(newPage);
 		setDirty(true);
+	}
+
+	void addPage(Page newPage) {
+		addPage(newPage, pages.size());
 	}
 
 	public void addPropertyChangeListener(PropertyChangeListener listener) {
@@ -254,6 +260,11 @@ public class Journal {
 
 	public void removePropertyChangeListener(PropertyChangeListener listener) {
 		support.removePropertyChangeListener(listener);
+	}
+
+	public void removeData(String key) {
+		Assert.notNull(key);
+		data.remove(key);
 	}
 
 	/**

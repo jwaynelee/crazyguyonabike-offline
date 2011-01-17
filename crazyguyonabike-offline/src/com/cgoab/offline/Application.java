@@ -122,7 +122,7 @@ public class Application implements Runnable {
 	}
 
 	public void run() {
-		startLogging();
+		initLogging();
 		Shell shell = null;
 		try {
 			shell = new Shell(display);
@@ -148,7 +148,7 @@ public class Application implements Runnable {
 		}
 	}
 
-	private void startLogging() {
+	private void initLogging() {
 		if (!configuredLogging) {
 			BasicConfigurator.configure();
 		}

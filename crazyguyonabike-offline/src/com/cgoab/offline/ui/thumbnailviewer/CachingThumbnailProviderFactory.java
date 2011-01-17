@@ -1,8 +1,6 @@
 package com.cgoab.offline.ui.thumbnailviewer;
 
 import java.io.File;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
@@ -12,8 +10,6 @@ import com.cgoab.offline.model.Journal;
 import com.cgoab.offline.util.ListenableThreadPoolExecutor;
 
 public class CachingThumbnailProviderFactory {
-
-	private final Map<Journal, CachingThumbnailProvider> providers = new HashMap<Journal, CachingThumbnailProvider>();
 
 	private final ExecutorService executor;
 
@@ -31,13 +27,10 @@ public class CachingThumbnailProviderFactory {
 		this.folderExtension = folderExtension;
 	}
 
-	public CachingThumbnailProvider getOrCreateThumbnailProvider(Journal journal) {
-		CachingThumbnailProvider service = providers.get(journal);
-		if (service == null) {
-			File thumbFolder = getOrCreateThumbnailsFolder(journal);
-			service = new CachingThumbnailProvider(executor, thumbFolder, display, resizer);
-			journal.setData(ThumbnailProvider.KEY, service);
-		}
+	public CachingThumbnailProvider createThumbnailProvider(Journal journal) {
+		File thumbFolder = getOrCreateThumbnailsFolder(journal);
+		CachingThumbnailProvider service = new CachingThumbnailProvider(executor, thumbFolder, display, resizer);
+		journal.setData(ThumbnailProvider.KEY, service);
 		return service;
 	}
 

@@ -1,8 +1,12 @@
 package com.cgoab.offline.ui;
 
+import org.eclipse.core.commands.ExecutionException;
+import org.eclipse.core.commands.operations.IOperationHistory;
+import org.eclipse.core.commands.operations.IUndoContext;
+import org.eclipse.core.commands.operations.OperationHistoryFactory;
+import org.eclipse.core.commands.operations.UndoContext;
 import org.eclipse.jface.action.Action;
 import org.eclipse.jface.action.IAction;
-import org.eclipse.jface.text.TextViewerUndoManager;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.SashForm;
 import org.eclipse.swt.events.MenuEvent;
@@ -52,6 +56,10 @@ public class ApplicationWindow {
 			viewResizedPhotosFolder, purgeResizedPhotos, toggleUseExifThumbnailAction, purgeThumbnailCache,
 			newPageAction;
 
+	public static IUndoContext DEFAULT_CONTEXT = new UndoContext();
+
+	IUndoContext currentContext = DEFAULT_CONTEXT;
+
 	private IAction openPreferencesAction = new Action("Preferences") {
 		@Override
 		public void run() {
@@ -74,7 +82,6 @@ public class ApplicationWindow {
 	private Label statusBar;
 	private CachingThumbnailProviderFactory thumbnailProviderFactory;
 	private ThumbnailView thumbnailView;
-	private TextViewerUndoManager undoManager;
 
 	private UploadClientFactory uploadFactory;
 
@@ -88,21 +95,20 @@ public class ApplicationWindow {
 	}
 
 	private void createActions(Shell shell) {
-		newJournalAction = new NewJournalAction();
+		newJournalAction = new NewJournalAction(shell);
 		newPageAction = new NewPageAction();
 		openJournalAction = new OpenJournalAction(shell);
 		closeJournalAction = new CloseJournalAction(shell);
 		saveAction = new SaveAction(shell);
-		deletePageAction = new DeletePageAction(shell);
+		deletePageAction = new DeletePageAction(shell, journalView.getViewer());
 		addPhotosAction = new AddPhotosAction(shell, thumbnailView);
 		openPageInBrowserAction = new OpenPageInBrowserAction(shell);
 		toggleHideUploadedContent = new ToggleHideUploadedContent();
 		toggleResizePhotos = new ToggleResizeImagesBeforeUpload(thumbnailView);
 		viewResizedPhotosFolder = new ViewResizedPhotosAction();
 		purgeResizedPhotos = new PurgeResizedPhotosAction(shell);
-		toggleUseExifThumbnailAction = new ToggleUseExifThumbnailAction(thumbnailProviderFactory);
+		toggleUseExifThumbnailAction = new ToggleUseExifThumbnailAction();
 		purgeThumbnailCache = new PurgeThumbnailCacheAction(shell);
-
 		UploadAction uploadAction = new UploadAction(shell, thumbnailView.getViewer(), journalView.getViewer());
 		uploadAction.setUploadFactory(uploadFactory);
 		uploadAction.setPreferences(preferences);
@@ -120,12 +126,12 @@ public class ApplicationWindow {
 		journalView.createComponents(sashH);
 
 		PageEditor pageEditor;
-		pageEditor = new PageEditor();
+		pageEditor = new PageEditor(this);
 		pageEditor.createControls(sashH);
 		Composite thumbViewerGroup = new Composite(sashV, SWT.NONE);
 		thumbViewerGroup.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
 		thumbViewerGroup.setLayout(new GridLayout());
-		thumbnailView = new ThumbnailView(resizerServiceFactory, thumbnailProviderFactory);
+		thumbnailView = new ThumbnailView(this, resizerServiceFactory, thumbnailProviderFactory);
 		thumbnailView.createComponents(thumbViewerGroup, new StatusBarUpdater() {
 			@Override
 			public void setStatus(String s) {
@@ -200,7 +206,11 @@ public class ApplicationWindow {
 		undo.addSelectionListener(new SelectionAdapter() {
 			@Override
 			public void widgetSelected(SelectionEvent e) {
-				undoManager.undo();
+				try {
+					OperationHistoryFactory.getOperationHistory().undo(currentContext, null, null);
+				} catch (ExecutionException e1) {
+					e1.printStackTrace();
+				}
 			}
 		});
 
@@ -210,7 +220,11 @@ public class ApplicationWindow {
 		redo.addSelectionListener(new SelectionAdapter() {
 			@Override
 			public void widgetSelected(SelectionEvent e) {
-				undoManager.redo();
+				try {
+					OperationHistoryFactory.getOperationHistory().redo(currentContext, null, null);
+				} catch (ExecutionException e1) {
+					e1.printStackTrace();
+				}
 			}
 		});
 
@@ -222,8 +236,21 @@ public class ApplicationWindow {
 
 			@Override
 			public void menuShown(MenuEvent e) {
-				undo.setEnabled(undoManager.undoable());
-				redo.setEnabled(undoManager.redoable());
+				IOperationHistory history = OperationHistoryFactory.getOperationHistory();
+				if (history.canUndo(currentContext)) {
+					undo.setEnabled(true);
+					undo.setText("Undo " + history.getUndoOperation(currentContext).getLabel() + " \tCtrl+Z");
+				} else {
+					undo.setEnabled(false);
+					undo.setText("Undo\tCtrl+Z");
+				}
+				if (history.canRedo(currentContext)) {
+					redo.setEnabled(true);
+					redo.setText("Redo " + history.getRedoOperation(currentContext).getLabel() + " \tCtrl+Y");
+				} else {
+					redo.setEnabled(false);
+					redo.setText("Redo\tCtrl+Y");
+				}
 			}
 		});
 
@@ -291,5 +318,14 @@ public class ApplicationWindow {
 
 	public void setUploadFactory(UploadClientFactory uploadFactory) {
 		this.uploadFactory = uploadFactory;
+	}
+
+	public void setCurrentUndoContext(IUndoContext newContext) {
+		if (newContext == null) {
+			currentContext = DEFAULT_CONTEXT;
+		} else {
+			currentContext = newContext;
+		}
+		System.out.println("NewContext => " + currentContext);
 	}
 }

@@ -9,38 +9,77 @@ import java.util.List;
 import org.joda.time.LocalDate;
 import org.junit.Test;
 
-import com.cgoab.offline.model.Page.EditFormat;
-import com.cgoab.offline.model.Page.HeadingStyle;
-
 public class JournalXmlLoaderTest {
 
 	@Test
-	public void testSaveThenLoad() throws Exception {
+	public void saveAndLoad() throws Exception {
 		// build test model
-		Journal tj = new Journal(new File("testfile.xml"), "testJournal");
-		Page p1 = newPage(tj, 100);
-		Photo photo1 = new Photo();
-		photo1.setFile(new File("C:\\foo.jpg"));
-		photo1.setCaption("Photo 1 caption");
-		p1.addPhotos(Arrays.asList(photo1), -1);
-		Photo photo2 = new Photo();
-		photo2.setFile(new File("C:\\bar.jpg"));
-		photo2.setCaption("Photo 2 caption");
-		p1.addPhotos(Arrays.asList(photo2), -1);
-		Page p2 = newPage(tj, 200);
-		tj.addPage(p1);
-		tj.addPage(p2);
+		File tmpFile = File.createTempFile("journal", null);
+		tmpFile.deleteOnExit();
 
-		JournalXmlLoader.save(tj);
-		Journal lj = JournalXmlLoader.open(tj.getFile());
+		Journal testJournal = new Journal(tmpFile, "testJournal");
+		testJournal.setUseExifThumbnail(true);
+		testJournal.setResizeImagesBeforeUpload(false);
+		{
+			Page page1 = testJournal.createNewPage();
+			page1.setTitle("Page1");
+			page1.setDistance(100);
+			page1.setText("HelloWorld on page 1");
+			page1.setDate(new LocalDate(2001, 01, 01));
+			Photo photo1 = new Photo(new File("a.jpg").getAbsoluteFile());
+			photo1.setState(UploadState.UPLOADED);
+			photo1.setCaption("caption 1");
+			Photo photo2 = new Photo(new File("b.jpg").getAbsoluteFile());
+			photo2.setState(UploadState.UPLOADED);
+			photo2.setCaption("caption 2");
+			page1.addPhotos(Arrays.asList(photo1, photo2), 0);
+			page1.setServerId(100);
+			page1.setState(UploadState.UPLOADED);
+		}
+		{
+			Page page2 = testJournal.createNewPage();
+			page2.setTitle("Page2");
+			page2.setDistance(5);
+			page2.setText("HelloWorld on page 2");
+			page2.setDate(new LocalDate(2001, 01, 02));
+			Photo photo3 = new Photo(new File("c.jpg").getAbsoluteFile());
+			photo3.setState(UploadState.UPLOADED);
+			photo3.setCaption("caption 3");
+			Photo photo4 = new Photo(new File("d.jpg").getAbsoluteFile());
+			photo4.setState(UploadState.ERROR);
+			photo4.setCaption("caption 4");
+			page2.addPhotos(Arrays.asList(photo3, photo4), 0);
+			page2.setServerId(101);
+			page2.setState(UploadState.PARTIALLY_UPLOAD);
+		}
+		{
+			Page page3 = testJournal.createNewPage();
+			page3.setTitle("Page2");
+			page3.setDistance(5);
+			page3.setText("HelloWorld on page 3");
+			page3.setDate(new LocalDate(2001, 01, 03));
+			Photo photo5 = new Photo(new File("e.jpg").getAbsoluteFile());
+			photo5.setCaption("caption 5");
+			Photo photo6 = new Photo(new File("f.jpg").getAbsoluteFile());
+			photo6.setCaption("caption 6");
+			page3.addPhotos(Arrays.asList(photo5, photo6), 0);
+		}
 
-		assertEquals(tj.getName(), lj.getName());
-		assertEquals(tj.getFile(), lj.getFile());
-		assertEquals(tj.getPages().size(), lj.getPages().size());
+		JournalXmlLoader.save(testJournal);
+		Journal loaded = JournalXmlLoader.open(testJournal.getFile());
+		JournalXmlLoader.validateJournal(loaded);
 
-		for (int i = 0; i < tj.getPages().size(); ++i) {
-			Page tp = tj.getPages().get(i);
-			Page lp = lj.getPages().get(i);
+		assertEquals(testJournal.getName(), loaded.getName());
+		assertEquals(testJournal.getFile(), loaded.getFile());
+		assertEquals(testJournal.getPages().size(), loaded.getPages().size());
+		assertEquals(testJournal.isHideUploadedContent(), loaded.isHideUploadedContent());
+		assertEquals(testJournal.isUseExifThumbnail(), loaded.isUseExifThumbnail());
+		assertEquals(testJournal.isResizeImagesBeforeUpload(), loaded.isResizeImagesBeforeUpload());
+
+		/* compare model with loaded */
+		for (int i = 0; i < testJournal.getPages().size(); ++i) {
+			Page tp = testJournal.getPages().get(i);
+			Page lp = loaded.getPages().get(i);
 
 			assertEquals(tp.getTitle(), lp.getTitle());
 			assertEquals(tp.getHeadline(), lp.getHeadline());
@@ -65,20 +104,5 @@ public class JournalXmlLoaderTest {
 				assertEquals(tphoto.getCaption(), lphoto.getCaption());
 			}
 		}
-	}
-
-	static Page newPage(Journal j, int id) {
-		Page p = new Page(j);
-		p.setTitle("TITLE");
-		p.setHeadline("HEADLINE");
-		p.setText("Some text with\nnewlines and <b>html</b> <a href=\"foo\">tags</a>");
-		p.setDistance(100);
-		p.setDate(new LocalDate(2000, 1, 1));
-		p.setItalic(true);
-		p.setBold(false);
-		p.setHeadingStyle(HeadingStyle.MEDIUM);
-		p.setFormat(EditFormat.AUTO);
-		p.setIndent(3);
-		return p;
 	}
 }

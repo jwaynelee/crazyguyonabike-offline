@@ -159,7 +159,13 @@ public class MockClient extends AbstractUploadClient {
 					if (delay > 0) {
 						Thread.sleep(delay > 1 ? delay : 1);
 					}
-					progressListener.uploadPhotoProgress(photo, i * 10, 100);
+					final int done = i * 10;
+					getCallbackExecutor().execute(new Runnable() {
+						@Override
+						public void run() {
+							progressListener.uploadPhotoProgress(photo, done, 100);
+						}
+					});
 				}
 				uploadedPhotos.add(name);
 				return null;

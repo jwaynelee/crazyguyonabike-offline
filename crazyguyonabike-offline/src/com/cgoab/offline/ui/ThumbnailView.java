@@ -19,6 +19,7 @@ import org.eclipse.jface.text.IDocument;
 import org.eclipse.jface.text.ITextListener;
 import org.eclipse.jface.text.TextEvent;
 import org.eclipse.jface.text.TextViewer;
+import org.eclipse.jface.text.TextViewerUndoManager;
 import org.eclipse.jface.viewers.StructuredSelection;
 import org.eclipse.jface.viewers.Viewer;
 import org.eclipse.jface.viewers.ViewerFilter;
@@ -60,6 +61,7 @@ import com.cgoab.offline.ui.thumbnailviewer.CachingThumbnailProvider;
 import com.cgoab.offline.ui.thumbnailviewer.CachingThumbnailProviderFactory;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailProvider;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailViewer;
+import com.cgoab.offline.util.Assert;
 import com.cgoab.offline.util.JobListener;
 import com.cgoab.offline.util.Utils;
 import com.cgoab.offline.util.resizer.ImageMagickResizeTask.MagicNotAvailableException;
@@ -70,24 +72,61 @@ import com.drew.metadata.exif.ExifDirectory;
 import com.drew.metadata.jpeg.JpegDirectory;
 
 public class ThumbnailView {
+	private static final Collection<String> extensions;
 	private static final Logger LOG = LoggerFactory.getLogger(ThumbnailView.class);
-	private Listener btnSortSelectionListener;
-	private ThumbnailViewer thumbViewer;
-	private TextViewer captionText;
+	private static final String RESIZE_LISTENER_KEY = "resize_listener_key";
+	static {
+		extensions = new HashSet<String>();
+		extensions.add(".jpg");
+		extensions.add(".jpeg");
+		extensions.add(".gif");
+	}
+
+	private static boolean isValidImage(String name) {
+		name = name.toLowerCase();
+		for (String e : extensions) {
+			if (name.endsWith(e)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	private Button btnSortByName;
 	private Button btnSortManual;
+	private Listener btnSortSelectionListener;
+	private TextViewer captionText;
+	private TextViewerUndoManager undoManager = new TextViewerUndoManager(20);
 	private Page currentPage;
-	private Shell shell;
-	// current page in the UI, maybe null
 	Map<PhotosOrder, Button> orderByButtonMap = new HashMap<Page.PhotosOrder, Button>();
+
+	PropertyChangeListener photoOrderListener = new PropertyChangeListener() {
+		@Override
+		public void propertyChange(PropertyChangeEvent evt) {
+			if (Page.PHOTOS_ORDER.equals(evt.getPropertyName())) {
+				selectOrderByButton((PhotosOrder) evt.getNewValue());
+			}
+		}
+	};
+
 	private ImageMagickResizerServiceFactory resizerServiceFactory;
+
+	private Shell shell;
+
+	// TODO stash in a generica journal data map?
+	private StatusUpdater statusListener;
 
 	private CachingThumbnailProviderFactory thumbnailFactory;
 
-	public ThumbnailView(final ImageMagickResizerServiceFactory resizerServiceFactory,
+	private ThumbnailViewer thumbViewer;
+	private ApplicationWindow application;
+
+	public ThumbnailView(final ApplicationWindow application,
+			final ImageMagickResizerServiceFactory resizerServiceFactory,
 			CachingThumbnailProviderFactory thumbnailProvider) {
 		this.resizerServiceFactory = resizerServiceFactory;
 		this.thumbnailFactory = thumbnailProvider;
+		this.application = application;
 		JournalSelectionService.getInstance().addListener(new JournalSelectionListener() {
 
 			PropertyChangeListener journalPropertyListener = new PropertyChangeListener() {
@@ -99,14 +138,11 @@ public class ThumbnailView {
 								.getData(ThumbnailProvider.KEY));
 						provider.setUseExifThumbnail((Boolean) evt.getNewValue());
 						thumbViewer.refresh();
+					} else if (Journal.HIDE_UPLOADED_CONTENT.equals(evt.getPropertyName())) {
+						thumbViewer.refresh();
 					}
 				}
 			};
-
-			@Override
-			public void selectionChanged(Object newSelection, Object oldSelection) {
-				displayPage((Page) (newSelection instanceof Page ? newSelection : null));
-			}
 
 			@Override
 			public void journalClosed(Journal journal) {
@@ -132,7 +168,7 @@ public class ThumbnailView {
 					/* null = ask, false = disabled */
 				}
 
-				CachingThumbnailProvider provider = thumbnailFactory.getOrCreateThumbnailProvider(journal);
+				CachingThumbnailProvider provider = thumbnailFactory.createThumbnailProvider(journal);
 				if (journal.isUseExifThumbnail() != null) {
 					provider.setUseExifThumbnail(journal.isUseExifThumbnail() == Boolean.TRUE);
 				} else {
@@ -142,74 +178,21 @@ public class ThumbnailView {
 				thumbViewer.setThumbnailProvider(provider);
 				journal.addPropertyChangeListener(journalPropertyListener);
 			}
+
+			@Override
+			public void selectionChanged(Object newSelection, Object oldSelection) {
+				displayPage((Page) (newSelection instanceof Page ? newSelection : null));
+			}
 		});
 	}
 
-	// TODO stash in a generica journal data map?
-	private StatusUpdater statusListener;
-
-	PhotosOrder getSortOrderFromButton(Button b) {
-		for (Entry<PhotosOrder, Button> e : orderByButtonMap.entrySet()) {
-			if (e.getValue() == b) {
-				return e.getKey();
-			}
-		}
-		throw new IllegalStateException();
-	}
-
-	private void bindControls() {
-		btnSortSelectionListener = new Listener() {
-			@Override
-			public void handleEvent(Event event) {
-				if (currentPage != null) {
-					PhotosOrder order = null;
-					if (event.widget == btnSortByName) {
-						if (btnSortByName.getSelection()) {
-							order = PhotosOrder.NAME;
-						}
-					} else if (event.widget == btnSortManual) {
-						if (btnSortManual.getSelection()) {
-							order = PhotosOrder.MANUAL;
-						}
-					} else {
-						throw new IllegalStateException();
-					}
-
-					// order is null for the deselection event
-					if (order != null && order != currentPage.getPhotosOrder()) {
-						currentPage.setPhotosOrder(order);
-						thumbViewer.refresh(); // requests sorted input
-					}
-				}
-			}
-		};
-		btnSortManual.addListener(SWT.Selection, btnSortSelectionListener);
-		btnSortByName.addListener(SWT.Selection, btnSortSelectionListener);
-	}
-
-	interface StatusBarUpdater {
-		void setStatus(String value);
-	}
-
-	private static final Collection<String> extensions;
-
-	static {
-		extensions = new HashSet<String>();
-		extensions.add(".jpg");
-		extensions.add(".jpeg");
-		extensions.add(".gif");
-	}
-
-	private static boolean isValidImage(String name) {
-		name = name.toLowerCase();
-		for (String e : extensions) {
-			if (name.endsWith(e)) {
-				return true;
-			}
-		}
-		return false;
-	}
-
+	/**
+	 * Utility to attempt to add photos to the current page and retry with
+	 * duplicates removed if there is an exception.
+	 * 
+	 * @param files
+	 * @param insertionPoint
+	 */
 	public void addPhotosRetryIfDuplicates(File[] files, int insertionPoint) {
 		List<Photo> photos = new ArrayList<Photo>(files.length);
 		for (File f : files) {
@@ -281,10 +264,8 @@ public class ThumbnailView {
 					+ "Embedded thumnbails load quicker but may be of poor quality. If you"
 					+ " don't use them a new thumbnail will be created for each photo, "
 					+ "providing crisper thumbnails but taking longer to load.");
-			CachingThumbnailProvider provider = (CachingThumbnailProvider) journal.getData(ThumbnailProvider.KEY);
-			boolean useExif = box.open() == SWT.YES;
-			provider.setUseExifThumbnail(useExif);
-			journal.setUseExifThumbnail(useExif);
+			/* TODO this will trigger a refresh, supress if slow? */
+			journal.setUseExifThumbnail(box.open() == SWT.YES);
 		}
 
 		thumbViewer.refresh();
@@ -294,7 +275,7 @@ public class ThumbnailView {
 		if (resize == null) {
 			MessageBox box = new MessageBox(shell, SWT.ICON_QUESTION | SWT.YES | SWT.NO | SWT.CANCEL);
 			box.setText("Resize photos?");
-			box.setMessage("Do you always want photos added to this journal to be resized before uploading?");
+			box.setMessage("Do you want photos added to this journal to be resized before they are uploaded to reduce upload time?");
 			switch (box.open()) {
 			case SWT.YES:
 				resize = Boolean.TRUE;
@@ -313,6 +294,64 @@ public class ThumbnailView {
 				journal.setResizeImagesBeforeUpload(resize);
 			}
 		}
+	}
+
+	private void bindControls() {
+		btnSortSelectionListener = new Listener() {
+			@Override
+			public void handleEvent(Event event) {
+				if (currentPage != null) {
+					PhotosOrder order = null;
+					if (event.widget == btnSortByName) {
+						if (btnSortByName.getSelection()) {
+							order = PhotosOrder.NAME;
+						}
+					} else if (event.widget == btnSortManual) {
+						if (btnSortManual.getSelection()) {
+							order = PhotosOrder.MANUAL;
+						}
+					} else {
+						throw new IllegalStateException();
+					}
+
+					// order is null for the deselection event
+					if (order != null && order != currentPage.getPhotosOrder()) {
+						currentPage.setPhotosOrder(order);
+						thumbViewer.refresh(); // requests sorted input
+					}
+				}
+			}
+		};
+		btnSortManual.addListener(SWT.Selection, btnSortSelectionListener);
+		btnSortByName.addListener(SWT.Selection, btnSortSelectionListener);
+	}
+
+	public void bindModelToUI(Page pageToShow) {
+		Page oldPage = currentPage;
+		currentPage = null;
+
+		if (oldPage != null) {
+			oldPage.removePropertyChangeListener(photoOrderListener);
+		}
+
+		if (pageToShow == null) {
+			// clear controls and disable...
+			thumbViewer.setInput(null);
+			thumbViewer.setEnabled(false);
+		} else {
+			captionText.setDocument(null); // no photo is selected by default
+			selectOrderByButton(orderByButtonMap.get(pageToShow.getPhotosOrder()));
+			thumbViewer.setInput(pageToShow);
+			pageToShow.addPropertyChangeListener(photoOrderListener);
+			thumbViewer.setEnabled(true);
+			thumbViewer.setEditable(pageToShow.getState() != UploadState.UPLOADED);
+		}
+
+		// update global after update to avoid init "dirtying" page
+		currentPage = pageToShow;
+
+		/* HACK: removes previous page photo count in status */
+		statusListener.updateStatusBar();
 	}
 
 	public void createComponents(Composite parent, StatusBarUpdater provider) {
@@ -361,6 +400,7 @@ public class ThumbnailView {
 		captionLabel.setLayoutData(new GridData(SWT.LEFT, SWT.CENTER, false, false));
 		captionText = new TextViewer(captionComposite, SWT.MULTI | SWT.BORDER | SWT.WRAP | SWT.V_SCROLL);
 		// captionText.setSize(SWT.DEFAULT, 50);
+		undoManager.connect(captionText);
 		captionText.getControl().setEnabled(false);
 		FontData fd = new FontData("Tahoma", 10, SWT.NONE);
 		captionText.getControl().setFont(new Font(parent.getDisplay(), fd));
@@ -411,6 +451,86 @@ public class ThumbnailView {
 		bindModelToUI(pageToShow);
 	}
 
+	public ImageMagickResizerServiceFactory getResizerServiceFactory() {
+		return resizerServiceFactory;
+	}
+
+	PhotosOrder getSortOrderFromButton(Button b) {
+		for (Entry<PhotosOrder, Button> e : orderByButtonMap.entrySet()) {
+			if (e.getValue() == b) {
+				return e.getKey();
+			}
+		}
+		throw new IllegalStateException();
+	}
+
+	public CachingThumbnailProviderFactory getThumbnailProvider() {
+		return thumbnailFactory;
+	}
+
+	public ThumbnailViewer getViewer() {
+		return thumbViewer;
+	}
+
+	private ResizerService createResizer(Journal journal, boolean quiet) {
+		try {
+			return resizerServiceFactory.createResizerFor(journal);
+		} catch (MagicNotAvailableException e) {
+			LOG.info("Failed to start photo reszier", e);
+			if (!quiet) {
+				MessageBox error = new MessageBox(shell, SWT.ICON_ERROR | SWT.OK);
+				error.setText("Error");
+				error.setMessage("Failed to start photo resizer:\n\n" + e.getMessage());
+				error.open();
+			}
+			return null;
+		}
+	}
+
+	public boolean registerResizer(Journal journal, boolean quiet) {
+		Assert.isNull(journal.getData(RESIZE_LISTENER_KEY));
+		Assert.isNull(journal.getData(ResizerService.KEY));
+
+		/* use existing resizer if set */
+		final ResizerService resizer = createResizer(journal, quiet);
+
+		// 2) resize all photos already in the journal
+		for (Page page : journal.getPages()) {
+			// skip uploaded pages
+			UploadState pageState = page.getState();
+			if (pageState == UploadState.UPLOADED) {
+				continue;
+			}
+
+			List<Photo> photos = new ArrayList<Photo>(page.getPhotos());
+			if (pageState != UploadState.NEW) {
+				// filter out uploaded photos
+				for (Iterator<Photo> i = photos.iterator(); i.hasNext();) {
+					if (i.next().getState() == UploadState.UPLOADED) {
+						i.remove();
+					}
+				}
+			}
+			resizer.resizeAll(photos);
+		}
+
+		// 3) listen for addition & removal of photos from journal
+		JournalListener resizeListener = new JournalAdapter() {
+			@Override
+			public void photosAdded(List<Photo> photos, Page page) {
+				resizer.resizeAll(photos);
+			}
+
+			public void photosRemoved(List<Photo> photos, Page page) {
+				resizer.removeAll(photos); // TODO remove from cache?
+			}
+		};
+		resizer.addJobListener(statusListener.resizeListener);
+		journal.addJournalListener(resizeListener);
+		journal.setData(RESIZE_LISTENER_KEY, resizeListener);
+		return true;
+	}
+
 	void selectOrderByButton(Button orderButton) {
 		for (Button btn : orderByButtonMap.values()) {
 			btn.setSelection(btn == orderButton);
@@ -427,63 +547,40 @@ public class ThumbnailView {
 		selectOrderByButton(orderByButtonMap.get(order));
 	}
 
-	PropertyChangeListener photoOrderListener = new PropertyChangeListener() {
-		@Override
-		public void propertyChange(PropertyChangeEvent evt) {
-			if (Page.PHOTOS_ORDER.equals(evt.getPropertyName())) {
-				selectOrderByButton((PhotosOrder) evt.getNewValue());
-			}
+	public void unregisterResizer(Journal journal) {
+		ResizerService resizer = (ResizerService) journal.getData(ResizerService.KEY);
+		if (resizer != null) {
+			resizer.removeJobListener(statusListener.resizeListener);
+			JournalListener listener = (JournalListener) journal.getData(RESIZE_LISTENER_KEY);
+			journal.removeListener(listener);
+			resizer.cancelAll(); /* don't wait */
+			journal.removeData(RESIZE_LISTENER_KEY);
+			journal.removeData(ResizerService.KEY);
 		}
-	};
-
-	public void bindModelToUI(Page pageToShow) {
-		Page oldPage = currentPage;
-		currentPage = null;
-
-		if (oldPage != null) {
-			oldPage.removePropertyChangeListener(photoOrderListener);
-		}
-
-		if (pageToShow == null) {
-			// clear controls and disable...
-			thumbViewer.setInput(null);
-			thumbViewer.setEnabled(false);
-		} else {
-			captionText.setDocument(null); // no photo is selected by default
-			selectOrderByButton(orderByButtonMap.get(pageToShow.getPhotosOrder()));
-			thumbViewer.setInput(pageToShow);
-			pageToShow.addPropertyChangeListener(photoOrderListener);
-			thumbViewer.setEnabled(true);
-			thumbViewer.setEditable(pageToShow.getState() != UploadState.UPLOADED);
-		}
-
-		// update global after update to avoid init "dirtying" page
-		currentPage = pageToShow;
-
-		/* HACK: removes previous page photo count in status */
-		statusListener.updateStatusBar();
 	}
 
+	interface StatusBarUpdater {
+		void setStatus(String value);
+	}
+
+	/**
+	 * Updates status bar with thumbnail viewer details.
+	 */
 	class StatusUpdater implements SelectionListener {
-
-		private StatusBarUpdater statusBar;
-
-		public StatusUpdater(StatusBarUpdater provider) {
-			this.statusBar = provider;
-		}
 
 		private int remainingImageJobs, remainingThumbnailJobs;
 
-		private Object[] selected;
-
 		public JobListener resizeListener = new JobListener() {
-
 			@Override
 			public void update(int remainingJobs) {
 				remainingImageJobs = remainingJobs;
 				updateStatusBar();
 			}
 		};
+
+		private Object[] selected;
+
+		private StatusBarUpdater statusBar;
 
 		public JobListener thumnailListener = new JobListener() {
 
@@ -493,6 +590,10 @@ public class ThumbnailView {
 				updateStatusBar();
 			}
 		};
+
+		public StatusUpdater(StatusBarUpdater provider) {
+			this.statusBar = provider;
+		}
 
 		// contains the last time the status update actually ran
 		// private final AtomicLong lastUpdate = new AtomicLong();
@@ -509,12 +610,11 @@ public class ThumbnailView {
 		// }
 		// }
 
-		private String getPhotoDateTime(Metadata meta) {
-			if (meta.containsDirectory(ExifDirectory.class)) {
+		private String getDimensions(Metadata meta) {
+			if (meta.containsDirectory(JpegDirectory.class)) {
 				try {
-					ExifDirectory exifDirectory = (ExifDirectory) meta.getDirectory(ExifDirectory.class);
-					Date d = exifDirectory.getDate(ExifDirectory.TAG_DATETIME_ORIGINAL);
-					return DateFormat.getDateTimeInstance().format(d);
+					JpegDirectory jpeg = (JpegDirectory) meta.getDirectory(JpegDirectory.class);
+					return jpeg.getImageWidth() + " x " + jpeg.getImageHeight();
 				} catch (Exception e) {
 					/* ignore */
 				}
@@ -522,11 +622,12 @@ public class ThumbnailView {
 			return "";
 		}
 
-		private String getDimensions(Metadata meta) {
-			if (meta.containsDirectory(JpegDirectory.class)) {
+		private String getPhotoDateTime(Metadata meta) {
+			if (meta.containsDirectory(ExifDirectory.class)) {
 				try {
-					JpegDirectory jpeg = (JpegDirectory) meta.getDirectory(JpegDirectory.class);
-					return jpeg.getImageWidth() + " x " + jpeg.getImageHeight();
+					ExifDirectory exifDirectory = (ExifDirectory) meta.getDirectory(ExifDirectory.class);
+					Date d = exifDirectory.getDate(ExifDirectory.TAG_DATETIME_ORIGINAL);
+					return DateFormat.getDateTimeInstance().format(d);
 				} catch (Exception e) {
 					/* ignore */
 				}
@@ -592,10 +693,10 @@ public class ThumbnailView {
 			try {
 				currentPage = null;
 				if (selected.length == 1) {
-					// load new comment
+					/* enable and bind photo comment */
 					Photo currentPhoto = (Photo) selected[0];
 
-					// allow selection & copy from the caption after upload
+					/* read-only after upload */
 					if (currentPhoto.getState() == UploadState.UPLOADED) {
 						captionText.setEditable(false);
 					} else {
@@ -607,10 +708,12 @@ public class ThumbnailView {
 					IDocumentUndoManager m = DocumentUndoManagerRegistry.getDocumentUndoManager(document);
 					m.connect(this);
 					captionText.setDocument(document);
+					application.setCurrentUndoContext(m.getUndoContext());
 				} else {
 					// 0 or > 1
 					captionText.setDocument(new Document(""));
 					captionText.getTextWidget().setEnabled(false);
+					application.setCurrentUndoContext(ApplicationWindow.DEFAULT_CONTEXT);
 				}
 			} finally {
 				currentPage = p;
@@ -619,80 +722,4 @@ public class ThumbnailView {
 			updateStatusBar();
 		}
 	}
-
-	public CachingThumbnailProviderFactory getThumbnailProvider() {
-		return thumbnailFactory;
-	}
-
-	public ImageMagickResizerServiceFactory getResizerServiceFactory() {
-		return resizerServiceFactory;
-	}
-
-	public ThumbnailViewer getViewer() {
-		return thumbViewer;
-	}
-
-	public void unregisterResizer(Journal journal) {
-		ResizerService resizer = (ResizerService) journal.getData(ResizerService.KEY);
-		if (resizer != null) {
-			JournalListener listener = (JournalListener) journal.getData(RESIZE_LISTENER_KEY);
-			resizer.removeJobListener(statusListener.resizeListener);
-			journal.removeListener(listener);
-		}
-	}
-
-	public boolean registerResizer(Journal journal, boolean quiet) {
-		final ResizerService resizer;
-
-		try {
-			resizer = resizerServiceFactory.getOrCreateResizerFor(journal);
-		} catch (MagicNotAvailableException e) {
-			LOG.info("Failed to start photo reszier", e);
-			if (!quiet) {
-				MessageBox error = new MessageBox(shell, SWT.ICON_ERROR | SWT.OK);
-				error.setText("Error");
-				error.setMessage("Failed to start photo resizer:\n\n" + e.getMessage());
-				error.open();
-			}
-			return false;
-		}
-
-		// 2) resize all photos already in the journal
-		for (Page page : journal.getPages()) {
-			// skip uploaded pages
-			UploadState pageState = page.getState();
-			if (pageState == UploadState.UPLOADED) {
-				continue;
-			}
-
-			List<Photo> photos = new ArrayList<Photo>(page.getPhotos());
-			if (pageState != UploadState.NEW) {
-				// filter out uploaded photos
-				for (Iterator<Photo> i = photos.iterator(); i.hasNext();) {
-					if (i.next().getState() == UploadState.UPLOADED) {
-						i.remove();
-					}
-				}
-			}
-			resizer.resizeAll(photos);
-		}
-
-		// 3) listen for addition & removal of photos from journal
-		JournalListener resizeListener = new JournalAdapter() {
-			@Override
-			public void photosAdded(List<Photo> photos, Page page) {
-				resizer.resizeAll(photos);
-			}
-
-			public void photosRemoved(List<Photo> photos, Page page) {
-				resizer.removeAll(photos); // TODO remove from cache?
-			}
-		};
-		journal.addJournalListener(resizeListener);
-		journal.setData(RESIZE_LISTENER_KEY, resizeListener);
-		return true;
-	}
-
-	private static final String RESIZE_LISTENER_KEY = "resize_listener_key";
-
 }

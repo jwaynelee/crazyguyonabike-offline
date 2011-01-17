@@ -13,10 +13,11 @@ import com.cgoab.offline.ui.NewJournalDialog;
 
 public class NewJournalAction extends Action {
 
-	Shell shell;
+	private final Shell shell;
 
-	public NewJournalAction() {
+	public NewJournalAction(Shell shell) {
 		super("New Journal");
+		this.shell = shell;
 	}
 
 	public void run() {

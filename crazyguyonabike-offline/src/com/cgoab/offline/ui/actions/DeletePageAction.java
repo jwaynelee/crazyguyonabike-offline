@@ -2,7 +2,15 @@ package com.cgoab.offline.ui.actions;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.ListIterator;
 
+import org.eclipse.core.commands.ExecutionException;
+import org.eclipse.core.commands.operations.AbstractOperation;
+import org.eclipse.core.commands.operations.OperationHistoryFactory;
+import org.eclipse.core.runtime.IAdaptable;
+import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.Status;
 import org.eclipse.jface.action.Action;
 import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.jface.viewers.StructuredSelection;
@@ -13,22 +21,26 @@ import org.eclipse.swt.widgets.Shell;
 
 import com.cgoab.offline.model.Journal;
 import com.cgoab.offline.model.Page;
+import com.cgoab.offline.ui.ApplicationWindow;
+import com.cgoab.offline.ui.JournalSelectionService;
+import com.cgoab.offline.ui.JournalSelectionService.JournalSelectionListener;
 
 public class DeletePageAction extends Action {
 
-	private TreeViewer treeViewer;
+	private final Shell shell;
 
-	private Shell shell;
+	private final TreeViewer viewer;
 
-	public DeletePageAction(Shell shell) {
+	public DeletePageAction(Shell shell, TreeViewer viewer) {
 		super("Delete Page");
 		this.shell = shell;
+		this.viewer = viewer;
 	}
 
 	public void run() {
 		List<Page> pagesToDelete = new ArrayList<Page>();
-		if (treeViewer.getSelection() instanceof IStructuredSelection) {
-			IStructuredSelection s = (IStructuredSelection) treeViewer.getSelection();
+		if (viewer.getSelection() instanceof IStructuredSelection) {
+			IStructuredSelection s = (IStructuredSelection) viewer.getSelection();
 			for (Object o : s.toList()) {
 				if (o instanceof Page) {
 					pagesToDelete.add((Page) o);
@@ -47,19 +59,103 @@ public class DeletePageAction extends Action {
 		}
 		confirm.setText("Confirm delete");
 		confirm.setMessage(str.toString());
-		if (confirm.open() == SWT.OK) {
-			Object previousPageOfFirstDeletedPage = null;
-			for (Page toDelete : pagesToDelete) {
-				Journal journal = toDelete.getJournal();
-				List<Page> pages = journal.getPages();
-				int id = pages.indexOf(toDelete);
-				journal.removePage(toDelete);
-				if (previousPageOfFirstDeletedPage == null) {
-					previousPageOfFirstDeletedPage = pages.size() == 0 ? toDelete.getJournal() : pages.get(Math.min(
-							pages.size() - 1, id));
-				}
+		if (confirm.open() != SWT.OK) {
+			return;
+		}
+		DeleteOperation operation = new DeleteOperation(pagesToDelete);
+		operation.execute(null, null);
+		OperationHistoryFactory.getOperationHistory().add(operation);
+	}
+
+	private static class PageAndIndex {
+		Page page;
+		int index;
+
+		public PageAndIndex(Page page, int index) {
+			this.page = page;
+			this.index = index;
+		}
+	}
+
+	private class DeleteOperation extends AbstractOperation {
+
+		private List<PageAndIndex> pagesToDelete;
+
+		private boolean closed;
+
+		private JournalSelectionListener listener = new JournalSelectionListener() {
+
+			@Override
+			public void selectionChanged(Object newSelection, Object oldSelection) {
 			}
-			treeViewer.setSelection(new StructuredSelection(previousPageOfFirstDeletedPage));
+
+			@Override
+			public void journalOpened(Journal journal) {
+			}
+
+			@Override
+			public void journalClosed(Journal journal) {
+				closed = true;
+				JournalSelectionService.getInstance().removeListener(listener);
+			}
+		};
+
+		public DeleteOperation(List<Page> toDelete) {
+			super("delete page");
+			addContext(ApplicationWindow.DEFAULT_CONTEXT);
+			this.pagesToDelete = new ArrayList<DeletePageAction.PageAndIndex>(toDelete.size());
+			for (Page page : toDelete) {
+				pagesToDelete.add(new PageAndIndex(page, -1));
+			}
+			JournalSelectionService.getInstance().addListener(listener);
+		}
+
+		@Override
+		public IStatus execute(IProgressMonitor monitor, IAdaptable info) {
+			for (PageAndIndex pi : pagesToDelete) {
+				Page page = pi.page;
+				List<Page> pages = page.getJournal().getPages();
+				int index = pages.indexOf(page);
+				pi.index = index;
+				page.getJournal().removePage(page);
+			}
+			// viewer.setSelection(new
+			// StructuredSelection(previousPageOfFirstDeletedPage));
+			return Status.OK_STATUS;
+		}
+
+		@Override
+		public boolean canRedo() {
+			return !closed;
+		}
+
+		@Override
+		public boolean canUndo() {
+			return !closed;
+		}
+
+		@Override
+		public IStatus redo(IProgressMonitor monitor, IAdaptable info) throws ExecutionException {
+			for (PageAndIndex pi : pagesToDelete) {
+				pi.page.getJournal().removePage(pi.page);
+			}
+			return Status.OK_STATUS;
+		}
+
+		@Override
+		public IStatus undo(IProgressMonitor monitor, IAdaptable info) throws ExecutionException {
+			ListIterator<PageAndIndex> ipi = pagesToDelete.listIterator(pagesToDelete.size());
+			while (ipi.hasPrevious()) {
+				PageAndIndex pi = ipi.previous();
+				pi.page.getJournal().addPage(pi.page, pi.index);
+			}
+			Page[] selection = new Page[pagesToDelete.size()];
+			int i = 0;
+			for (PageAndIndex p : pagesToDelete) {
+				selection[i++] = p.page;
+			}
+			viewer.setSelection(new StructuredSelection(selection));
+			return Status.OK_STATUS;
 		}
 	}
 }

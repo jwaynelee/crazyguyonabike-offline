@@ -18,7 +18,6 @@ public class ViewResizedPhotosAction extends ActionWithCurrentJournal {
 
 	private static Logger LOG = LoggerFactory.getLogger(ViewResizedPhotosAction.class);
 
-
 	public ViewResizedPhotosAction() {
 		super("View resized photos");
 		setEnabled(Desktop.isDesktopSupported());
