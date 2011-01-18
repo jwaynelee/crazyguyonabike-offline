@@ -21,6 +21,9 @@ Clean up new journal page, add xml extension automatically, trim from name
 Resize photos before upload
 Improve thumbnail extraction code to include EXIF thumbnail
 Implement EXIF features
+Refactor code; extract EditorView etc...
+Bug in undo, not applied for caption text box
+Thumbnail viewer - items removed, update scroll bar
 ------------------------------------------------------
 
 Add photos to journal and auto-assign to days -- NOT DONE
@@ -54,7 +57,4 @@ Add launch scripts (for mac at least)
 --- bugs
 
 Cancel upload screen during login crashes due to WidgetDisposed
-Thumbnail viewer - items removed, update scroll bar
-Bug in undo, not applied for caption text box
 Add undo to delete Page operation
-Refactor code; extract EditorView etc...

@@ -15,7 +15,8 @@ public class OpenJournalAction extends Action {
 	private final Shell shell;
 
 	public OpenJournalAction(Shell shell) {
-		super("Open Journal");
+		super("&Open Journal");
+		setAccelerator(SWT.MOD1 + 'O');
 		this.shell = shell;
 	}
 

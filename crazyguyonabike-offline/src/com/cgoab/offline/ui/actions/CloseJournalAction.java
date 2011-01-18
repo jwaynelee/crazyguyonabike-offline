@@ -1,5 +1,6 @@
 package com.cgoab.offline.ui.actions;
 
+import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.Shell;
 
 import com.cgoab.offline.model.Journal;
@@ -10,7 +11,8 @@ public class CloseJournalAction extends ActionWithCurrentJournal {
 	private final Shell shell;
 
 	public CloseJournalAction(Shell shell) {
-		super("Close Journal");
+		super("&Close Journal");
+		setAccelerator(SWT.MOD1 + 'W');
 		this.shell = shell;
 	}
 

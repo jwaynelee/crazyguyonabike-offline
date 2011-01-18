@@ -46,8 +46,8 @@ public class JournalUtils {
 	}
 
 	/**
-	 * Closes the currently open journal, takes care of prompting for save and
-	 * removing any listeners to the journal.
+	 * Closes journal, takes care of prompting for save and removing any
+	 * listeners to the journal.
 	 * 
 	 * @return true if the close succeeded, false if it was cancelled.
 	 */

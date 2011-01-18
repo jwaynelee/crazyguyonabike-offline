@@ -1,31 +1,28 @@
 package com.cgoab.offline.ui;
 
-import org.eclipse.core.commands.ExecutionException;
-import org.eclipse.core.commands.operations.IOperationHistory;
+import java.util.ArrayList;
+import java.util.List;
+
 import org.eclipse.core.commands.operations.IUndoContext;
-import org.eclipse.core.commands.operations.OperationHistoryFactory;
 import org.eclipse.core.commands.operations.UndoContext;
 import org.eclipse.jface.action.Action;
 import org.eclipse.jface.action.IAction;
+import org.eclipse.jface.action.IContributionManager;
+import org.eclipse.jface.action.MenuManager;
+import org.eclipse.jface.action.Separator;
+import org.eclipse.jface.action.StatusLineManager;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.SashForm;
-import org.eclipse.swt.events.MenuEvent;
-import org.eclipse.swt.events.MenuListener;
-import org.eclipse.swt.events.SelectionAdapter;
-import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Event;
-import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Listener;
-import org.eclipse.swt.widgets.Menu;
-import org.eclipse.swt.widgets.MenuItem;
 import org.eclipse.swt.widgets.Shell;
 
 import com.cgoab.offline.client.UploadClientFactory;
 import com.cgoab.offline.model.Journal;
-import com.cgoab.offline.ui.ThumbnailView.StatusBarUpdater;
 import com.cgoab.offline.ui.actions.AddPhotosAction;
 import com.cgoab.offline.ui.actions.CloseJournalAction;
 import com.cgoab.offline.ui.actions.DeletePageAction;
@@ -35,16 +32,18 @@ import com.cgoab.offline.ui.actions.OpenJournalAction;
 import com.cgoab.offline.ui.actions.OpenPageInBrowserAction;
 import com.cgoab.offline.ui.actions.PurgeResizedPhotosAction;
 import com.cgoab.offline.ui.actions.PurgeThumbnailCacheAction;
+import com.cgoab.offline.ui.actions.RedoAction;
 import com.cgoab.offline.ui.actions.SaveAction;
 import com.cgoab.offline.ui.actions.ToggleHideUploadedContent;
 import com.cgoab.offline.ui.actions.ToggleResizeImagesBeforeUpload;
 import com.cgoab.offline.ui.actions.ToggleUseExifThumbnailAction;
+import com.cgoab.offline.ui.actions.UndoAction;
 import com.cgoab.offline.ui.actions.ViewResizedPhotosAction;
 import com.cgoab.offline.ui.thumbnailviewer.CachingThumbnailProviderFactory;
 import com.cgoab.offline.util.Utils;
 import com.cgoab.offline.util.resizer.ImageMagickResizerServiceFactory;
 
-public class ApplicationWindow {
+public class ApplicationWindow extends org.eclipse.jface.window.ApplicationWindow {
 
 	private static final String OPENJOURNALS_PREFERENCE_PATH = "/openjournals";
 
@@ -63,7 +62,7 @@ public class ApplicationWindow {
 	private IAction openPreferencesAction = new Action("Preferences") {
 		@Override
 		public void run() {
-			PreferencesDialog prefs = new PreferencesDialog(shell);
+			PreferencesDialog prefs = new PreferencesDialog(getShell());
 			prefs.setPreferences(preferences);
 			prefs.open();
 		}
@@ -78,15 +77,26 @@ public class ApplicationWindow {
 
 	private Preferences preferences;
 	private ImageMagickResizerServiceFactory resizerServiceFactory;
-	private Shell shell;
-	private Label statusBar;
 	private CachingThumbnailProviderFactory thumbnailProviderFactory;
 	private ThumbnailView thumbnailView;
 
 	private UploadClientFactory uploadFactory;
 
 	public ApplicationWindow(Shell shell) {
-		this.shell = shell;
+		super(shell);
+		setBlockOnOpen(true);
+		addStatusLine();
+		addMenuBar();
+	}
+
+	@Override
+	protected boolean showTopSeperator() {
+		return false;
+	}
+
+	@Override
+	protected void configureShell(Shell shell) {
+		super.configureShell(shell);
 		String name = Utils.getNameString(getClass());
 		String version = Utils.getVersionString(getClass());
 		name = name == null ? "?" : name;
@@ -94,7 +104,8 @@ public class ApplicationWindow {
 		shell.setText(name + " : " + version);
 	}
 
-	private void createActions(Shell shell) {
+	private void createActions() {
+		Shell shell = getShell();
 		newJournalAction = new NewJournalAction(shell);
 		newPageAction = new NewPageAction();
 		openJournalAction = new OpenJournalAction(shell);
@@ -113,12 +124,34 @@ public class ApplicationWindow {
 		uploadAction.setUploadFactory(uploadFactory);
 		uploadAction.setPreferences(preferences);
 		this.uploadAction = uploadAction;
+
+		fileMenuMgr.add(newJournalAction);
+		fileMenuMgr.add(newPageAction);
+		fileMenuMgr.add(openJournalAction);
+		fileMenuMgr.add(new Separator());
+		fileMenuMgr.add(closeJournalAction);
+		fileMenuMgr.add(new Separator());
+		fileMenuMgr.add(saveAction);
+		fileMenuMgr.add(new Separator());
+		fileMenuMgr.add(openPreferencesAction);
+		fileMenuMgr.add(new Separator());
+		fileMenuMgr.add(new Action("Exit") {
+			@Override
+			public void run() {
+				getShell().close();
+			}
+		});
+
+		editMenuMgr.add(new UndoAction(this));
+		editMenuMgr.add(new RedoAction(this));
+
+		/* rebuilt menu(s) */
+		IContributionManager root = fileMenuMgr.getParent();
+		root.update(true);
 	}
 
-	private void createControls(final Shell shell) {
-		GridLayout layout = new GridLayout(1, false);
-		shell.setLayout(layout);
-		SashForm sashV = new SashForm(shell, SWT.VERTICAL);
+	private void createControls(final Composite parent) {
+		SashForm sashV = new SashForm(parent, SWT.VERTICAL);
 		SashForm sashH = new SashForm(sashV, SWT.HORIZONTAL);
 		sashH.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
 		sashV.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
@@ -132,129 +165,29 @@ public class ApplicationWindow {
 		thumbViewerGroup.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
 		thumbViewerGroup.setLayout(new GridLayout());
 		thumbnailView = new ThumbnailView(this, resizerServiceFactory, thumbnailProviderFactory);
-		thumbnailView.createComponents(thumbViewerGroup, new StatusBarUpdater() {
-			@Override
-			public void setStatus(String s) {
-				statusBar.setText(s);
-			}
-		});
-		sashV.setWeights(new int[] { 4, 3 });
+		thumbnailView.createComponents(thumbViewerGroup);
+		sashV.setWeights(new int[] { 10, 9 });
 		sashH.setWeights(new int[] { 1, 3 });
-
-		// status & progress bar
-		statusBar = new Label(shell, SWT.NONE);
-		statusBar.setText("");
-		statusBar.setLayoutData(new GridData(SWT.FILL, SWT.BOTTOM, true, false));
 	}
 
-	private void createMenu(final Shell shell) {
-		Menu menuBar = new Menu(shell, SWT.BAR);
-		MenuItem fileMenuHeader = new MenuItem(menuBar, SWT.CASCADE);
-		fileMenuHeader.setText("&File");
-		Menu fileMenu = new Menu(shell, SWT.DROP_DOWN);
-		fileMenuHeader.setMenu(fileMenu);
+	MenuManager fileMenuMgr;
 
-		MenuItem newJournalItem = new MenuItem(fileMenu, SWT.PUSH);
-		newJournalItem.setText("&New Journal\tCtrl+Shift+N");
-		newJournalItem.setAccelerator(SWT.CTRL + SWT.SHIFT + 'N');
-		newJournalItem.addSelectionListener(new ActionRunner(newJournalAction));
+	@Override
+	protected StatusLineManager getStatusLineManager() {
+		return super.getStatusLineManager();
+	}
 
-		MenuItem newPageItem = new MenuItem(fileMenu, SWT.PUSH);
-		newPageItem.setText("&New Page\tCtrl+N");
-		newPageItem.setAccelerator(SWT.CTRL + 'N');
-		newPageItem.addSelectionListener(new ActionRunner(newPageAction));
+	MenuManager editMenuMgr;
 
-		new MenuItem(fileMenu, SWT.SEPARATOR);
-
-		MenuItem fileOpenItem = new MenuItem(fileMenu, SWT.PUSH);
-		fileOpenItem.setText("&Open\tCtrl+O");
-		fileOpenItem.setAccelerator(SWT.CTRL + 'O');
-		fileOpenItem.addSelectionListener(new ActionRunner(openJournalAction));
-
-		new MenuItem(fileMenu, SWT.SEPARATOR);
-
-		MenuItem fileSaveItem = new MenuItem(fileMenu, SWT.PUSH);
-		fileSaveItem.setText("&Save\tCtrl+S");
-		fileSaveItem.setAccelerator(SWT.CTRL + 'S');
-		fileSaveItem.addSelectionListener(new ActionRunner(saveAction));
-
-		new MenuItem(fileMenu, SWT.SEPARATOR);
-
-		MenuItem openPreferences = new MenuItem(fileMenu, SWT.PUSH);
-		openPreferences.setText("&Preferences");
-		openPreferences.addSelectionListener(new ActionRunner(openPreferencesAction));
-
-		new MenuItem(fileMenu, SWT.SEPARATOR);
-
-		MenuItem fileExitItem = new MenuItem(fileMenu, SWT.PUSH);
-		fileExitItem.setText("E&xit");
-		fileExitItem.addSelectionListener(new SelectionAdapter() {
-			@Override
-			public void widgetSelected(SelectionEvent e) {
-				shell.close();
-			}
-		});
-
-		MenuItem editMenuHeader = new MenuItem(menuBar, SWT.CASCADE);
-		editMenuHeader.setText("&Edit");
-		Menu editMenu = new Menu(shell, SWT.DROP_DOWN);
-		editMenuHeader.setMenu(editMenu);
-
-		final MenuItem undo = new MenuItem(editMenu, SWT.DROP_DOWN);
-		undo.setText("Undo\tCtrl+Z");
-		undo.setAccelerator(SWT.CTRL + 'Z');
-		undo.addSelectionListener(new SelectionAdapter() {
-			@Override
-			public void widgetSelected(SelectionEvent e) {
-				try {
-					OperationHistoryFactory.getOperationHistory().undo(currentContext, null, null);
-				} catch (ExecutionException e1) {
-					e1.printStackTrace();
-				}
-			}
-		});
-
-		final MenuItem redo = new MenuItem(editMenu, SWT.DROP_DOWN);
-		redo.setText("Redo\tCtrl+Y");
-		redo.setAccelerator(SWT.CTRL + 'Y');
-		redo.addSelectionListener(new SelectionAdapter() {
-			@Override
-			public void widgetSelected(SelectionEvent e) {
-				try {
-					OperationHistoryFactory.getOperationHistory().redo(currentContext, null, null);
-				} catch (ExecutionException e1) {
-					e1.printStackTrace();
-				}
-			}
-		});
-
-		editMenu.addMenuListener(new MenuListener() {
-
-			@Override
-			public void menuHidden(MenuEvent e) {
-			}
-
-			@Override
-			public void menuShown(MenuEvent e) {
-				IOperationHistory history = OperationHistoryFactory.getOperationHistory();
-				if (history.canUndo(currentContext)) {
-					undo.setEnabled(true);
-					undo.setText("Undo " + history.getUndoOperation(currentContext).getLabel() + " \tCtrl+Z");
-				} else {
-					undo.setEnabled(false);
-					undo.setText("Undo\tCtrl+Z");
-				}
-				if (history.canRedo(currentContext)) {
-					redo.setEnabled(true);
-					redo.setText("Redo " + history.getRedoOperation(currentContext).getLabel() + " \tCtrl+Y");
-				} else {
-					redo.setEnabled(false);
-					redo.setText("Redo\tCtrl+Y");
-				}
-			}
-		});
-
-		shell.setMenuBar(menuBar);
+	@Override
+	protected MenuManager createMenuManager() {
+		/* actions not created yet so just make top level menus */
+		MenuManager root = new MenuManager();
+		fileMenuMgr = new MenuManager("File");
+		editMenuMgr = new MenuManager("Edit");
+		root.add(fileMenuMgr);
+		root.add(editMenuMgr);
+		return root;
 	}
 
 	private boolean onClose() {
@@ -262,39 +195,33 @@ public class ApplicationWindow {
 		if (journal != null) {
 			preferences.setValue(OPENJOURNALS_PREFERENCE_PATH, journal.getFile().getAbsolutePath());
 			preferences.save();
-			if (!JournalUtils.closeJournal(journal, shell)) {
+			if (!JournalUtils.closeJournal(journal, getShell())) {
 				return false;
 			}
 		}
 		return true;
 	}
 
-	public void open() {
-		registerCloseListener(shell);
-		createControls(shell);
-		createActions(shell);
-		createMenu(shell);
-
-		shell.pack();
-		shell.open();
+	@Override
+	protected Control createContents(Composite parent) {
+		registerCloseListener();
+		createControls(parent);
+		createActions();
+		// createMenu();
+		parent.pack();
 
 		/* TODO load on background thread? */
 		String journalToOpen = preferences.getValue(OPENJOURNALS_PREFERENCE_PATH);
-		if (journalToOpen != null && !JournalUtils.openJournal(journalToOpen, true, shell)) {
+		if (journalToOpen != null && !JournalUtils.openJournal(journalToOpen, true, getShell())) {
 			// update preferences if last journal failed to load
 			preferences.removeValue(OPENJOURNALS_PREFERENCE_PATH);
 			preferences.save();
 		}
-
-		while (!shell.isDisposed()) {
-			if (!shell.getDisplay().readAndDispatch()) {
-				shell.getDisplay().sleep();
-			}
-		}
+		return parent;
 	}
 
-	private void registerCloseListener(Shell shell) {
-		shell.addListener(SWT.Close, new Listener() {
+	private void registerCloseListener() {
+		getShell().addListener(SWT.Close, new Listener() {
 			@Override
 			public void handleEvent(Event event) {
 				if (!onClose()) {
@@ -326,6 +253,22 @@ public class ApplicationWindow {
 		} else {
 			currentContext = newContext;
 		}
-		System.out.println("NewContext => " + currentContext);
+		for (ContextChangedListener listener : listeners) {
+			listener.contextChanged(currentContext);
+		}
+	}
+
+	public void addContextChangedListener(ContextChangedListener listener) {
+		listeners.add(listener);
+	}
+
+	private List<ContextChangedListener> listeners = new ArrayList<ApplicationWindow.ContextChangedListener>();
+
+	public IUndoContext getCurrentOperationContext() {
+		return currentContext;
+	}
+
+	public interface ContextChangedListener {
+		public void contextChanged(IUndoContext context);
 	}
 }

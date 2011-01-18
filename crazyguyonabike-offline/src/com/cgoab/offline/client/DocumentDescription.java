@@ -1,6 +1,5 @@
 package com.cgoab.offline.client;
 
-import java.util.Comparator;
 
 /**
  * Describes a document (article or journal) held on the CGOAB server to which

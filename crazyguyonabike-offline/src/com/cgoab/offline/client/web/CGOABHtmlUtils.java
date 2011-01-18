@@ -96,6 +96,13 @@ public class CGOABHtmlUtils {
 		return s;
 	}
 
+	/**
+	 * Extracts current username using <tt>//input[@name='username']</tt>.
+	 * 
+	 * @param root
+	 *            html from "/my/account"
+	 * @return
+	 */
 	public static String getUsernameFromMyAccount(TagNode root) {
 		Object[] res = matches(root, "//input[@name='username']");
 		if (res.length == 0) {

@@ -16,7 +16,8 @@ public class NewJournalAction extends Action {
 	private final Shell shell;
 
 	public NewJournalAction(Shell shell) {
-		super("New Journal");
+		super("New &Journal");
+		setAccelerator(SWT.MOD1 + SWT.SHIFT + 'N');
 		this.shell = shell;
 	}
 

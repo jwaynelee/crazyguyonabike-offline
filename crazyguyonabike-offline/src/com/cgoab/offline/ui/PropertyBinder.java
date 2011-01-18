@@ -11,12 +11,15 @@ import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Text;
 import org.joda.time.LocalDate;
 
-abstract class MyBinder implements Listener {
+/**
+ * @TODO replace with eclips binding framework
+ */
+abstract class PropertyBinder implements Listener {
 
-	Control c;
-	Method property;
+	private final Control c;
+	private final Method property;
 
-	public MyBinder(Control c, Method m) {
+	public PropertyBinder(Control c, Method m) {
 		this.c = c;
 		this.property = m;
 	}
@@ -25,7 +28,6 @@ abstract class MyBinder implements Listener {
 		if (target == String.class) {
 			return value;
 		}
-
 		if (target.isEnum()) {
 			return Enum.valueOf((Class<? extends Enum>) target, value.toUpperCase());
 		} else if (target.isPrimitive()) {
@@ -54,7 +56,7 @@ abstract class MyBinder implements Listener {
 		if (target == null) {
 			return;
 		}
-		// copy value from control to model
+		/* copy from control to model */
 		try {
 			if (c instanceof Text) {
 				String value = ((Text) c).getText();
