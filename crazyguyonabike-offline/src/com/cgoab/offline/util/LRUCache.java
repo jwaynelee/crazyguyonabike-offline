@@ -7,15 +7,21 @@ public class LRUCache<K, V> extends LinkedHashMap<K, V> {
 
 	private static final long serialVersionUID = 1L;
 	private int capacity;
+	private CacheListener<K, V> expiryListener;
 
-	public LRUCache(int capacity) {
+	public LRUCache(int capacity, CacheListener<K, V> expiryListener) {
 		super(64, 0.75f, true);
 		this.capacity = capacity;
+		this.expiryListener = expiryListener;
 	}
 
 	@Override
 	protected boolean removeEldestEntry(Map.Entry<K, V> eldest) {
-		return size() > capacity;
+		if (size() > capacity) {
+			expiryListener.entryRemoved(eldest);
+			return true;
+		}
+		return false;
 	}
 
 	public interface CacheListener<K, V> {

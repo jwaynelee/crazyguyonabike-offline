@@ -44,8 +44,6 @@ import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.MessageBox;
 import org.eclipse.swt.widgets.Shell;
-import org.eclipse.text.undo.DocumentUndoManagerRegistry;
-import org.eclipse.text.undo.IDocumentUndoManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -100,7 +98,15 @@ public class ThumbnailView {
 	private Listener btnSortSelectionListener;
 	private TextViewer captionText;
 	private TextViewerUndoManager undoManager = new TextViewerUndoManager(20);
+
+	/**
+	 * Cache a few undo stacks maintained, otherwise caption history will be
+	 * lost when another image is selected (and new document bound).
+	 */
+	private DocumentUndoCache undoCache = new DocumentUndoCache(3);
+
 	private Page currentPage;
+
 	Map<PhotosOrder, Button> orderByButtonMap = new HashMap<Page.PhotosOrder, Button>();
 
 	PropertyChangeListener photoOrderListener = new PropertyChangeListener() {
@@ -149,6 +155,8 @@ public class ThumbnailView {
 
 			@Override
 			public void journalClosed(Journal journal) {
+				/* make sure history is cleared */
+				undoCache.clear();
 				CachingThumbnailProvider provider = (CachingThumbnailProvider) journal.getData(ThumbnailProvider.KEY);
 				provider.removeJobListener(statusListener.thumnailListener);
 				provider.close();
@@ -333,11 +341,11 @@ public class ThumbnailView {
 		}
 
 		if (pageToShow == null) {
-			// clear controls and disable...
+			/* clear controls and disable... */
 			thumbViewer.setInput(null);
 			thumbViewer.setEnabled(false);
 		} else {
-			captionText.setDocument(null); // no photo is selected by default
+			captionText.setDocument(new Document());
 			selectOrderByButton(orderByButtonMap.get(pageToShow.getPhotosOrder()));
 			thumbViewer.setInput(pageToShow);
 			pageToShow.addPropertyChangeListener(photoOrderListener);
@@ -702,14 +710,12 @@ public class ThumbnailView {
 					}
 					captionText.getTextWidget().setEnabled(true);
 					IDocument document = currentPhoto.getOrCreateCaptionDocument();
-					DocumentUndoManagerRegistry.connect(document);
-					final IDocumentUndoManager m = DocumentUndoManagerRegistry.getDocumentUndoManager(document);
-					m.connect(this);
+					undoCache.hold(document);
 					captionText.setDocument(document);
 					FocusListener listener = new FocusAdapter() {
 						@Override
 						public void focusGained(FocusEvent e) {
-							application.setCurrentUndoContext(m.getUndoContext());
+							application.setCurrentUndoContext(undoManager.getUndoContext());
 						}
 					};
 					captionText.getTextWidget().addFocusListener(listener);
@@ -718,7 +724,7 @@ public class ThumbnailView {
 					// 0 or > 1
 					captionText.setDocument(new Document(""));
 					captionText.getTextWidget().setEnabled(false);
-					application.setCurrentUndoContext(ApplicationWindow.DEFAULT_CONTEXT);
+					application.setCurrentUndoContext(ApplicationWindow.APPLICATION_CONTEXT);
 				}
 			} finally {
 				currentPage = p;
