@@ -36,13 +36,13 @@ import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.DateTime;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Text;
-import org.eclipse.text.undo.DocumentUndoManagerRegistry;
-import org.eclipse.text.undo.IDocumentUndoManager;
 import org.joda.time.LocalDate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.cgoab.offline.model.Journal;
+import com.cgoab.offline.model.JournalAdapter;
+import com.cgoab.offline.model.JournalListener;
 import com.cgoab.offline.model.Page;
 import com.cgoab.offline.model.Page.EditFormat;
 import com.cgoab.offline.model.Page.HeadingStyle;
@@ -55,6 +55,8 @@ import com.cgoab.offline.util.Utils;
 public class PageEditor {
 
 	private static final Logger LOG = LoggerFactory.getLogger(PageEditor.class);
+
+	private DocumentUndoCache undoCache = new DocumentUndoCache(3);
 
 	private Page currentPage;
 
@@ -93,6 +95,14 @@ public class PageEditor {
 	public PageEditor(ApplicationWindow application) {
 		this.application = application;
 		JournalSelectionService.getInstance().addListener(new JournalSelectionListener() {
+
+			private JournalListener releaseFromCacheOnDeleteListener = new JournalAdapter() {
+				@Override
+				public void pageDeleted(Page page) {
+					undoCache.release(page.getOrCreateTextDocument());
+				}
+			};
+
 			@Override
 			public void selectionChanged(Object newSelection, Object oldSelection) {
 				displayPage(newSelection instanceof Page ? (Page) newSelection : null);
@@ -100,10 +110,13 @@ public class PageEditor {
 
 			@Override
 			public void journalClosed(Journal journal) {
+				undoCache.clear();
+				journal.removeListener(releaseFromCacheOnDeleteListener);
 			}
 
 			@Override
 			public void journalOpened(Journal journal) {
+				journal.addJournalListener(releaseFromCacheOnDeleteListener);
 			}
 		});
 	}
@@ -138,7 +151,7 @@ public class PageEditor {
 		}
 	}
 
-	private void bindModelToUI(Page pageToShow) {
+	private void copyPageToUI(Page pageToShow) {
 		/* unset current page else "setText's" will dirty model */
 		currentPage = null;
 
@@ -151,7 +164,7 @@ public class PageEditor {
 			titleInput.setText("");
 			headlineInput.setText("");
 			distanceInput.setText("");
-			textInput.setDocument(new Document(""));
+			textInput.setDocument(new Document());
 		} else {
 			btnBold.setSelection(pageToShow.isBold());
 			btnItalic.setSelection(pageToShow.isItalic());
@@ -166,11 +179,8 @@ public class PageEditor {
 			LocalDate date = pageToShow.getDate();
 			dateInput.setDate(date.getYear(), date.getMonthOfYear() - 1, date.getDayOfMonth());
 			distanceInput.setText(Integer.toString(pageToShow.getDistance()));
-			/* TODO stick a limit on caching, close when no longer used */
 			IDocument document = pageToShow.getOrCreateTextDocument();
-			DocumentUndoManagerRegistry.connect(document);
-			IDocumentUndoManager m = DocumentUndoManagerRegistry.getDocumentUndoManager(document);
-			m.connect(this);
+			undoCache.hold(document);
 			textInput.setDocument(document);
 		}
 
@@ -184,7 +194,7 @@ public class PageEditor {
 			return;
 		}
 
-		bindModelToUI(pageToShow);
+		copyPageToUI(pageToShow);
 
 		if (pageToShow == null) {
 			setEditorControlsState(EditorState.DISABLED);

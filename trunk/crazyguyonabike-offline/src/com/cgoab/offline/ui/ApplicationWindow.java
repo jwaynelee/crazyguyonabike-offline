@@ -55,9 +55,9 @@ public class ApplicationWindow extends org.eclipse.jface.window.ApplicationWindo
 			viewResizedPhotosFolder, purgeResizedPhotos, toggleUseExifThumbnailAction, purgeThumbnailCache,
 			newPageAction;
 
-	public static IUndoContext DEFAULT_CONTEXT = new UndoContext();
+	public static IUndoContext APPLICATION_CONTEXT = new UndoContext();
 
-	IUndoContext currentContext = DEFAULT_CONTEXT;
+	IUndoContext currentContext = APPLICATION_CONTEXT;
 
 	private IAction openPreferencesAction = new Action("Preferences") {
 		@Override
@@ -249,7 +249,7 @@ public class ApplicationWindow extends org.eclipse.jface.window.ApplicationWindo
 
 	public void setCurrentUndoContext(IUndoContext newContext) {
 		if (newContext == null) {
-			currentContext = DEFAULT_CONTEXT;
+			currentContext = APPLICATION_CONTEXT;
 		} else {
 			currentContext = newContext;
 		}
@@ -258,7 +258,7 @@ public class ApplicationWindow extends org.eclipse.jface.window.ApplicationWindo
 		}
 	}
 
-	public void addContextChangedListener(ContextChangedListener listener) {
+	public void addUndoContextChangedListener(ContextChangedListener listener) {
 		listeners.add(listener);
 	}
 

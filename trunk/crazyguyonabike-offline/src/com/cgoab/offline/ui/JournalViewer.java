@@ -22,6 +22,8 @@ import org.eclipse.jface.viewers.ViewerFilter;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.FocusEvent;
 import org.eclipse.swt.events.FocusListener;
+import org.eclipse.swt.events.KeyEvent;
+import org.eclipse.swt.events.KeyListener;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
@@ -118,6 +120,18 @@ public class JournalViewer {
 
 		CellEditor[] editors = new CellEditor[1];
 		editors[0] = new TextCellEditor(treeViewer.getTree());
+		treeViewer.getTree().addKeyListener(new KeyListener() {
+			@Override
+			public void keyReleased(KeyEvent e) {
+				if (e.keyCode == SWT.DEL) {
+					editor.deletePageAction.run();
+				}
+			}
+
+			@Override
+			public void keyPressed(KeyEvent e) {
+			}
+		});
 		treeViewer.setColumnProperties(new String[] {});
 		treeViewer.setCellEditors(editors);
 		treeViewer.getTree().addFocusListener(new FocusListener() {
@@ -128,7 +142,7 @@ public class JournalViewer {
 
 			@Override
 			public void focusGained(FocusEvent e) {
-				editor.setCurrentUndoContext(ApplicationWindow.DEFAULT_CONTEXT);
+				editor.setCurrentUndoContext(ApplicationWindow.APPLICATION_CONTEXT);
 			}
 		});
 		treeViewer.addFilter(new ViewerFilter() {
