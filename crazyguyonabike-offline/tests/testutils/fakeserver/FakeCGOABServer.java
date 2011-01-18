@@ -154,13 +154,20 @@ public class FakeCGOABServer {
 				FileUpload upload = new FileUpload(factory);
 				try {
 					upload.setProgressListener(new ProgressListener() {
+						float lastLoggedPercentage = 0;
+
 						@Override
 						public void update(long pBytesRead, long pContentLength, int pItems) {
-							LOGGER.info("Read {} ({}%)", Utils.formatBytes(pBytesRead),
-									String.format("%3.1f", 100 * (float) pBytesRead / pContentLength));
-							/* fail the upload after 60% */
-							// if (((float) pBytesRead / pContentLength) > 0.6)
-							// throw new IllegalStateException("");
+							float percentage = 100 * (float) pBytesRead / pContentLength;
+							if (percentage - lastLoggedPercentage > 10) {
+								lastLoggedPercentage = percentage;
+								LOGGER.info("Read {} ({}%)", Utils.formatBytes(pBytesRead),
+										String.format("%3.1f", percentage));
+								/* fail the upload after 60% */
+								// if (((float) pBytesRead / pContentLength) >
+								// 0.6)
+								// throw new IllegalStateException("");
+							}
 						}
 					});
 					List<FileItem> items = upload.parseRequest(wrapper);

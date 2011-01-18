@@ -38,7 +38,7 @@
 	<classpathentry kind="lib" path="testlibs/org.hamcrest_1.1.0.v20090501071000.jar"/>
 	<classpathentry kind="lib" path="testlibs/org.hamcrest.integration_1.1.0.v20090501071000.jar"/>
 	<classpathentry kind="lib" path="testlibs/org.hamcrest.text_1.1.0.v20090501071000.jar"/>
-	<classpathentry kind="lib" path="libsswt/swt-3.6.1-win32.jar" sourcepath="libsswt/swt-3.6.1-win32.src.zip"/>
+	<classpathentry kind="lib" path="libsswt/swt-3.6.1-win32_64.jar" sourcepath="libsswt/swt-3.6.1-win32.src.zip"/>
 	<classpathentry kind="lib" path="testlibs/commons-fileupload-1.2.2.jar" sourcepath="C:/libs/commons-fileupload-1.2.2-src"/>
 	<classpathentry kind="lib" path="testlibs/commons-io-2.0.1.jar"/>
 	<classpathentry kind="lib" path="testlibs/servlet-api-2.5-20081211.jar"/>

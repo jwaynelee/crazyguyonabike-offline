@@ -17,8 +17,6 @@ import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
-import org.eclipse.swt.widgets.Event;
-import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Shell;
 
 import com.cgoab.offline.client.UploadClientFactory;
@@ -190,25 +188,23 @@ public class ApplicationWindow extends org.eclipse.jface.window.ApplicationWindo
 		return root;
 	}
 
-	private boolean onClose() {
+	@Override
+	protected void handleShellCloseEvent() {
 		Journal journal = JournalSelectionService.getInstance().getCurrentJournal();
 		if (journal != null) {
 			preferences.setValue(OPENJOURNALS_PREFERENCE_PATH, journal.getFile().getAbsolutePath());
 			preferences.save();
 			if (!JournalUtils.closeJournal(journal, getShell())) {
-				return false;
+				return; /* abort close */
 			}
 		}
-		return true;
+		super.handleShellCloseEvent();
 	}
 
 	@Override
 	protected Control createContents(Composite parent) {
-		registerCloseListener();
 		createControls(parent);
 		createActions();
-		// createMenu();
-		parent.pack();
 
 		/* TODO load on background thread? */
 		String journalToOpen = preferences.getValue(OPENJOURNALS_PREFERENCE_PATH);
@@ -218,17 +214,6 @@ public class ApplicationWindow extends org.eclipse.jface.window.ApplicationWindo
 			preferences.save();
 		}
 		return parent;
-	}
-
-	private void registerCloseListener() {
-		getShell().addListener(SWT.Close, new Listener() {
-			@Override
-			public void handleEvent(Event event) {
-				if (!onClose()) {
-					event.doit = false;
-				}
-			}
-		});
 	}
 
 	public void setPreferences(Preferences preferences) {
