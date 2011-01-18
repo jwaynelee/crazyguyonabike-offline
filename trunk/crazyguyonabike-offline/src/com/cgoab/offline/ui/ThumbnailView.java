@@ -24,6 +24,9 @@ import org.eclipse.jface.viewers.StructuredSelection;
 import org.eclipse.jface.viewers.Viewer;
 import org.eclipse.jface.viewers.ViewerFilter;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.events.FocusAdapter;
+import org.eclipse.swt.events.FocusEvent;
+import org.eclipse.swt.events.FocusListener;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.events.SelectionListener;
 import org.eclipse.swt.events.TraverseEvent;
@@ -349,7 +352,7 @@ public class ThumbnailView {
 		statusListener.updateStatusBar();
 	}
 
-	public void createComponents(Composite parent, StatusBarUpdater provider) {
+	public void createComponents(Composite parent) {
 		shell = parent.getShell();
 		thumbViewer = new ThumbnailViewer(parent);
 		// thumbViewer.setCache(thumbnailCache);
@@ -366,7 +369,7 @@ public class ThumbnailView {
 				return true;
 			}
 		});
-		statusListener = new StatusUpdater(provider);
+		statusListener = new StatusUpdater();
 		thumbViewer.addSelectionListener(statusListener);
 		thumbViewer.addTraverseListener(new TraverseListener() {
 			@Override
@@ -400,9 +403,6 @@ public class ThumbnailView {
 		FontData fd = new FontData("Tahoma", 10, SWT.NONE);
 		captionText.getControl().setFont(new Font(parent.getDisplay(), fd));
 		GridData gridData = new GridData(SWT.FILL, SWT.FILL, true, true);
-		// GC tempGC = new GC(captionText.getTextWidget());
-		// int averageCharWidth = tempGC.getFontMetrics().getAverageCharWidth();
-		// tempGC.dispose();
 		gridData.minimumHeight = captionText.getTextWidget().getLineHeight();
 		captionText.getControl().setLayoutData(gridData);
 		captionText.addTextListener(new ITextListener() {
@@ -413,7 +413,6 @@ public class ThumbnailView {
 				}
 			}
 		});
-		// captionText.getControl().addFocusListener(selectCurrentPageListener);
 
 		// force space
 		gridData = new GridData();
@@ -563,6 +562,8 @@ public class ThumbnailView {
 	 */
 	class StatusUpdater implements SelectionListener {
 
+		private final String LISTENER_KEY = FocusListener.class.getName();
+
 		private int remainingImageJobs, remainingThumbnailJobs;
 
 		public JobListener resizeListener = new JobListener() {
@@ -575,8 +576,6 @@ public class ThumbnailView {
 
 		private Object[] selected;
 
-		private StatusBarUpdater statusBar;
-
 		public JobListener thumnailListener = new JobListener() {
 
 			@Override
@@ -586,8 +585,7 @@ public class ThumbnailView {
 			}
 		};
 
-		public StatusUpdater(StatusBarUpdater provider) {
-			this.statusBar = provider;
+		public StatusUpdater() {
 		}
 
 		// contains the last time the status update actually ran
@@ -672,7 +670,7 @@ public class ThumbnailView {
 				b.append(remainingImageJobs).append(" photos left to resize");
 			}
 
-			statusBar.setStatus(b.toString());
+			application.getStatusLineManager().setMessage(b.toString());
 		}
 
 		@Override
@@ -682,6 +680,11 @@ public class ThumbnailView {
 		@Override
 		public void widgetSelected(SelectionEvent e) {
 			selected = thumbViewer.getSelection();
+
+			FocusListener oldListener = (FocusListener) captionText.getData(LISTENER_KEY);
+			if (oldListener != null) {
+				captionText.getTextWidget().removeFocusListener(oldListener);
+			}
 
 			/* disable current page so we don't dirty the journal */
 			Page p = currentPage;
@@ -700,10 +703,17 @@ public class ThumbnailView {
 					captionText.getTextWidget().setEnabled(true);
 					IDocument document = currentPhoto.getOrCreateCaptionDocument();
 					DocumentUndoManagerRegistry.connect(document);
-					IDocumentUndoManager m = DocumentUndoManagerRegistry.getDocumentUndoManager(document);
+					final IDocumentUndoManager m = DocumentUndoManagerRegistry.getDocumentUndoManager(document);
 					m.connect(this);
 					captionText.setDocument(document);
-					application.setCurrentUndoContext(m.getUndoContext());
+					FocusListener listener = new FocusAdapter() {
+						@Override
+						public void focusGained(FocusEvent e) {
+							application.setCurrentUndoContext(m.getUndoContext());
+						}
+					};
+					captionText.getTextWidget().addFocusListener(listener);
+					captionText.setData(LISTENER_KEY, listener);
 				} else {
 					// 0 or > 1
 					captionText.setDocument(new Document(""));

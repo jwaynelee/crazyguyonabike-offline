@@ -25,10 +25,17 @@
 	<property name="release.dir" value="${build.dir}/release" />
 	<property name="swt.version" value="3.6.1" />
 
+	<condition property="swtjar" value="swt-${swt.version}-win32.jar">
+		<equals arg1="${sun.arch.data.model}" arg2="32"/>
+	</condition>
+	<condition property="swtjar" value="swt-${swt.version}-win32_64.jar">
+		<equals arg1="${sun.arch.data.model}" arg2="64"/>
+	</condition>
+	
 	<path id="classpath">
 		<fileset dir="${lib.dir}" includes="*.jar" />
 		<!-- for compiling it doesn't matter which SWT jar we use -->
-		<fileset dir="${swt.dir}" includes="swt-${swt.version}-win32_64.jar" />
+		<fileset dir="${swt.dir}" includes="${swtjar}" />
 	</path>
 
 	<path id="classpath.test">

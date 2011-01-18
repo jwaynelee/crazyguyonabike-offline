@@ -6,10 +6,7 @@ import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
 
-import org.eclipse.core.commands.operations.IOperationHistoryListener;
 import org.eclipse.core.commands.operations.IUndoContext;
-import org.eclipse.core.commands.operations.OperationHistoryEvent;
-import org.eclipse.core.commands.operations.OperationHistoryFactory;
 import org.eclipse.jface.text.Document;
 import org.eclipse.jface.text.IDocument;
 import org.eclipse.jface.text.ITextListener;
@@ -20,7 +17,6 @@ import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.StyledText;
 import org.eclipse.swt.events.FocusAdapter;
 import org.eclipse.swt.events.FocusEvent;
-import org.eclipse.swt.events.FocusListener;
 import org.eclipse.swt.events.ModifyEvent;
 import org.eclipse.swt.events.ModifyListener;
 import org.eclipse.swt.events.SelectionEvent;
@@ -95,6 +91,7 @@ public class PageEditor {
 	}
 
 	public PageEditor(ApplicationWindow application) {
+		this.application = application;
 		JournalSelectionService.getInstance().addListener(new JournalSelectionListener() {
 			@Override
 			public void selectionChanged(Object newSelection, Object oldSelection) {
@@ -109,14 +106,6 @@ public class PageEditor {
 			public void journalOpened(Journal journal) {
 			}
 		});
-		OperationHistoryFactory.getOperationHistory().addOperationHistoryListener(new IOperationHistoryListener() {
-			@Override
-			public void historyNotification(OperationHistoryEvent event) {
-				System.out.println(Arrays.toString(event.getOperation().getContexts()) + "=>" + event.getEventType()
-						+ " - " + event.getOperation().getLabel());
-			}
-		});
-		this.application = application;
 	}
 
 	private void setEditableState(Control control, boolean editable) {
@@ -243,30 +232,26 @@ public class PageEditor {
 	/**
 	 * Binds changes control to the property on the "current page".
 	 * 
+	 * @TODO replace with eclipse binding framework
 	 * @param c
 	 * @param property
 	 */
-	private void bindToCurrentPage(Control c, int callback, String property) {
-		Method method;
-		try {
-			String name = "set" + property.substring(0, 1).toUpperCase() + property.substring(1);
-			method = Utils.getFirstMethodWithName(name, Page.class);
-			if (method == null) {
-				throw new IllegalArgumentException("No method " + name);
-			}
-			if (method.getParameterTypes().length != 1) {
-				throw new IllegalArgumentException("Setter must accept 1 argument");
-			}
-
-			c.addListener(callback, new MyBinder(c, method) {
-				@Override
-				protected Object getTarget() {
-					return currentPage;
-				}
-			});
-		} catch (SecurityException e) {
-			e.printStackTrace();
+	private void bindToCurrentPage(Control c, int event, String property) {
+		String name = "set" + property.substring(0, 1).toUpperCase() + property.substring(1);
+		Method method = Utils.getFirstMethodWithName(name, Page.class);
+		if (method == null) {
+			throw new IllegalArgumentException("No method " + name);
 		}
+		if (method.getParameterTypes().length != 1) {
+			throw new IllegalArgumentException("Setter must accept 1 argument");
+		}
+
+		c.addListener(event, new PropertyBinder(c, method) {
+			@Override
+			protected Object getTarget() {
+				return currentPage;
+			}
+		});
 	}
 
 	private void bindControls() {
@@ -279,7 +264,6 @@ public class PageEditor {
 		bindToCurrentPage(headlineInput, SWT.Modify, "headline");
 		bindToCurrentPage(dateInput, SWT.Selection, "date");
 		bindToCurrentPage(distanceInput, SWT.Modify, "distance");
-
 	}
 
 	public void createControls(Composite parent) {

@@ -1,9 +1,9 @@
 package com.cgoab.offline.ui;
 
 import java.io.File;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import org.eclipse.jface.viewers.ColumnLabelProvider;
 import org.eclipse.jface.viewers.ISelectionChangedListener;
@@ -14,6 +14,7 @@ import org.eclipse.jface.viewers.StructuredSelection;
 import org.eclipse.jface.viewers.TableViewer;
 import org.eclipse.jface.viewers.TableViewerColumn;
 import org.eclipse.jface.viewers.Viewer;
+import org.eclipse.jface.viewers.ViewerFilter;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
@@ -41,6 +42,7 @@ import com.cgoab.offline.client.BatchUploader;
 import com.cgoab.offline.client.BatchUploader.BatchUploaderListener;
 import com.cgoab.offline.client.CompletionCallback;
 import com.cgoab.offline.client.DocumentDescription;
+import com.cgoab.offline.client.DocumentType;
 import com.cgoab.offline.client.UploadClient;
 import com.cgoab.offline.client.mock.MockClient;
 import com.cgoab.offline.client.web.AbstractFormBinder.InitializationErrorException;
@@ -59,16 +61,18 @@ import com.cgoab.offline.util.Utils;
 
 public class UploadDialog {
 
-	private static final String NOT_LOGGED_IN_TXT = "Not logged in";
-
 	public static void main(String[] args) {
 		Display display = new Display();
-		Shell shell = new Shell(display, SWT.SHELL_TRIM | SWT.APPLICATION_MODAL);
+		Shell shell = new Shell(display, SWT.DIALOG_TRIM | SWT.APPLICATION_MODAL);
 		MockClient client = new MockClient();
 		UploadDialog uploadDialog = new UploadDialog(shell);
 		uploadDialog.setUploadClient(client);
-		uploadDialog.setPages(new ArrayList<Page>());
-		uploadDialog.setJournal(new Journal(null, "bar"));
+		Journal journal = new Journal(null, "test");
+		journal.createNewPage();
+		journal.createNewPage();
+		journal.createNewPage();
+		uploadDialog.setJournal(journal);
+		uploadDialog.setPages(journal.getPages());
 		uploadDialog.open();
 		display.dispose();
 		client.dispose();
@@ -116,17 +120,15 @@ public class UploadDialog {
 
 	private Shell shell;
 
-	private Label statusLine;
-
 	private ThumbnailProvider thumbnailProvider;
 
 	private Text txtUsername, txtPassword;
 
-	private Text uploadStatus;
+	private Text uploadLog;
 
 	public UploadDialog(Shell parent) {
 		shell = new Shell(parent, SWT.APPLICATION_MODAL | SWT.DIALOG_TRIM);
-		
+
 		/* stop shell closing on 'esc' */
 		shell.addListener(SWT.Traverse, new Listener() {
 			@Override
@@ -136,12 +138,11 @@ public class UploadDialog {
 				}
 			}
 		});
-		
+
 		/* dispose last uploaded image on close */
 		shell.addListener(SWT.Close, new Listener() {
 			@Override
 			public void handleEvent(Event e) {
-				System.out.println("CLOSE");
 				Image img = photoPreview.getImage();
 				if (img != null) {
 					img.dispose();
@@ -178,17 +179,29 @@ public class UploadDialog {
 		TableViewerColumn colTitle = new TableViewerColumn(documentTable, SWT.NONE);
 		colTitle.getColumn().setText("Title");
 		colTitle.getColumn().setResizable(true);
-		colTitle.getColumn().setWidth(200);
+		colTitle.getColumn().setWidth(150);
 		colTitle.setLabelProvider(new ColumnLabelProvider() {
 			@Override
 			public String getText(Object element) {
 				return ((DocumentDescription) element).getTitle();
 			}
 		});
+
+		TableViewerColumn colStatus = new TableViewerColumn(documentTable, SWT.NONE);
+		colStatus.getColumn().setText("Status");
+		colStatus.getColumn().setResizable(true);
+		colStatus.getColumn().setWidth(150);
+		colStatus.setLabelProvider(new ColumnLabelProvider() {
+			@Override
+			public String getText(Object element) {
+				return ((DocumentDescription) element).getStatus();
+			}
+		});
+
 		TableViewerColumn colId = new TableViewerColumn(documentTable, SWT.NONE);
 		colId.getColumn().setText("ID");
 		colId.getColumn().setResizable(true);
-		colId.getColumn().setWidth(150);
+		colId.getColumn().setWidth(60);
 		colId.setLabelProvider(new ColumnLabelProvider() {
 			@Override
 			public String getText(Object element) {
@@ -196,9 +209,16 @@ public class UploadDialog {
 			}
 		});
 
+		/* remove non-journals */
+		documentTable.addFilter(new ViewerFilter() {
+			@Override
+			public boolean select(Viewer viewer, Object parentElement, Object element) {
+				return ((DocumentDescription) element).getType() == DocumentType.JOURNAL;
+			}
+		});
 		documentTable.getTable().setLinesVisible(true);
 		documentTable.getTable().setHeaderVisible(true);
-		documentTable.setColumnProperties(new String[] { "name", "id" });
+		documentTable.setColumnProperties(new String[] { "name", "status", "id" });
 		documentTable.addSelectionChangedListener(new ISelectionChangedListener() {
 			@Override
 			public void selectionChanged(SelectionChangedEvent event) {
@@ -216,9 +236,9 @@ public class UploadDialog {
 		setEnabledTo(false, txtUsername, txtPassword, btnLogin, btnLogout);
 
 		if (username == null) {
-			statusLine.setText("Checking if already logged in...");
+			log("Checking if already logged in...");
 		} else {
-			statusLine.setText("Logging in as \"" + username + "\"...");
+			log("Logging in as \"" + username + "\"...");
 		}
 
 		startOperation();
@@ -226,8 +246,7 @@ public class UploadDialog {
 			@Override
 			public void onCompletion(final String actualUsername) {
 				finishOperation();
-				log("Logged in as " + actualUsername);
-				statusLine.setText("Logged in as \"" + actualUsername + "\" (" + client.getCurrentUserRealName() + ")");
+				log("Logged in as " + actualUsername + " (" + client.getCurrentUserRealName() + ")");
 				if (username == null) {
 					txtUsername.setText(actualUsername);
 				}
@@ -238,7 +257,7 @@ public class UploadDialog {
 			@Override
 			public void onError(final Throwable t) {
 				finishOperation();
-				statusLine.setText(NOT_LOGGED_IN_TXT);
+				log("Failed to login");
 				setEnabledTo(true, txtUsername, txtPassword, btnLogin);
 				if (username != null) {
 					// don't prompt if we just did an auto-login
@@ -255,7 +274,7 @@ public class UploadDialog {
 
 	private void doLogout() {
 		setEnabledTo(false, btnLogout);
-		statusLine.setText("Logging out...");
+		log("Logging out...");
 		startOperation();
 		client.logout(new CompletionCallback<Void>() {
 			@Override
@@ -276,7 +295,6 @@ public class UploadDialog {
 				setEnabledTo(true, txtUsername, txtPassword, btnLogin);
 				setEnabledTo(false, btnLogout, btnUpload, documentTable.getTable());
 				txtUsername.setFocus();
-				statusLine.setText(NOT_LOGGED_IN_TXT);
 			}
 
 			@Override
@@ -349,9 +367,11 @@ public class UploadDialog {
 				uploader.start();
 			}
 		});
-
 	}
 
+	/*
+	 * Allow user to close shell again
+	 */
 	private void finishOperation() {
 		btnCancel.addSelectionListener(closeShellListener);
 		btnCancel.removeSelectionListener(cancelCurrentOperationListener);
@@ -360,7 +380,8 @@ public class UploadDialog {
 	private Image getThumbnail(Photo photo) {
 		Future<Thumbnail> result = thumbnailProvider.get(photo.getFile(), null, null);
 		try {
-			return new Image(shell.getDisplay(), result.get().imageData);
+			/* don't wait too long otherwise upload will slow down */
+			return new Image(shell.getDisplay(), result.get(500, TimeUnit.MILLISECONDS).imageData);
 		} catch (Exception e) {
 			/* ignore, just trying to be helpful */
 			return null;
@@ -377,15 +398,15 @@ public class UploadDialog {
 			});
 		} else {
 			String time = DateTimeFormat.mediumTime().print(new LocalDateTime());
-			uploadStatus.append(time + " - " + str + Text.DELIMITER);
+			uploadLog.append(time + " - " + str + Text.DELIMITER);
 		}
 	}
 
 	public UploadResult open() {
 		shell.setText("Upload journal to (" + client + ")");
-		GridLayout layout = new GridLayout(2, false);
-		layout.marginTop = layout.marginBottom = 5;
-		layout.marginLeft = layout.marginRight = 5;
+		GridLayout layout = new GridLayout();
+		layout.marginTop = layout.marginBottom = 4;
+		layout.marginLeft = layout.marginRight = 4;
 		shell.setLayout(layout);
 		GridData data;
 
@@ -393,46 +414,38 @@ public class UploadDialog {
 		Label message = new Label(shell, SWT.NONE);
 		message.setText("Login and select the document to add these "
 				+ pages.size()
-				+ " page(s)."
+				+ " page(s) to."
 				+ (client instanceof MockClient ? "\n\nWARNING USING MOCK CLIENT, NOTHING WILL BE SENT TO SERVER!!!"
 						: ""));
 		data = new GridData(SWT.FILL, SWT.TOP, true, false);
-		data.horizontalSpan = 2;
 		message.setLayoutData(data);
 
 		data = new GridData();
 		data.heightHint = 15;
-		data.horizontalSpan = 2;
 		Label spacer = new Label(shell, SWT.NONE);
 		spacer.setLayoutData(data);
 
 		Label line = new Label(shell, SWT.SEPARATOR | SWT.SHADOW_OUT | SWT.HORIZONTAL);
 		data = new GridData(SWT.FILL, SWT.CENTER, true, false);
-		data.horizontalSpan = 2;
 		line.setLayoutData(data);
 
 		// login group
 		Composite loginGroup = new Composite(shell, SWT.NONE);
-		loginGroup.setLayout(new GridLayout(2, false));
+		loginGroup.setLayout(new GridLayout(5, false));
 		data = new GridData(SWT.FILL, SWT.CENTER, true, false);
-		data.horizontalSpan = 2;
 		loginGroup.setLayoutData(data);
 
 		new Label(loginGroup, SWT.NONE).setText("Username:");
 		txtUsername = new Text(loginGroup, SWT.SINGLE | SWT.BORDER);
-		data = new GridData(SWT.FILL, SWT.CENTER, true, false);
-		txtUsername.setLayoutData(data);
+		txtUsername.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
 
 		new Label(loginGroup, SWT.NONE).setText("Password:");
 		txtPassword = new Text(loginGroup, SWT.SINGLE | SWT.PASSWORD | SWT.BORDER);
-		data = new GridData(SWT.FILL, SWT.CENTER, true, false);
-		txtPassword.setLayoutData(data);
+		txtPassword.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
 
 		Composite loginButtons = new Composite(loginGroup, SWT.NONE);
 		loginButtons.setLayout(new RowLayout());
-		data = new GridData(SWT.RIGHT, SWT.CENTER, true, false);
-		data.horizontalSpan = 2;
-		loginButtons.setLayoutData(data);
+		loginButtons.setLayoutData(new GridData(SWT.RIGHT, SWT.CENTER, false, false));
 		btnLogout = new Button(loginButtons, SWT.PUSH);
 		btnLogout.setText("Logout");
 		btnLogout.setEnabled(false);
@@ -451,22 +464,14 @@ public class UploadDialog {
 			}
 		});
 
-		statusLine = new Label(shell, SWT.NONE);
-		statusLine.setText(NOT_LOGGED_IN_TXT);
-		data = new GridData(SWT.FILL, SWT.CENTER, true, false);
-		statusLine.setLayoutData(data);
-
 		// line
 		line = new Label(shell, SWT.SEPARATOR | SWT.HORIZONTAL);
 		data = new GridData(SWT.FILL, SWT.CENTER, true, false);
-		data.horizontalSpan = 2;
 		line.setLayoutData(data);
 
-		Label tableText = new Label(shell, SWT.NONE);
-		tableText.setText("Select a document");
-		data = new GridData(SWT.FILL, SWT.CENTER, true, false);
-		data.horizontalSpan = 2;
-		tableText.setLayoutData(data);
+		new Label(shell, SWT.NONE).setText("Select a document");
+		// tableText.setLayoutData( new GridData(SWT.FILL, SWT.CENTER, true,
+		// false));
 
 		createDocumentViewer(shell);
 
@@ -474,39 +479,50 @@ public class UploadDialog {
 		setEnabledTo(false, documentTable.getTable());
 
 		Label line2 = new Label(shell, SWT.SEPARATOR | SWT.SHADOW_OUT | SWT.HORIZONTAL);
+		new Label(shell, SWT.NONE).setText("Upload progress");
 		data = new GridData(SWT.FILL, SWT.CENTER, true, false);
-		data.horizontalSpan = 2;
 		line2.setLayoutData(data);
 
 		Composite uploadStatusGroup = new Composite(shell, SWT.NONE);
-		uploadStatusGroup.setLayout(new GridLayout(2, false));
+		layout = new GridLayout(2, false);
+		layout.marginWidth = 0;
+		uploadStatusGroup.setLayout(layout);
 		data = new GridData(SWT.FILL, SWT.FILL, true, true);
 		data.minimumHeight = 100;
-		data.horizontalSpan = 2;
 		uploadStatusGroup.setLayoutData(data);
 
 		// log
-		uploadStatus = new Text(uploadStatusGroup, SWT.MULTI | SWT.V_SCROLL | SWT.WRAP | SWT.READ_ONLY);
+		uploadLog = new Text(uploadStatusGroup, SWT.MULTI | SWT.BORDER | SWT.V_SCROLL | SWT.WRAP | SWT.READ_ONLY);
 		data = new GridData(SWT.FILL, SWT.FILL, true, true);
-		data.heightHint = uploadStatus.getLineHeight() * 5;
-		GC tempGC = new GC(uploadStatus);
+		data.heightHint = uploadLog.getLineHeight() * 5;
+		GC tempGC = new GC(uploadLog);
 		int averageCharWidth = tempGC.getFontMetrics().getAverageCharWidth();
 		tempGC.dispose();
 		data.widthHint = averageCharWidth * 80;
-		uploadStatus.setLayoutData(data);
+		uploadLog.setLayoutData(data);
 
 		photoPreview = new Label(uploadStatusGroup, SWT.BORDER | SWT.CENTER);
-		data = new GridData(SWT.RIGHT, SWT.TOP, false, false, 1, 3);
+		data = new GridData(SWT.RIGHT, SWT.TOP, false, false);
 		data.widthHint = ThumbnailViewer.THUMBNAIL_WIDTH;
 		data.heightHint = ThumbnailViewer.THUMBNAIL_HEIGHT;
 		photoPreview.setLayoutData(data);
 
 		// progress
-		photoProgressBar = new ProgressBar(uploadStatusGroup, SWT.NONE);
-		photoProgressBar.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
-
+		// Composite progressGroup = new Composite(uploadStatusGroup, SWT.NONE);
+		// GridLayout layout2 = new GridLayout(4, false);
+		// layout2.marginWidth = 0;
+		// progressGroup.setLayout(layout2);
+		// progressGroup.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true,
+		// false));
+		// new Label(progressGroup, SWT.NONE).setText("Photo");
 		overallProgressBar = new ProgressBar(uploadStatusGroup, SWT.NONE);
 		overallProgressBar.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
+		photoProgressBar = new ProgressBar(uploadStatusGroup, SWT.NONE);
+		photoProgressBar.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
+		// Label overall = new Label(progressGroup, SWT.NONE);
+		// overall.setText("Overall");
+		// overall.setLayoutData(new GridData(SWT.LEFT, SWT.CENTER, false,
+		// false));
 
 		// cancel & upload buttons
 		Composite buttons = new Composite(shell, SWT.NONE);
@@ -671,6 +687,7 @@ public class UploadDialog {
 		public void beforeUploadPage(Page page) {
 			overallProgressBar.setState(SWT.NORMAL);
 			photoProgressBar.setState(SWT.NORMAL);
+			photoProgressBar.setSelection(0);
 			log("Uploading page [" + page.getTitle() + "]");
 		}
 
