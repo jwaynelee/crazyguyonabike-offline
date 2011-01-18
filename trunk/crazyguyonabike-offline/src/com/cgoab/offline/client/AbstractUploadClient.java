@@ -34,7 +34,9 @@ public abstract class AbstractUploadClient implements UploadClient {
 	}
 
 	protected Thread getWorkerThread() {
-		return worker;
+		synchronized (lock) {
+			return worker;
+		}
 	}
 
 	private Thread createAndStartWorker() {
@@ -176,7 +178,9 @@ public abstract class AbstractUploadClient implements UploadClient {
 	public void dispose() {
 		synchronized (lock) {
 			currentTask = DEATH;
-			worker.interrupt();
+			if (worker != null) {
+				worker.interrupt();
+			}
 		}
 	}
 

@@ -296,6 +296,7 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 	public void dispose() {
 		// don't bother to logout, just null data and kill worker
 		currentRealname = currentUsername = null;
+		client.getConnectionManager().shutdown();
 		super.dispose();
 	}
 

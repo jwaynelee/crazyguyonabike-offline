@@ -32,9 +32,8 @@ import com.cgoab.offline.client.DocumentDescription;
 import com.cgoab.offline.client.web.DefaultWebUploadClient.ServerOperationException;
 import com.cgoab.offline.model.Journal;
 import com.cgoab.offline.model.Page;
-import com.cgoab.offline.model.Photo;
 import com.cgoab.offline.model.Page.HeadingStyle;
-import com.cgoab.offline.util.NewFileAppender;
+import com.cgoab.offline.model.Photo;
 
 /**
  * Integration test using a "fake" HTTP server.
@@ -174,7 +173,6 @@ public class DefaultWebUploadClientTest {
 
 	@Test
 	public void retryPhoto() {
-
 	}
 
 	static class Callback<T> implements CompletionCallback<T> {

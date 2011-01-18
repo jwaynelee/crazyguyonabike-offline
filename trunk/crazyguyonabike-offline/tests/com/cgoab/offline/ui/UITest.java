@@ -39,7 +39,7 @@ public class UITest {
 		final CountDownLatch latch = new CountDownLatch(1);
 		new Thread(new Runnable() {
 			public void run() {
-				Display display = new Display();
+				display = new Display();
 				rootShell = new Shell(display);
 				editor = new ApplicationWindow(rootShell);
 				editor.setPreferences(new Preferences());
@@ -91,7 +91,7 @@ public class UITest {
 		// create 2 new pages
 		bot.menu("File").menu("New Page").click();
 		bot.menu("File").menu("New Page").click();
-		bot.menu("File").menu("Save").click();
+		bot.menu("File").menu("Save Journal").click();
 		// re-load model from file; check it has 1 journal with 2 pages
 		Journal journal = JournalXmlLoader.open(journalLocation);
 		JournalXmlLoader.validateJournal(journal);
