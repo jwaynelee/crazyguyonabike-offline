@@ -96,14 +96,20 @@ public abstract class AbstractUploadClient implements UploadClient {
 	 * @param exception
 	 * @param executionCount
 	 */
-	protected void fireOnRetry(IOException exception, int executionCount) {
-		Task<?> current;
+	protected void fireOnRetry(final IOException exception, final int executionCount) {
+		Task<?> task;
 		synchronized (lock) {
-			current = currentTask;
+			task = currentTask;
 		}
 
-		if (current != null && current.callback != null) {
-			current.callback.retryNotify(exception, executionCount);
+		if (task != null && task.callback != null) {
+			final CompletionCallback<?> callback = task.callback;
+			getCallbackExecutor().execute(new Runnable() {
+				@Override
+				public void run() {
+					callback.retryNotify(exception, executionCount);
+				}
+			});
 		}
 	}
 
@@ -186,11 +192,7 @@ public abstract class AbstractUploadClient implements UploadClient {
 
 			/* listener invoked outside try/catch AND outside lock */
 			CallbackRunner<T> cmd = new CallbackRunner<T>(callback, result, ex);
-			if (callbackExecutor != null) {
-				callbackExecutor.execute(cmd);
-			} else {
-				cmd.run();
-			}
+			getCallbackExecutor().execute(cmd);
 		}
 
 		@Override

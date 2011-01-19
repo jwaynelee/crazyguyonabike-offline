@@ -84,6 +84,7 @@ public class ImageMagickResizeTask extends ListenableCancellableTask<File> {
 		}
 		return magickPath;
 	}
+
 	private static MagickVersion getCurrentMagickVersion(String magickPath) {
 		ProcessBuilder builder = new ProcessBuilder(magickPath, "-version");
 		builder.redirectErrorStream(true);
@@ -128,6 +129,7 @@ public class ImageMagickResizeTask extends ListenableCancellableTask<File> {
 
 		return currentVersion;
 	}
+
 	private final String cmdPath;
 	private final Object lock = new Object();
 	private Process process; /* guarded by lock */
@@ -196,6 +198,7 @@ public class ImageMagickResizeTask extends ListenableCancellableTask<File> {
 		} catch (InterruptedException e) {
 			/* If the process was cancelled then waitFor() fails with an IE */
 			LOG.debug("Interrupted whilst waiting for exit code");
+			cleanupOnError();
 			throw e;
 		} finally {
 			synchronized (lock) {
@@ -205,10 +208,22 @@ public class ImageMagickResizeTask extends ListenableCancellableTask<File> {
 
 		LOG.debug("Process returned exit code [{}]", code);
 		if (code != 0) {
+			cleanupOnError();
 			/* raise error showing message(s) written to stdout/stderr */
 			throw new MagickException("Process returned exit code " + code + ":\n\n" + buff);
 		}
 		return destination;
+	}
+
+	private void cleanupOnError() {
+		/* delete any partially resized files that may have been created */
+		if (destination.exists()) {
+			if (!destination.delete()) {
+				LOG.error("Failed to delete partially resized file {}", destination.getAbsolutePath());
+			} else {
+				LOG.debug("Deleted partially resized file {}", destination.getAbsolutePath());
+			}
+		}
 	}
 
 	@Override

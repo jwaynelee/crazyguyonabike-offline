@@ -555,6 +555,19 @@ public class ThumbnailView {
 			resizer.cancelAll(); /* don't wait */
 			journal.removeData(RESIZE_LISTENER_KEY);
 			journal.removeData(ResizerService.KEY);
+
+			/* unset uploaded photo from every non-uploaded photo in the journal */
+			for (Page page : journal.getPages()) {
+				if (page.getState() == UploadState.UPLOADED) {
+					continue;
+				}
+				for (Photo photo : page.getPhotos()) {
+					if (photo.getState() == UploadState.UPLOADED) {
+						continue;
+					}
+					photo.setResizedPhotoFile(null);
+				}
+			}
 		}
 	}
 

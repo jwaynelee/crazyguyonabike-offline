@@ -3,7 +3,6 @@ package com.cgoab.offline.ui.actions;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 
-import org.eclipse.jface.action.Action;
 import org.eclipse.jface.action.IAction;
 
 import com.cgoab.offline.model.Journal;
@@ -11,7 +10,7 @@ import com.cgoab.offline.ui.JournalSelectionService;
 import com.cgoab.offline.ui.JournalSelectionService.JournalSelectionListener;
 import com.cgoab.offline.ui.ThumbnailView;
 
-public class ToggleResizeImagesBeforeUpload extends Action {
+public class ToggleResizeImagesBeforeUpload extends ActionWithCurrentJournal {
 
 	private final ThumbnailView thumbView;
 
@@ -26,7 +25,7 @@ public class ToggleResizeImagesBeforeUpload extends Action {
 					if (Journal.RESIZE_IMAGES_BEFORE_UPLOAD.equals(evt.getPropertyName())) {
 						Boolean resize = (Boolean) evt.getNewValue();
 						setChecked(resize == Boolean.TRUE);
-						setEnabled(resize != null);
+						// setEnabled(resize != null);
 					}
 				}
 			};

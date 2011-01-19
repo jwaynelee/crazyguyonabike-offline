@@ -287,10 +287,11 @@ public class JournalXmlLoader {
 				serverIds.add(serverId);
 			}
 
-			// date
-			if (previousPage != null) {
-				Assert.isTrue(page.getDate().isAfter(previousPage.getDate()), "Page is older than previous page");
-			}
+			// // date
+			// if (previousPage != null) {
+			// Assert.isTrue(page.getDate().isAfter(previousPage.getDate()),
+			// "Page is older than previous page");
+			// }
 
 			// page state
 			if (pageState == UploadState.NEW) {

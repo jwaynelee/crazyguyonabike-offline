@@ -1,5 +1,6 @@
 package com.cgoab.offline.ui;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -8,6 +9,7 @@ import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.viewers.StructuredSelection;
 import org.eclipse.jface.viewers.TreeViewer;
 import org.eclipse.swt.widgets.Shell;
+import org.joda.time.LocalDate;
 
 import com.cgoab.offline.client.UploadClient;
 import com.cgoab.offline.client.UploadClientFactory;
@@ -18,6 +20,7 @@ import com.cgoab.offline.model.Photo;
 import com.cgoab.offline.ui.UploadDialog.UploadResult;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailProvider;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailViewer;
+import com.cgoab.offline.util.Assert;
 import com.cgoab.offline.util.resizer.ResizerService;
 
 /**
@@ -70,16 +73,7 @@ public class UploadAction extends Action {
 		Journal journal = JournalSelectionService.getInstance().getCurrentJournal();
 		JournalUtils.saveJournal(journal, false, shell);
 
-		/* 1) block until all photos in journal are resized */
-		ResizerService service = (ResizerService) journal.getData(ResizerService.KEY);
-		if (!JournalUtils.blockUntilPhotosResized(service, shell)) {
-			return; // wait cancelled
-		}
-
-		UploadDialog dialog = new UploadDialog(shell);
-		dialog.setThumbnailProvider((ThumbnailProvider) journal.getData(ThumbnailProvider.KEY));
-
-		/* 2) find pages to upload, prompty if partial upload */
+		/* 1) filter pages to upload, prompt if previous partial upload */
 		List<Page> newPages = new ArrayList<Page>();
 		boolean foundErrorPage = false;
 		boolean foundPartialPage = false;
@@ -98,6 +92,10 @@ public class UploadAction extends Action {
 			newPages.add(page);
 		}
 
+		if (newPages.size() == 0) {
+			return;
+		}
+
 		if (foundErrorPage || foundPartialPage) {
 			String msg;
 			if (foundErrorPage) {
@@ -111,7 +109,57 @@ public class UploadAction extends Action {
 			}
 		}
 
-		/* 3) ask if pages should be made visible */
+		/* 2) block until all photos in journal are resized */
+		ResizerService service = (ResizerService) journal.getData(ResizerService.KEY);
+		if (!JournalUtils.blockUntilPhotosResized(service, shell)) {
+			return; // wait cancelled
+		}
+
+		/* 3) validate upload */
+		int idOfFirstPage = journal.getPages().indexOf(newPages.get(0));
+		Assert.isTrue(idOfFirstPage != -1);
+
+		Page previous = null;
+		if (idOfFirstPage > 0) {
+			previous = journal.getPages().get(idOfFirstPage - 1);
+		}
+
+		List<String> errors = new ArrayList<String>();
+		for (Page page : newPages) {
+			/* make sure date is newer than previous */
+			if (previous != null) {
+				if (previous.getDate().isAfter(page.getDate())) {
+					errors.add("[" + page.getTitle() + "] date " + page.getDate() + " is earlier than previous page ["
+							+ previous.getTitle() + "] date " + previous.getDate());
+				}
+			}
+
+			for (Photo photo : page.getPhotos()) {
+				File resizedPhoto = photo.getResizedPhoto();
+				if (resizedPhoto != null) {
+					if (resizedPhoto.exists()) {
+						/* ok */
+					} else {
+						errors.add("Resized photo [" + resizedPhoto.getAbsolutePath() + "] does not exist");
+					}
+				} else if (!photo.getFile().exists()) {
+					errors.add("Photo [" + photo.getFile().getAbsolutePath() + "] does not exist ");
+				}
+			}
+			previous = page;
+		}
+
+		if (errors.size() > 0) {
+			StringBuffer str = new StringBuffer(
+					"Errors were detected in the pages you are attempting to upload, please fix these and try again.\n\n");
+			for (String error : errors) {
+				str.append("  - ").append(error).append("\n");
+			}
+			MessageDialog.openError(shell, "Errors detected before upload", str.toString());
+			return;
+		}
+
+		/* 4) ask if pages should be made visible */
 		// TODO use MessageDialogWithToggle when preferences in place
 		boolean visible = MessageDialog.openQuestion(shell, "Make new pages visible?",
 				"Do you want these uploaded pages to be visible?");
@@ -121,11 +169,8 @@ public class UploadAction extends Action {
 			page.setVisible(visible);
 		}
 
-		/**
-		 * Prepare for upload, make sure each photo exists and resize (if
-		 * required)...
-		 */
-
+		UploadDialog dialog = new UploadDialog(shell);
+		dialog.setThumbnailProvider((ThumbnailProvider) journal.getData(ThumbnailProvider.KEY));
 		dialog.setPages(newPages);
 		dialog.setJournal(journal);
 
