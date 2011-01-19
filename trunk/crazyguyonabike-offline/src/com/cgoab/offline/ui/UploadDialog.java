@@ -125,6 +125,8 @@ public class UploadDialog {
 
 	private Text uploadLog;
 
+	private boolean visible;
+
 	public UploadDialog(Shell parent) {
 		shell = new Shell(parent, SWT.APPLICATION_MODAL | SWT.DIALOG_TRIM);
 
