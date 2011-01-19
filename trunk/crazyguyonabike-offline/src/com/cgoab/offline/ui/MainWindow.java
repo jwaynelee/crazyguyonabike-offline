@@ -5,12 +5,15 @@ import java.util.List;
 
 import org.eclipse.core.commands.operations.IUndoContext;
 import org.eclipse.core.commands.operations.UndoContext;
+import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.Status;
 import org.eclipse.jface.action.Action;
 import org.eclipse.jface.action.IAction;
 import org.eclipse.jface.action.IContributionManager;
 import org.eclipse.jface.action.MenuManager;
 import org.eclipse.jface.action.Separator;
 import org.eclipse.jface.action.StatusLineManager;
+import org.eclipse.jface.dialogs.ErrorDialog;
 import org.eclipse.jface.window.ApplicationWindow;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.SashForm;
@@ -19,6 +22,8 @@ import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Shell;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.cgoab.offline.client.UploadClientFactory;
 import com.cgoab.offline.model.Journal;
@@ -47,6 +52,8 @@ public class MainWindow extends ApplicationWindow {
 	public static final IUndoContext APPLICATION_CONTEXT = new UndoContext();
 
 	static final String OPENJOURNALS_PREFERENCE_PATH = "/openjournals";
+
+	private static final Logger LOG = LoggerFactory.getLogger(MainWindow.class);
 
 	AddPhotosAction addPhotosAction;
 
@@ -122,6 +129,23 @@ public class MainWindow extends ApplicationWindow {
 		setBlockOnOpen(true);
 		addStatusLine();
 		addMenuBar();
+		setExceptionHandler(new IExceptionHandler() {
+			@Override
+			public void handleException(Throwable t) {
+				if (t instanceof ThreadDeath) {
+					throw (ThreadDeath) t;
+				}
+
+				ErrorDialog
+						.openError(
+								null,
+								"Unhandled exception in event loop",
+								"Unhandled exception in event loop. This usually indicates a bug.Please notify the application developer.",
+								new Status(IStatus.ERROR, "?", t.getMessage(), t));
+
+				LOG.warn("Unhandled exception in event loop", t);
+			}
+		});
 	}
 
 	public void addUndoContextChangedListener(ContextChangedListener listener) {

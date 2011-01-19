@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.ListIterator;
 
+import javax.management.RuntimeErrorException;
+
 import org.eclipse.core.commands.ExecutionException;
 import org.eclipse.core.commands.operations.AbstractOperation;
 import org.eclipse.core.commands.operations.OperationHistoryFactory;
@@ -52,7 +54,7 @@ public class DeletePageAction extends Action {
 		if (pagesToDelete.size() == 0) {
 			return;
 		}
-
+		
 		MessageBox confirm = new MessageBox(shell, SWT.CANCEL | SWT.OK | SWT.ICON_QUESTION);
 		StringBuilder str = new StringBuilder("Are you sure you want to delete the following page(s):\n");
 		for (Page p : pagesToDelete) {
