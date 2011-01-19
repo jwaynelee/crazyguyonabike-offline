@@ -662,6 +662,7 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 			overrides.put("headline", "__DELETE_THIS_PAGE__");
 			overrides.put("format", "auto");
 			overrides.put("text", "");
+			overrides.put("date", ""); /* don't fail because date is wrong! */
 			overrides.put("submit", "Upload Pic or File");
 			/* not needed, but handy for testing */
 			overrides.put("doc_id", "" + documentId);
