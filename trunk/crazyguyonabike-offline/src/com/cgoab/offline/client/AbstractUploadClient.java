@@ -6,36 +6,48 @@ import java.util.concurrent.Executor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public abstract class AbstractUploadClient implements UploadClient {
-	protected final Logger LOG = LoggerFactory.getLogger(getClass());
-	private Task<?> currentTask;
-	private final Object lock = new Object();
-	private Thread worker;
+import com.cgoab.offline.util.Assert;
 
+public abstract class AbstractUploadClient implements UploadClient {
+	private Executor callbackExecutor;
+	private Task<?> currentTask;
 	private final Task<Object> DEATH = new Task<Object>(null) {
 		@Override
 		protected Object doRun() throws Exception {
 			throw new AssertionError("SHOULD NEVER RUN");
 		}
 	};
+	private final Object lock = new Object();
+
+	protected final Logger LOG = LoggerFactory.getLogger(getClass());
 	private String threadName = "UploadClient";
-	private Executor callbackExecutor;
+	private Thread worker;
 
 	public AbstractUploadClient(Executor executor) {
+		Assert.notNull(executor, "executor cannot be null");
 		callbackExecutor = executor;
 	}
 
-	public Executor getCallbackExecutor() {
-		return callbackExecutor;
-	}
-
-	protected void setThreadName(String threadName) {
-		this.threadName = threadName;
-	}
-
-	protected Thread getWorkerThread() {
+	protected void asyncExec(Task<?> task) {
 		synchronized (lock) {
-			return worker;
+			throwIfBusyOrDisposed();
+			if (worker == null) {
+				worker = createAndStartWorker();
+			}
+			assert currentTask == null;
+			currentTask = task;
+			lock.notifyAll();
+		}
+	}
+
+	@Override
+	public void cancel() {
+		Task<?> current;
+		synchronized (lock) {
+			current = currentTask;
+		}
+		if (current != null) {
+			current.cancel();
 		}
 	}
 
@@ -68,13 +80,12 @@ public abstract class AbstractUploadClient implements UploadClient {
 		return t;
 	}
 
-	private void throwIfBusyOrDisposed() {
+	@Override
+	public void dispose() {
 		synchronized (lock) {
-			if (currentTask == DEATH) {
-				throw new IllegalStateException("Already disposed");
-			}
-			if (currentTask != null) {
-				throw new IllegalStateException("Operation in progress, wait until completion before invoking another");
+			currentTask = DEATH;
+			if (worker != null) {
+				worker.interrupt();
 			}
 		}
 	}
@@ -96,15 +107,49 @@ public abstract class AbstractUploadClient implements UploadClient {
 		}
 	}
 
-	protected void asyncExec(Task<?> task) {
+	public Executor getCallbackExecutor() {
+		return callbackExecutor;
+	}
+
+	protected Thread getWorkerThread() {
 		synchronized (lock) {
-			throwIfBusyOrDisposed();
-			if (worker == null) {
-				worker = createAndStartWorker();
+			return worker;
+		}
+	}
+
+	protected void setThreadName(String threadName) {
+		this.threadName = threadName;
+	}
+
+	private void throwIfBusyOrDisposed() {
+		synchronized (lock) {
+			if (currentTask == DEATH) {
+				throw new IllegalStateException("Already disposed");
 			}
-			assert currentTask == null;
-			currentTask = task;
-			lock.notifyAll();
+			if (currentTask != null) {
+				throw new IllegalStateException("Operation in progress, wait until completion before invoking another");
+			}
+		}
+	}
+
+	static class CallbackRunner<T> implements Runnable {
+		private final CompletionCallback<T> callback;
+		private final Throwable ex;
+		private final T result;
+
+		public CallbackRunner(CompletionCallback<T> callback, T result, Throwable ex) {
+			this.callback = callback;
+			this.ex = ex;
+			this.result = result;
+		}
+
+		@Override
+		public void run() {
+			if (ex == null) {
+				callback.onCompletion(result);
+			} else {
+				callback.onError(ex);
+			}
 		}
 	}
 
@@ -115,6 +160,11 @@ public abstract class AbstractUploadClient implements UploadClient {
 		protected Task(CompletionCallback<T> callback) {
 			this.callback = callback;
 		}
+
+		protected void cancel() {
+		}
+
+		protected abstract T doRun() throws Exception;
 
 		final void invoke() {
 			Throwable ex = null;
@@ -143,54 +193,9 @@ public abstract class AbstractUploadClient implements UploadClient {
 			}
 		}
 
-		protected abstract T doRun() throws Exception;
-
-		protected void cancel() {
-		}
-
 		@Override
 		public String toString() {
 			return getClass().getSimpleName();
-		}
-	}
-
-	static class CallbackRunner<T> implements Runnable {
-		private final CompletionCallback<T> callback;
-		private final Throwable ex;
-		private final T result;
-
-		public CallbackRunner(CompletionCallback<T> callback, T result, Throwable ex) {
-			this.callback = callback;
-			this.ex = ex;
-			this.result = result;
-		}
-
-		@Override
-		public void run() {
-			if (ex == null) {
-				callback.onCompletion(result);
-			} else {
-				callback.onError(ex);
-			}
-		}
-	}
-
-	public void dispose() {
-		synchronized (lock) {
-			currentTask = DEATH;
-			if (worker != null) {
-				worker.interrupt();
-			}
-		}
-	}
-
-	public void cancel() {
-		Task<?> current;
-		synchronized (lock) {
-			current = currentTask;
-		}
-		if (current != null) {
-			current.cancel();
 		}
 	}
 }

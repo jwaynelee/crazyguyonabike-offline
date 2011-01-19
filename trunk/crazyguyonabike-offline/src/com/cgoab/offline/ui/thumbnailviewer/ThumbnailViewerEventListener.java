@@ -4,12 +4,6 @@ import java.io.File;
 
 public interface ThumbnailViewerEventListener {
 
-	public void itemsRemoved(Object[] selection);
-
-	public void itemsMoved(Object[] selection, int insertionPoint);
-
-	public void itemsAdded(File[] newItems, int insertionPoint);
-
 	/**
 	 * Called when an image cannot be loaded (file missing, invalid format etc).
 	 * 
@@ -24,6 +18,12 @@ public interface ThumbnailViewerEventListener {
 	 *         false if it should be discarded.
 	 */
 	public boolean itemFailedToLoad(Object item, Throwable exception);
+
+	public void itemsAdded(File[] newItems, int insertionPoint);
+
+	public void itemsMoved(Object[] selection, int insertionPoint);
+
+	public void itemsRemoved(Object[] selection);
 
 	// /**
 	// * Called on completion of a thumbnail load (either from cache or disk)

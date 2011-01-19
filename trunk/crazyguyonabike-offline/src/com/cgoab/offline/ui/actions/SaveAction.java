@@ -23,6 +23,7 @@ public class SaveAction extends Action {
 		this.shell = shell;
 	}
 
+	@Override
 	public void run() {
 		Journal journal = JournalSelectionService.getInstance().getSelectedJournal();
 		if (journal == null) {

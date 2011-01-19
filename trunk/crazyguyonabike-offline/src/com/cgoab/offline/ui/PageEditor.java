@@ -56,9 +56,23 @@ public class PageEditor {
 
 	private static final Logger LOG = LoggerFactory.getLogger(PageEditor.class);
 
-	private DocumentUndoCache undoCache = new DocumentUndoCache(3);
+	private MainWindow application;
+
+	private Button btnBold;
+
+	private Button btnItalic;
+
+	private Combo cmbFormat;
+
+	private Combo cmbHeadingStyle;
+
+	private Combo cmbIndent;
 
 	private Page currentPage;
+
+	private DateTime dateInput;
+
+	private DirtyCurrentPageListener dirtyCurrentPageListener = new DirtyCurrentPageListener();
 
 	private Text distanceInput;
 
@@ -68,31 +82,13 @@ public class PageEditor {
 
 	private TextViewer textInput;
 
-	private Text titleInput;
+	Text titleInput;
 
-	private Combo cmbFormat;
-
-	private Combo cmbHeadingStyle;
-
-	private Combo cmbIndent;
-
-	private DateTime dateInput;
-
-	private Button btnBold;
-
-	private Button btnItalic;
-
-	private DirtyCurrentPageListener dirtyCurrentPageListener = new DirtyCurrentPageListener();
-
-	private ApplicationWindow application;
+	private DocumentUndoCache undoCache = new DocumentUndoCache(3);
 
 	private TextViewerUndoManager undoManager;
 
-	private enum EditorState {
-		DISABLED, EDITABLE, READONLY;
-	}
-
-	public PageEditor(ApplicationWindow application) {
+	public PageEditor(MainWindow application) {
 		this.application = application;
 		JournalSelectionService.getInstance().addListener(new JournalSelectionListener() {
 
@@ -104,11 +100,6 @@ public class PageEditor {
 			};
 
 			@Override
-			public void selectionChanged(Object newSelection, Object oldSelection) {
-				displayPage(newSelection instanceof Page ? (Page) newSelection : null);
-			}
-
-			@Override
 			public void journalClosed(Journal journal) {
 				undoCache.clear();
 				journal.removeListener(releaseFromCacheOnDeleteListener);
@@ -118,37 +109,49 @@ public class PageEditor {
 			public void journalOpened(Journal journal) {
 				journal.addJournalListener(releaseFromCacheOnDeleteListener);
 			}
+
+			@Override
+			public void selectionChanged(Object newSelection, Object oldSelection) {
+				displayPage(newSelection instanceof Page ? (Page) newSelection : null);
+			}
 		});
 	}
 
-	private void setEditableState(Control control, boolean editable) {
-		if (control instanceof StyledText) {
-			((StyledText) control).setEditable(editable);
-		} else if (control instanceof Text) {
-			((Text) control).setEditable(editable);
-		} else if (control instanceof ThumbnailViewer) {
-			((ThumbnailViewer) control).setEditable(editable);
-		} else {
-			// default??
-			control.setEnabled(editable);
-		}
+	private void bindControls() {
+		bindToCurrentPage(btnBold, SWT.Selection, "bold");
+		bindToCurrentPage(btnItalic, SWT.Selection, "italic");
+		bindToCurrentPage(cmbIndent, SWT.Selection, "indent");
+		bindToCurrentPage(cmbHeadingStyle, SWT.Selection, "headingStyle");
+		bindToCurrentPage(cmbFormat, SWT.Selection, "format");
+		bindToCurrentPage(titleInput, SWT.Modify, "title");
+		bindToCurrentPage(headlineInput, SWT.Modify, "headline");
+		bindToCurrentPage(dateInput, SWT.Selection, "date");
+		bindToCurrentPage(distanceInput, SWT.Modify, "distance");
 	}
 
-	private void setEditorControlsState(EditorState state) {
-		for (Control control : pageEditorWidgets) {
-			if (state == EditorState.READONLY) {
-				control.setEnabled(true);
-				// run this 2nd as only option may be to disable to get readonly
-				setEditableState(control, false);
-			} else if (state == EditorState.DISABLED) {
-				control.setEnabled(false);
-			} else if (state == EditorState.EDITABLE) {
-				control.setEnabled(true);
-				setEditableState(control, true);
-			} else {
-				throw new IllegalArgumentException();
-			}
+	/**
+	 * Binds changes control to the property on the "current page".
+	 * 
+	 * @TODO replace with eclipse binding framework
+	 * @param c
+	 * @param property
+	 */
+	private void bindToCurrentPage(Control c, int event, String property) {
+		String name = "set" + property.substring(0, 1).toUpperCase() + property.substring(1);
+		Method method = Utils.getFirstMethodWithName(name, Page.class);
+		if (method == null) {
+			throw new IllegalArgumentException("No method " + name);
 		}
+		if (method.getParameterTypes().length != 1) {
+			throw new IllegalArgumentException("Setter must accept 1 argument");
+		}
+
+		c.addListener(event, new PropertyBinder(c, method) {
+			@Override
+			protected Object getTarget() {
+				return currentPage;
+			}
+		});
 	}
 
 	private void copyPageToUI(Page pageToShow) {
@@ -186,94 +189,6 @@ public class PageEditor {
 
 		// update global after update to avoid init "dirtying" page
 		currentPage = pageToShow;
-	}
-
-	private void displayPage(Page pageToShow) {
-		if (pageToShow == currentPage) {
-			// nothing to do
-			return;
-		}
-
-		copyPageToUI(pageToShow);
-
-		if (pageToShow == null) {
-			setEditorControlsState(EditorState.DISABLED);
-		} else if (pageToShow.getState() == UploadState.UPLOADED) {
-			setEditorControlsState(EditorState.READONLY);
-		} else if (pageToShow.getState() == UploadState.PARTIALLY_UPLOAD) {
-			setEditorControlsState(EditorState.READONLY);
-		} else { // NEW or ERROR
-			setEditorControlsState(EditorState.EDITABLE);
-		}
-	}
-
-	private class DirtyCurrentPageListener implements ModifyListener, SelectionListener, ITextListener {
-
-		@Override
-		public void modifyText(ModifyEvent e) {
-			setDirty();
-		}
-
-		public void setDirty() {
-			if (currentPage != null) {
-				Journal journal = currentPage.getJournal();
-				if (!journal.isDirty()) {
-					journal.setDirty(true);
-				}
-			}
-		}
-
-		@Override
-		public void textChanged(TextEvent event) {
-			setDirty();
-		}
-
-		@Override
-		public void widgetDefaultSelected(SelectionEvent e) {
-			setDirty();
-		}
-
-		@Override
-		public void widgetSelected(SelectionEvent e) {
-			setDirty();
-		}
-	}
-
-	/**
-	 * Binds changes control to the property on the "current page".
-	 * 
-	 * @TODO replace with eclipse binding framework
-	 * @param c
-	 * @param property
-	 */
-	private void bindToCurrentPage(Control c, int event, String property) {
-		String name = "set" + property.substring(0, 1).toUpperCase() + property.substring(1);
-		Method method = Utils.getFirstMethodWithName(name, Page.class);
-		if (method == null) {
-			throw new IllegalArgumentException("No method " + name);
-		}
-		if (method.getParameterTypes().length != 1) {
-			throw new IllegalArgumentException("Setter must accept 1 argument");
-		}
-
-		c.addListener(event, new PropertyBinder(c, method) {
-			@Override
-			protected Object getTarget() {
-				return currentPage;
-			}
-		});
-	}
-
-	private void bindControls() {
-		bindToCurrentPage(btnBold, SWT.Selection, "bold");
-		bindToCurrentPage(btnItalic, SWT.Selection, "italic");
-		bindToCurrentPage(cmbIndent, SWT.Selection, "indent");
-		bindToCurrentPage(cmbHeadingStyle, SWT.Selection, "headingStyle");
-		bindToCurrentPage(cmbFormat, SWT.Selection, "format");
-		bindToCurrentPage(titleInput, SWT.Modify, "title");
-		bindToCurrentPage(headlineInput, SWT.Modify, "headline");
-		bindToCurrentPage(dateInput, SWT.Selection, "date");
-		bindToCurrentPage(distanceInput, SWT.Modify, "distance");
 	}
 
 	public void createControls(Composite parent) {
@@ -404,5 +319,90 @@ public class PageEditor {
 				headlineInput, distanceInput, dateInput, textInput.getTextWidget());
 		setEditorControlsState(EditorState.DISABLED);
 		bindControls();
+	}
+
+	private void displayPage(Page pageToShow) {
+		if (pageToShow == currentPage) {
+			// nothing to do
+			return;
+		}
+
+		copyPageToUI(pageToShow);
+
+		if (pageToShow == null) {
+			setEditorControlsState(EditorState.DISABLED);
+		} else if (pageToShow.getState() == UploadState.UPLOADED) {
+			setEditorControlsState(EditorState.READONLY);
+		} else if (pageToShow.getState() == UploadState.PARTIALLY_UPLOAD) {
+			setEditorControlsState(EditorState.READONLY);
+		} else { // NEW or ERROR
+			setEditorControlsState(EditorState.EDITABLE);
+		}
+	}
+
+	private void setEditableState(Control control, boolean editable) {
+		if (control instanceof StyledText) {
+			((StyledText) control).setEditable(editable);
+		} else if (control instanceof Text) {
+			((Text) control).setEditable(editable);
+		} else if (control instanceof ThumbnailViewer) {
+			((ThumbnailViewer) control).setEditable(editable);
+		} else {
+			// default??
+			control.setEnabled(editable);
+		}
+	}
+
+	private void setEditorControlsState(EditorState state) {
+		for (Control control : pageEditorWidgets) {
+			if (state == EditorState.READONLY) {
+				control.setEnabled(true);
+				// run this 2nd as only option may be to disable to get readonly
+				setEditableState(control, false);
+			} else if (state == EditorState.DISABLED) {
+				control.setEnabled(false);
+			} else if (state == EditorState.EDITABLE) {
+				control.setEnabled(true);
+				setEditableState(control, true);
+			} else {
+				throw new IllegalArgumentException();
+			}
+		}
+	}
+
+	private class DirtyCurrentPageListener implements ModifyListener, SelectionListener, ITextListener {
+
+		@Override
+		public void modifyText(ModifyEvent e) {
+			setDirty();
+		}
+
+		public void setDirty() {
+			if (currentPage != null) {
+				Journal journal = currentPage.getJournal();
+				if (!journal.isDirty()) {
+					journal.setDirty(true);
+				}
+			}
+		}
+
+		@Override
+		public void textChanged(TextEvent event) {
+			setDirty();
+		}
+
+		@Override
+		public void widgetDefaultSelected(SelectionEvent e) {
+			setDirty();
+		}
+
+		@Override
+		public void widgetSelected(SelectionEvent e) {
+			setDirty();
+		}
+	}
+
+	private enum EditorState {
+		DISABLED, EDITABLE, READONLY;
 	}
 }

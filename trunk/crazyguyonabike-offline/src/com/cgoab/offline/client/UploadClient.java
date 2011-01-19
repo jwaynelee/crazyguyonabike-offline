@@ -18,34 +18,24 @@ import com.cgoab.offline.model.Photo;
 public interface UploadClient {
 
 	/**
+	 * Adds a photo to the page identified by <tt>pageId</tt>, the optional
+	 * progressListener will be notified of the upload progress.
+	 * 
+	 * @param pageId
+	 * @param photo
+	 * @param photoFile
+	 *            an optional photo to use for the override, default
+	 *            {@link Photo#getFile()} used if <tt>null</tt>
+	 * @param callback
+	 * @param progressListener
+	 */
+	public void addPhoto(int pageId, Photo photo, CompletionCallback<Void> callback,
+			PhotoUploadProgressListener progressListener);
+
+	/**
 	 * Attempts to cancel the current operation, if any.
 	 */
 	public void cancel();
-
-	/**
-	 * Logs into the CGOAB server.
-	 * 
-	 * @param username
-	 *            username to use. If <tt>null</tt> attempts to auto-login using
-	 *            previously saved cookie.
-	 * @param password
-	 *            password to use
-	 * @param callback
-	 *            callback to invoke with the logged in username or exception
-	 */
-	public void login(String username, String password, CompletionCallback<String> callback);
-
-	public String getCurrentUsername();
-
-	public String getCurrentUserRealName();
-
-	/**
-	 * Loads document listing for current user.
-	 * 
-	 * @return
-	 * @throws Exception
-	 */
-	public void getDocuments(CompletionCallback<List<DocumentDescription>> callback);
 
 	/**
 	 * Creates a new page at the end of the document that the client is bound
@@ -60,19 +50,21 @@ public interface UploadClient {
 	public void createNewPage(Page page, CompletionCallback<Integer> callback);
 
 	/**
-	 * Adds a photo to the page identified by <tt>pageId</tt>, the optional
-	 * progressListener will be notified of the upload progress.
-	 * 
-	 * @param pageId
-	 * @param photo
-	 * @param photoFile
-	 *            an optional photo to use for the override, default
-	 *            {@link Photo#getFile()} used if <tt>null</tt>
-	 * @param callback
-	 * @param progressListener
+	 * Disposes of any resources used by the client.
 	 */
-	public void addPhoto(int pageId, Photo photo, CompletionCallback<Void> callback,
-			PhotoUploadProgressListener progressListener);
+	public void dispose();
+
+	public String getCurrentUsername();
+
+	public String getCurrentUserRealName();
+
+	/**
+	 * Loads document listing for current user.
+	 * 
+	 * @return
+	 * @throws Exception
+	 */
+	public void getDocuments(CompletionCallback<List<DocumentDescription>> callback);
 
 	/**
 	 * Returns table of contents for a document
@@ -92,11 +84,17 @@ public interface UploadClient {
 	public void initialize(int documentId, CompletionCallback<Void> callback);
 
 	/**
-	 * Logs out of the server, does nothing if not already logged in.
+	 * Logs into the CGOAB server.
 	 * 
+	 * @param username
+	 *            username to use. If <tt>null</tt> attempts to auto-login using
+	 *            previously saved cookie.
+	 * @param password
+	 *            password to use
 	 * @param callback
+	 *            callback to invoke with the logged in username or exception
 	 */
-	public void logout(CompletionCallback<Void> callback);
+	public void login(String username, String password, CompletionCallback<String> callback);
 
 	// // domain exception, thrown when the server replies with an error
 	// public static class ServerOperationException extends RuntimeException {
@@ -121,7 +119,9 @@ public interface UploadClient {
 	// }
 
 	/**
-	 * Disposes of any resources used by the client.
+	 * Logs out of the server, does nothing if not already logged in.
+	 * 
+	 * @param callback
 	 */
-	public void dispose();
+	public void logout(CompletionCallback<Void> callback);
 }

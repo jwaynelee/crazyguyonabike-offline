@@ -17,28 +17,56 @@ public class JournalContentProvider implements IStructuredContentProvider, ITree
 
 	private TreeViewer treeViewer;
 
-	/**
-	 * Workaround for "bug" in JFace TreeViewer
-	 * https://bugs.eclipse.org/bugs/show_bug.cgi?id=9262
-	 */
-	public static final class JournalHolder {
-		private final Journal journal;
+	@Override
+	public void dispose() {
+	}
 
-		public JournalHolder(Journal journal) {
-			this.journal = journal;
+	@Override
+	public Object[] getChildren(Object o) {
+		if (o instanceof Journal) {
+			return ((Journal) o).getPages().toArray();
 		}
+		return new Object[0];
+	}
 
-		public Journal getJournal() {
-			return journal;
+	@Override
+	public Object[] getElements(Object parent) {
+		return new Object[] { ((JournalHolder) parent).getJournal() };
+	}
+
+	@Override
+	public Object getParent(Object child) {
+		if (child instanceof Journal) {
+			return null;
+		} else {
+			return ((Page) child).getJournal();
 		}
 	}
 
 	@Override
-	public void photosAdded(List<Photo> photo, Page page) {
+	public boolean hasChildren(Object parent) {
+		if (parent instanceof Journal) {
+			return ((Journal) parent).getPages().size() > 0;
+		}
+		return false;
 	}
 
 	@Override
-	public void photosRemoved(List<Photo> photos, Page page) {
+	public void inputChanged(Viewer v, Object oldInput, Object newInput) {
+		treeViewer = (TreeViewer) v;
+		if (oldInput != null) {
+			((JournalHolder) oldInput).getJournal().removeListener(this);
+		}
+		if (newInput != null) {
+			((JournalHolder) newInput).getJournal().addJournalListener(this);
+		}
+	}
+
+	@Override
+	public void journalDirtyChange() {
+		// update to show "*" dirty marker
+		JournalHolder holder = (JournalHolder) treeViewer.getInput();
+		treeViewer.update(holder.getJournal(), null);
 	}
 
 	@Override
@@ -53,48 +81,26 @@ public class JournalContentProvider implements IStructuredContentProvider, ITree
 	}
 
 	@Override
-	public void journalDirtyChange() {
-		// update to show "*" dirty marker
-		JournalHolder holder = (JournalHolder) treeViewer.getInput();
-		treeViewer.update(holder.getJournal(), null);
+	public void photosAdded(List<Photo> photo, Page page) {
 	}
 
-	public void dispose() {
+	@Override
+	public void photosRemoved(List<Photo> photos, Page page) {
 	}
 
-	public void inputChanged(Viewer v, Object oldInput, Object newInput) {
-		treeViewer = (TreeViewer) v;
-		if (oldInput != null) {
-			((JournalHolder) oldInput).getJournal().removeListener(this);
+	/**
+	 * Workaround for "bug" in JFace TreeViewer
+	 * https://bugs.eclipse.org/bugs/show_bug.cgi?id=9262
+	 */
+	public static final class JournalHolder {
+		private final Journal journal;
+
+		public JournalHolder(Journal journal) {
+			this.journal = journal;
 		}
-		if (newInput != null) {
-			((JournalHolder) newInput).getJournal().addJournalListener(this);
-		}
-	}
 
-	public Object[] getElements(Object parent) {
-		return new Object[] { ((JournalHolder) parent).getJournal() };
-	}
-
-	public Object getParent(Object child) {
-		if (child instanceof Journal) {
-			return null;
-		} else {
-			return ((Page) child).getJournal();
+		public Journal getJournal() {
+			return journal;
 		}
-	}
-
-	public Object[] getChildren(Object o) {
-		if (o instanceof Journal) {
-			return ((Journal) o).getPages().toArray();
-		}
-		return new Object[0];
-	}
-
-	public boolean hasChildren(Object parent) {
-		if (parent instanceof Journal) {
-			return ((Journal) parent).getPages().size() > 0;
-		}
-		return false;
 	}
 }

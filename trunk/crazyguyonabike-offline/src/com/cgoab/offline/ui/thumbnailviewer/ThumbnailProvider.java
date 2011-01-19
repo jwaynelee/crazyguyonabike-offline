@@ -44,8 +44,8 @@ public interface ThumbnailProvider {
 	// public long purge();
 
 	public static class Thumbnail {
-		public final Metadata meta;
 		public final ImageData imageData;
+		public final Metadata meta;
 
 		public Thumbnail(Metadata meta, ImageData image) {
 			this.meta = meta;

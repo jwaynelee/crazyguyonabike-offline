@@ -11,7 +11,6 @@ import com.cgoab.offline.model.Page;
 import com.cgoab.offline.model.UploadState;
 import com.cgoab.offline.ui.JournalSelectionService;
 import com.cgoab.offline.ui.JournalSelectionService.JournalSelectionListener;
-import com.cgoab.offline.ui.PhotosContentProvider;
 import com.cgoab.offline.ui.ThumbnailView;
 
 public class AddPhotosAction extends Action {
@@ -27,6 +26,15 @@ public class AddPhotosAction extends Action {
 		JournalSelectionService.getInstance().addListener(new JournalSelectionListener() {
 
 			@Override
+			public void journalClosed(Journal journal) {
+				setEnabled(false);
+			}
+
+			@Override
+			public void journalOpened(Journal journal) {
+			}
+
+			@Override
 			public void selectionChanged(Object newSelection, Object oldSelection) {
 				boolean enabled = false;
 				if (newSelection instanceof Page) {
@@ -35,18 +43,10 @@ public class AddPhotosAction extends Action {
 				}
 				setEnabled(enabled);
 			}
-
-			@Override
-			public void journalOpened(Journal journal) {
-			}
-
-			@Override
-			public void journalClosed(Journal journal) {
-				setEnabled(false);
-			}
 		});
 	}
 
+	@Override
 	public void run() {
 		if (JournalSelectionService.getInstance().getSelectedPage() == null) {
 			return;
@@ -66,7 +66,16 @@ public class AddPhotosAction extends Action {
 		for (int i = 0; i < fileStrings.length; ++i) {
 			files[i] = new File(dialog.getFilterPath() + File.separator + fileStrings[i]);
 		}
+		run(files);
+	}
 
+	/**
+	 * Exposed so tests can run same logic without having to open native file
+	 * selection dialog.
+	 * 
+	 * @param files
+	 */
+	public void run(File[] files) {
 		// update the model via view controller to apply the same error
 		// handling for duplicates etc..
 		thumbnailView.addPhotosRetryIfDuplicates(files, -1);

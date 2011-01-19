@@ -20,6 +20,7 @@ public class OpenJournalAction extends Action {
 		this.shell = shell;
 	}
 
+	@Override
 	public void run() {
 		FileDialog fd = new FileDialog(shell, SWT.OPEN);
 		fd.setFilterExtensions(new String[] { "*" + NewJournalDialog.EXTENSION });

@@ -35,62 +35,48 @@ import com.cgoab.offline.util.StringUtils;
  */
 public class JournalXmlLoader {
 
-	/* file format version */
-	public enum FileVersion {
+	private static final String BOLD_ATTR = "bold";;
 
-		V1("1.0");
-
-		private String versionString;
-
-		public static FileVersion parse(String s) {
-			for (FileVersion v : FileVersion.values()) {
-				if (v.versionString.equals(s)) {
-					return v;
-				}
-			}
-			throw new IllegalArgumentException("Unsupported data version [" + s + "]");
-		}
-
-		private FileVersion(String verstionString) {
-			this.versionString = verstionString;
-		}
-
-		@Override
-		public String toString() {
-			return versionString;
-		}
-	};
-
-	private static final FileVersion CURRENT_VERSION = FileVersion.V1;
-
-	private static final String SETTINGS_EL = "settings";
-	private static final String VERSION_ATTR = "version";
-	private static final String JOURNAL_EL = "journal";
-	private static final String DOC_ID_HINT_ATTR = "docIdHint";
-	private static final String RESIZE_PHOTOS_ATTR = "resizeBeforeUpload";
-	private static final String HIDE_UPLOADED_CONTENT_ATTR = "hideUploadedContent";
-	private static final String USE_EXIF_THUMBNAIL_ATTR = "useExifThumbnail";
-	private static final String NAME_ATTR = "name";
-	private static final String PAGE_EL = "page";
-	private static final String UPLOAD_STATE_ATTR = "state";
-	private static final String SERVER_ID_ATTR = "serverId";
-	private static final String VISIBLE_ATTR = "visible";
-	private static final String FORMAT_ATTR = "format";
-	private static final String HEADINGSTYLE_ATTR = "headingstyle";
-	private static final String ITALIC_ATTR = "italic";
-	private static final String BOLD_ATTR = "bold";
-	private static final String INDENT_ATTR = "indent";
-	private static final String TITLE_EL = "title";
-	private static final String HEADLINE_EL = "headline";
-	private static final String DISTANCE_EL = "distance";
-	private static final String DATE_EL = "date";
-	private static final String TEXT_EL = "text";
-	private static final String PHOTOS_EL = "photos";
-	private static final String PHOTO_EL = "photo";
-	private static final String FILE_ATTR = "file";
 	// private static final String IMAGENAME_ATTR = "imagename";
 	private static final String CAPTION_EL = "caption";
+
+	private static final FileVersion CURRENT_VERSION = FileVersion.V1;
+	private static final String DATE_EL = "date";
+	private static final String DISTANCE_EL = "distance";
+	private static final String DOC_ID_HINT_ATTR = "docIdHint";
+	private static final String FILE_ATTR = "file";
+	private static final String FORMAT_ATTR = "format";
+	private static final String HEADINGSTYLE_ATTR = "headingstyle";
+	private static final String HEADLINE_EL = "headline";
+	private static final String HIDE_UPLOADED_CONTENT_ATTR = "hideUploadedContent";
+	private static final String INDENT_ATTR = "indent";
+	private static final String ITALIC_ATTR = "italic";
+	private static final String JOURNAL_EL = "journal";
+	private static final String NAME_ATTR = "name";
+	private static final String PAGE_EL = "page";
+	private static final String PHOTO_EL = "photo";
+	private static final String PHOTOS_EL = "photos";
 	private static final String PHOTOS_ORDER_ATTR = "photosOrder";
+	private static final String RESIZE_PHOTOS_ATTR = "resizeBeforeUpload";
+	private static final String SERVER_ID_ATTR = "serverId";
+	private static final String SETTINGS_EL = "settings";
+	private static final String TEXT_EL = "text";
+	private static final String TITLE_EL = "title";
+	private static final String UPLOAD_STATE_ATTR = "state";
+	private static final String USE_EXIF_THUMBNAIL_ATTR = "useExifThumbnail";
+	private static final String VERSION_ATTR = "version";
+	private static final String VISIBLE_ATTR = "visible";
+	private static void copy(File tempFile, File targetFile) throws IOException {
+		FileInputStream in = new FileInputStream(tempFile);
+		FileOutputStream out = new FileOutputStream(targetFile);
+		byte[] buff = new byte[8 * 1024]; // 8kb chunks
+		int read;
+		while ((read = in.read(buff)) > 0) {
+			out.write(buff, 0, read);
+		}
+		in.close();
+		out.close();
+	}
 
 	private static int getAttributeOrDefault(Element xml, String name, int defaultValue) {
 		Attribute attr = xml.getAttribute(name);
@@ -176,6 +162,94 @@ public class JournalXmlLoader {
 		// journal may become dirty as we add pages to it, mark "clean"
 		journal.setDirty(false);
 		return journal;
+	}
+
+	/**
+	 * Writes the journal to file.
+	 * 
+	 * @param journal
+	 * @throws IOException
+	 * @throws XMLStreamException
+	 */
+	public static void save(Journal journal) throws IOException, XMLStreamException {
+		XMLOutputFactory xof = XMLOutputFactory.newInstance();
+		File tempFile = null;
+		try {
+			File targetFile = journal.getFile();
+			File parent = targetFile.getAbsoluteFile().getParentFile();
+			if (parent != null && !parent.exists()) {
+				parent.mkdirs();
+			}
+			tempFile = new File(parent + File.separator + "." + targetFile.getName());
+			FileWriter tempWriter = new FileWriter(tempFile);
+			XMLStreamWriter xml = xof.createXMLStreamWriter(tempWriter);
+			xml.writeStartDocument();
+			xml.writeStartElement(JOURNAL_EL);
+			xml.writeAttribute(VERSION_ATTR, CURRENT_VERSION.toString());
+			xml.writeAttribute(NAME_ATTR, journal.getName());
+			xml.writeAttribute(DOC_ID_HINT_ATTR, Integer.toString(journal.getDocIdHint()));
+
+			/* settings */
+			xml.writeStartElement(SETTINGS_EL);
+			if (journal.isResizeImagesBeforeUpload() != null) {
+				xml.writeAttribute(RESIZE_PHOTOS_ATTR, journal.isResizeImagesBeforeUpload().toString());
+			}
+			if (journal.isUseExifThumbnail() != null) {
+				xml.writeAttribute(USE_EXIF_THUMBNAIL_ATTR, journal.isUseExifThumbnail().toString());
+			}
+			xml.writeAttribute(HIDE_UPLOADED_CONTENT_ATTR, Boolean.toString(journal.isHideUploadedContent()));
+			xml.writeEndElement();
+
+			/* pages & photos */
+			for (Page page : journal.getPages()) {
+				xml.writeStartElement(PAGE_EL);
+				xml.writeAttribute(SERVER_ID_ATTR, Integer.toString(page.getServerId()));
+				xml.writeAttribute(UPLOAD_STATE_ATTR, page.getState().toString());
+				xml.writeAttribute(VISIBLE_ATTR, Boolean.toString(page.isVisible()));
+				xml.writeAttribute(FORMAT_ATTR, page.getFormat().toString());
+				xml.writeAttribute(HEADINGSTYLE_ATTR, page.getHeadingStyle().toString());
+				xml.writeAttribute(ITALIC_ATTR, Boolean.toString(page.isItalic()));
+				xml.writeAttribute(BOLD_ATTR, Boolean.toString(page.isBold()));
+				xml.writeAttribute(INDENT_ATTR, Integer.toString(page.getIndent()));
+				writeElement(xml, TITLE_EL, StringUtils.nullToEmpty(page.getTitle()));
+				writeElement(xml, HEADLINE_EL, StringUtils.nullToEmpty(page.getHeadline()));
+				writeElement(xml, DISTANCE_EL, Integer.toString(page.getDistance()));
+				writeElement(xml, DATE_EL, page.getDate().toString());
+				String text = page.getText();
+				if (text != null) {
+					writeElementWithCData(xml, TEXT_EL, text);
+				}
+				xml.writeStartElement(PHOTOS_EL);
+				xml.writeAttribute(PHOTOS_ORDER_ATTR, page.getPhotosOrder().name());
+				for (Photo p : page.getPhotos()) {
+					xml.writeStartElement(PHOTO_EL);
+					xml.writeAttribute(FILE_ATTR, p.getFile().getAbsolutePath());
+					xml.writeAttribute(UPLOAD_STATE_ATTR, p.getState().toString());
+					// xml.writeAttribute(IMAGENAME_ATTR,
+					// StringUtils.nullToEmpty(p.getImageName()));
+					String caption = p.getCaption();
+					if (caption != null) {
+						writeElementWithCData(xml, CAPTION_EL, caption);
+					}
+					xml.writeEndElement(); // </photo>
+				}
+				xml.writeEndElement(); // </photos>
+				xml.writeEndElement(); // </page>
+			}
+			xml.writeEndElement(); // </journal>
+			xml.writeEndDocument();
+			xml.close();
+			tempWriter.close();
+			if (!tempFile.renameTo(targetFile.getAbsoluteFile())) {
+				// already exists, copy manually
+				copy(tempFile, targetFile);
+			}
+			journal.setLastModifiedWhenLoaded(targetFile.lastModified());
+		} finally {
+			if (tempFile != null) {
+				tempFile.delete();
+			}
+		}
 	}
 
 	/**
@@ -301,103 +375,29 @@ public class JournalXmlLoader {
 		writer.writeEndElement();
 	}
 
-	/**
-	 * Writes the journal to file.
-	 * 
-	 * @param journal
-	 * @throws IOException
-	 * @throws XMLStreamException
-	 */
-	public static void save(Journal journal) throws IOException, XMLStreamException {
-		XMLOutputFactory xof = XMLOutputFactory.newInstance();
-		File tempFile = null;
-		try {
-			File targetFile = journal.getFile();
-			File parent = targetFile.getAbsoluteFile().getParentFile();
-			if (parent != null && !parent.exists()) {
-				parent.mkdirs();
-			}
-			tempFile = new File(parent + File.separator + "." + targetFile.getName());
-			FileWriter tempWriter = new FileWriter(tempFile);
-			XMLStreamWriter xml = xof.createXMLStreamWriter(tempWriter);
-			xml.writeStartDocument();
-			xml.writeStartElement(JOURNAL_EL);
-			xml.writeAttribute(VERSION_ATTR, CURRENT_VERSION.toString());
-			xml.writeAttribute(NAME_ATTR, journal.getName());
-			xml.writeAttribute(DOC_ID_HINT_ATTR, Integer.toString(journal.getDocIdHint()));
+	/* file format version */
+	public enum FileVersion {
 
-			/* settings */
-			xml.writeStartElement(SETTINGS_EL);
-			if (journal.isResizeImagesBeforeUpload() != null) {
-				xml.writeAttribute(RESIZE_PHOTOS_ATTR, journal.isResizeImagesBeforeUpload().toString());
-			}
-			if (journal.isUseExifThumbnail() != null) {
-				xml.writeAttribute(USE_EXIF_THUMBNAIL_ATTR, journal.isUseExifThumbnail().toString());
-			}
-			xml.writeAttribute(HIDE_UPLOADED_CONTENT_ATTR, Boolean.toString(journal.isHideUploadedContent()));
-			xml.writeEndElement();
+		V1("1.0");
 
-			/* pages & photos */
-			for (Page page : journal.getPages()) {
-				xml.writeStartElement(PAGE_EL);
-				xml.writeAttribute(SERVER_ID_ATTR, Integer.toString(page.getServerId()));
-				xml.writeAttribute(UPLOAD_STATE_ATTR, page.getState().toString());
-				xml.writeAttribute(VISIBLE_ATTR, Boolean.toString(page.isVisible()));
-				xml.writeAttribute(FORMAT_ATTR, page.getFormat().toString());
-				xml.writeAttribute(HEADINGSTYLE_ATTR, page.getHeadingStyle().toString());
-				xml.writeAttribute(ITALIC_ATTR, Boolean.toString(page.isItalic()));
-				xml.writeAttribute(BOLD_ATTR, Boolean.toString(page.isBold()));
-				xml.writeAttribute(INDENT_ATTR, Integer.toString(page.getIndent()));
-				writeElement(xml, TITLE_EL, StringUtils.nullToEmpty(page.getTitle()));
-				writeElement(xml, HEADLINE_EL, StringUtils.nullToEmpty(page.getHeadline()));
-				writeElement(xml, DISTANCE_EL, Integer.toString(page.getDistance()));
-				writeElement(xml, DATE_EL, page.getDate().toString());
-				String text = page.getText();
-				if (text != null) {
-					writeElementWithCData(xml, TEXT_EL, text);
+		public static FileVersion parse(String s) {
+			for (FileVersion v : FileVersion.values()) {
+				if (v.versionString.equals(s)) {
+					return v;
 				}
-				xml.writeStartElement(PHOTOS_EL);
-				xml.writeAttribute(PHOTOS_ORDER_ATTR, page.getPhotosOrder().name());
-				for (Photo p : page.getPhotos()) {
-					xml.writeStartElement(PHOTO_EL);
-					xml.writeAttribute(FILE_ATTR, p.getFile().getAbsolutePath());
-					xml.writeAttribute(UPLOAD_STATE_ATTR, p.getState().toString());
-					// xml.writeAttribute(IMAGENAME_ATTR,
-					// StringUtils.nullToEmpty(p.getImageName()));
-					String caption = p.getCaption();
-					if (caption != null) {
-						writeElementWithCData(xml, CAPTION_EL, caption);
-					}
-					xml.writeEndElement(); // </photo>
-				}
-				xml.writeEndElement(); // </photos>
-				xml.writeEndElement(); // </page>
 			}
-			xml.writeEndElement(); // </journal>
-			xml.writeEndDocument();
-			xml.close();
-			tempWriter.close();
-			if (!tempFile.renameTo(targetFile.getAbsoluteFile())) {
-				// already exists, copy manually
-				copy(tempFile, targetFile);
-			}
-			journal.setLastModifiedWhenLoaded(targetFile.lastModified());
-		} finally {
-			if (tempFile != null) {
-				tempFile.delete();
-			}
+			throw new IllegalArgumentException("Unsupported data version [" + s + "]");
 		}
-	}
 
-	private static void copy(File tempFile, File targetFile) throws IOException {
-		FileInputStream in = new FileInputStream(tempFile);
-		FileOutputStream out = new FileOutputStream(targetFile);
-		byte[] buff = new byte[8 * 1024]; // 8kb chunks
-		int read;
-		while ((read = in.read(buff)) > 0) {
-			out.write(buff, 0, read);
+		private String versionString;
+
+		private FileVersion(String verstionString) {
+			this.versionString = verstionString;
 		}
-		in.close();
-		out.close();
+
+		@Override
+		public String toString() {
+			return versionString;
+		}
 	}
 }

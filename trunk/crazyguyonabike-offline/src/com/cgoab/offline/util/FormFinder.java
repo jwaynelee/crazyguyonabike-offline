@@ -58,12 +58,12 @@ public class FormFinder {
 		return null;
 	}
 
-	public static HtmlForm findFormWithName(TagNode root, String formName) throws XPatherException {
+	public static HtmlForm findFormWithAction(TagNode root, String action) throws XPatherException {
 		Object[] forms = root.evaluateXPath("//form");
 		for (Object object : forms) {
 			if (object instanceof TagNode) {
 				HtmlForm form = parse((TagNode) object);
-				if (form.name != null && form.name.equals(formName)) {
+				if (form.action.endsWith(action)) {
 					return form;
 				}
 			}
@@ -71,12 +71,12 @@ public class FormFinder {
 		return null;
 	}
 
-	public static HtmlForm findFormWithAction(TagNode root, String action) throws XPatherException {
+	public static HtmlForm findFormWithName(TagNode root, String formName) throws XPatherException {
 		Object[] forms = root.evaluateXPath("//form");
 		for (Object object : forms) {
 			if (object instanceof TagNode) {
 				HtmlForm form = parse((TagNode) object);
-				if (form.action.endsWith(action)) {
+				if (form.name != null && form.name.equals(formName)) {
 					return form;
 				}
 			}
@@ -141,6 +141,30 @@ public class FormFinder {
 		private String method;
 		private String name;
 
+		public String getAction() {
+			return action;
+		}
+
+		public Map<String, FormItem> getItems() {
+			return items;
+		}
+
+		public String getMethod() {
+			return method;
+		}
+
+		public String getName() {
+			return name;
+		}
+
+		public Map<String, Object> newDefaultProperties() {
+			HashMap<String, Object> properties = new HashMap<String, Object>();
+			for (Entry<String, FormItem> item : items.entrySet()) {
+				properties.put(item.getKey(), item.getValue().getValue());
+			}
+			return properties;
+		}
+
 		/**
 		 * Returns name/value pairs to submit this form, defaults to those set
 		 * on form and asserts each override property exists.
@@ -167,22 +191,6 @@ public class FormFinder {
 			return merged;
 		}
 
-		public String getAction() {
-			return action;
-		}
-
-		public Map<String, FormItem> getItems() {
-			return items;
-		}
-
-		public String getMethod() {
-			return method;
-		}
-
-		public String getName() {
-			return name;
-		}
-
 		@Override
 		public String toString() {
 			StringBuffer b = new StringBuffer();
@@ -193,14 +201,6 @@ public class FormFinder {
 				b.append(item.getValue()).append("\n");
 			}
 			return b.toString();
-		}
-
-		public Map<String, Object> newDefaultProperties() {
-			HashMap<String, Object> properties = new HashMap<String, Object>();
-			for (Entry<String, FormItem> item : items.entrySet()) {
-				properties.put(item.getKey(), item.getValue().getValue());
-			}
-			return properties;
 		}
 
 	}

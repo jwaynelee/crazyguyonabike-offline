@@ -10,25 +10,15 @@ import com.cgoab.offline.util.FormFinder.HtmlForm;
 
 public abstract class AbstractFormBinder {
 
+	public static String toOnOff(boolean value) {
+		return value ? "on" : "off";
+	}
+
 	private final Map<String, Expected> expected = new HashMap<String, Expected>();
 
 	private HtmlForm form;
 
 	private final String formName;
-
-	private static class Expected {
-		boolean used;
-		String value;
-
-		public Expected(String value) {
-			this.value = value;
-			this.used = true;
-		}
-
-		public Expected(boolean used) {
-			this.used = used;
-		}
-	}
 
 	public AbstractFormBinder(String name) {
 		this.formName = name;
@@ -102,39 +92,12 @@ public abstract class AbstractFormBinder {
 		return form != null;
 	}
 
-	private void throwIfInitialized() {
-		if (isInitialized()) {
-			throw new IllegalStateException("Already initialized!");
-		}
-	}
-
-	protected void registerUsedProperty(String name) {
-		throwIfInitialized();
-		expected.put(name, new Expected(true));
-	}
-
-	protected void registerUnusedProperty(String name) {
-		throwIfInitialized();
-		expected.put(name, new Expected(false));
-	}
-
-	protected void registerUsedPropertyOption(String name, String value) {
-		throwIfInitialized();
-		expected.put(name, new Expected(value));
-	}
-
 	protected ParamaterBuilder newCollector() {
 		if (form == null) {
 			throw new IllegalStateException("Binder must be connected to a form first!");
 		}
 		final Map<String, Object> properties = form.newDefaultProperties();
 		ParamaterBuilder c = new ParamaterBuilder() {
-			@Override
-			public void put(String name, Object value) {
-				checkDeclared(name, value);
-				properties.put(name, value);
-			}
-
 			private void checkDeclared(String name, Object value) {
 				/* check the property was declared and exists */
 				Expected e = expected.get(name);
@@ -147,36 +110,57 @@ public abstract class AbstractFormBinder {
 			}
 
 			@Override
-			public void remove(String name) {
-				checkDeclared(name, null);
-				properties.remove(name);
+			public Map<String, Object> getMap() {
+				return properties;
 			}
 
 			@Override
-			public Map<String, Object> getMap() {
-				return properties;
+			public void put(String name, Object value) {
+				checkDeclared(name, value);
+				properties.put(name, value);
+			}
+
+			@Override
+			public void remove(String name) {
+				checkDeclared(name, null);
+				properties.remove(name);
 			}
 		};
 		return c;
 	}
 
-	public static String toOnOff(boolean value) {
-		return value ? "on" : "off";
+	protected void registerUnusedProperty(String name) {
+		throwIfInitialized();
+		expected.put(name, new Expected(false));
 	}
 
-	public interface ParamaterBuilder {
-		void put(String name, Object value);
-
-		void remove(String string);
-
-		Map<String, Object> getMap();
+	protected void registerUsedProperty(String name) {
+		throwIfInitialized();
+		expected.put(name, new Expected(true));
 	}
 
-	public static class InitializationException extends RuntimeException {
-		private static final long serialVersionUID = 1L;
+	protected void registerUsedPropertyOption(String name, String value) {
+		throwIfInitialized();
+		expected.put(name, new Expected(value));
+	}
 
-		public InitializationException(String message) {
-			super(message);
+	private void throwIfInitialized() {
+		if (isInitialized()) {
+			throw new IllegalStateException("Already initialized!");
+		}
+	}
+
+	private static class Expected {
+		boolean used;
+		String value;
+
+		public Expected(boolean used) {
+			this.used = used;
+		}
+
+		public Expected(String value) {
+			this.value = value;
+			this.used = true;
 		}
 	}
 
@@ -188,11 +172,27 @@ public abstract class AbstractFormBinder {
 		}
 	}
 
+	public static class InitializationException extends RuntimeException {
+		private static final long serialVersionUID = 1L;
+
+		public InitializationException(String message) {
+			super(message);
+		}
+	}
+
 	public static class InitializationWarningException extends InitializationException {
 		private static final long serialVersionUID = 1L;
 
 		public InitializationWarningException(String message) {
 			super(message);
 		}
+	}
+
+	public interface ParamaterBuilder {
+		Map<String, Object> getMap();
+
+		void put(String name, Object value);
+
+		void remove(String string);
 	}
 }

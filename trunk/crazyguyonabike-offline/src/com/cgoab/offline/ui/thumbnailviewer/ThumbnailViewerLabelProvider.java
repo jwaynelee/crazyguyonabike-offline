@@ -9,7 +9,7 @@ public interface ThumbnailViewerLabelProvider {
 
 	public String getImageText(Object thumbnail);
 
-	public Image getOverlay(Object o);
-
 	public int getOpacity(Object o);
+
+	public Image getOverlay(Object o);
 }

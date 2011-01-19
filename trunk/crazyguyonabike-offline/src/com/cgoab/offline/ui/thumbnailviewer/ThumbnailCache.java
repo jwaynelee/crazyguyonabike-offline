@@ -22,7 +22,14 @@ class ThumbnailCache {
 
 	private static final Logger LOG = LoggerFactory.getLogger(ThumbnailCache.class);
 
-	private final int maxSizeInBytes;
+	private static int sizeof(byte[] array) {
+		return array == null ? 0 : array.length;
+	}
+
+	private static int sizeof(ImageData image) {
+		/* TODO include meta-data? */
+		return sizeof(image.data) + sizeof(image.alphaData) + sizeof(image.maskData);
+	}
 
 	private int bytes;
 
@@ -49,26 +56,10 @@ class ThumbnailCache {
 		}
 	};
 
+	private final int maxSizeInBytes;
+
 	public ThumbnailCache(int capacityInBytes) {
 		this.maxSizeInBytes = capacityInBytes;
-	}
-
-	public void clear() {
-		lruMap.clear();
-		bytes = 0;
-	}
-
-	public ThumbnailCache.CacheEntry remove(File file) {
-		LOG.debug("Removing thumnail for [{}]", file);
-		ThumbnailCache.CacheEntry result = lruMap.remove(file);
-		if (result != null) {
-			entryRemoved(result.thumb.imageData);
-		}
-		return result;
-	}
-
-	private void entryRemoved(ImageData data) {
-		bytes -= sizeof(data);
 	}
 
 	/**
@@ -87,13 +78,13 @@ class ThumbnailCache {
 		}
 	}
 
-	private static int sizeof(byte[] array) {
-		return array == null ? 0 : array.length;
+	public void clear() {
+		lruMap.clear();
+		bytes = 0;
 	}
 
-	private static int sizeof(ImageData image) {
-		/* TODO include meta-data? */
-		return sizeof(image.data) + sizeof(image.alphaData) + sizeof(image.maskData);
+	private void entryRemoved(ImageData data) {
+		bytes -= sizeof(data);
 	}
 
 	/**
@@ -124,6 +115,15 @@ class ThumbnailCache {
 		}
 	}
 
+	public ThumbnailCache.CacheEntry remove(File file) {
+		LOG.debug("Removing thumnail for [{}]", file);
+		ThumbnailCache.CacheEntry result = lruMap.remove(file);
+		if (result != null) {
+			entryRemoved(result.thumb.imageData);
+		}
+		return result;
+	}
+
 	@Override
 	public String toString() {
 		return String.format("%s - %s (of %s) used for %d images", getClass().getSimpleName(),
@@ -131,8 +131,8 @@ class ThumbnailCache {
 	}
 
 	private static class CacheEntry {
-		final long timestamp;
 		final Thumbnail thumb;
+		final long timestamp;
 
 		public CacheEntry(long timestamp, Thumbnail thumb) {
 			this.timestamp = timestamp;

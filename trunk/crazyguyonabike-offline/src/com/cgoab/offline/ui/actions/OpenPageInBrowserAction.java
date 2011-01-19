@@ -20,12 +20,25 @@ public class OpenPageInBrowserAction extends Action {
 
 	private static final Logger LOG = LoggerFactory.getLogger(OpenPageInBrowserAction.class);
 
+	private static String cgoabUrlForPage(int pageId) {
+		return "http://www.crazyguyonabike.com/doc/page/?page_id=" + pageId;
+	}
+
 	private final Shell shell;
 
 	public OpenPageInBrowserAction(Shell shell) {
 		super("Open in Browser");
 		this.shell = shell;
 		JournalSelectionService.getInstance().addListener(new JournalSelectionListener() {
+			@Override
+			public void journalClosed(Journal journal) {
+				setEnabled(false);
+			}
+
+			@Override
+			public void journalOpened(Journal journal) {
+			}
+
 			@Override
 			public void selectionChanged(Object newSelection, Object oldSelection) {
 				boolean enabled = false;
@@ -35,22 +48,10 @@ public class OpenPageInBrowserAction extends Action {
 				}
 				setEnabled(enabled);
 			}
-
-			@Override
-			public void journalOpened(Journal journal) {
-			}
-
-			@Override
-			public void journalClosed(Journal journal) {
-				setEnabled(false);
-			}
 		});
 	}
 
-	private static String cgoabUrlForPage(int pageId) {
-		return "http://www.crazyguyonabike.com/doc/page/?page_id=" + pageId;
-	}
-
+	@Override
 	public void run() {
 		try {
 			Page page = JournalSelectionService.getInstance().getSelectedPage();

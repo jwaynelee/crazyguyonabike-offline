@@ -21,7 +21,7 @@ import org.eclipse.swt.widgets.Shell;
 
 import com.cgoab.offline.model.Journal;
 import com.cgoab.offline.model.Page;
-import com.cgoab.offline.ui.ApplicationWindow;
+import com.cgoab.offline.ui.MainWindow;
 import com.cgoab.offline.ui.JournalSelectionService;
 import com.cgoab.offline.ui.JournalSelectionService.JournalSelectionListener;
 
@@ -37,6 +37,7 @@ public class DeletePageAction extends Action {
 		this.viewer = viewer;
 	}
 
+	@Override
 	public void run() {
 		List<Page> pagesToDelete = new ArrayList<Page>();
 		if (viewer.getSelection() instanceof IStructuredSelection) {
@@ -67,26 +68,16 @@ public class DeletePageAction extends Action {
 		OperationHistoryFactory.getOperationHistory().add(operation);
 	}
 
-	private static class PageAndIndex {
-		Page page;
-		int index;
-
-		public PageAndIndex(Page page, int index) {
-			this.page = page;
-			this.index = index;
-		}
-	}
-
 	private class DeleteOperation extends AbstractOperation {
-
-		private List<PageAndIndex> pagesToDelete;
 
 		private boolean closed;
 
 		private JournalSelectionListener listener = new JournalSelectionListener() {
 
 			@Override
-			public void selectionChanged(Object newSelection, Object oldSelection) {
+			public void journalClosed(Journal journal) {
+				closed = true;
+				JournalSelectionService.getInstance().removeListener(listener);
 			}
 
 			@Override
@@ -94,20 +85,30 @@ public class DeletePageAction extends Action {
 			}
 
 			@Override
-			public void journalClosed(Journal journal) {
-				closed = true;
-				JournalSelectionService.getInstance().removeListener(listener);
+			public void selectionChanged(Object newSelection, Object oldSelection) {
 			}
 		};
 
+		private List<PageAndIndex> pagesToDelete;
+
 		public DeleteOperation(List<Page> toDelete) {
 			super("delete page");
-			addContext(ApplicationWindow.APPLICATION_CONTEXT);
+			addContext(MainWindow.APPLICATION_CONTEXT);
 			this.pagesToDelete = new ArrayList<DeletePageAction.PageAndIndex>(toDelete.size());
 			for (Page page : toDelete) {
 				pagesToDelete.add(new PageAndIndex(page, -1));
 			}
 			JournalSelectionService.getInstance().addListener(listener);
+		}
+
+		@Override
+		public boolean canRedo() {
+			return !closed;
+		}
+
+		@Override
+		public boolean canUndo() {
+			return !closed;
 		}
 
 		@Override
@@ -124,16 +125,6 @@ public class DeletePageAction extends Action {
 			// viewer.setSelection(new
 			// StructuredSelection(previousPageOfFirstDeletedPage));
 			return Status.OK_STATUS;
-		}
-
-		@Override
-		public boolean canRedo() {
-			return !closed;
-		}
-
-		@Override
-		public boolean canUndo() {
-			return !closed;
 		}
 
 		@Override
@@ -158,6 +149,16 @@ public class DeletePageAction extends Action {
 			}
 			viewer.setSelection(new StructuredSelection(selection));
 			return Status.OK_STATUS;
+		}
+	}
+
+	private static class PageAndIndex {
+		int index;
+		Page page;
+
+		public PageAndIndex(Page page, int index) {
+			this.page = page;
+			this.index = index;
 		}
 	}
 }

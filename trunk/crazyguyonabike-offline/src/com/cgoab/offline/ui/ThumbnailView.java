@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.text.Document;
 import org.eclipse.jface.text.IDocument;
 import org.eclipse.jface.text.ITextListener;
@@ -93,17 +94,11 @@ public class ThumbnailView {
 		return false;
 	}
 
+	private MainWindow application;
 	private Button btnSortByName;
 	private Button btnSortManual;
 	private Listener btnSortSelectionListener;
 	private TextViewer captionText;
-	private TextViewerUndoManager undoManager = new TextViewerUndoManager(20);
-
-	/**
-	 * Cache a few undo stacks maintained, otherwise caption history will be
-	 * lost when another image is selected (and new document bound).
-	 */
-	private DocumentUndoCache undoCache = new DocumentUndoCache(3);
 
 	private Page currentPage;
 
@@ -128,10 +123,15 @@ public class ThumbnailView {
 	private CachingThumbnailProviderFactory thumbnailFactory;
 
 	private ThumbnailViewer thumbViewer;
-	private ApplicationWindow application;
 
-	public ThumbnailView(final ApplicationWindow application,
-			final ImageMagickResizerServiceFactory resizerServiceFactory,
+	/**
+	 * Cache a few undo stacks maintained, otherwise caption history will be
+	 * lost when another image is selected (and new document bound).
+	 */
+	private DocumentUndoCache undoCache = new DocumentUndoCache(3);
+	private TextViewerUndoManager undoManager = new TextViewerUndoManager(20);
+
+	public ThumbnailView(final MainWindow application, final ImageMagickResizerServiceFactory resizerServiceFactory,
 			CachingThumbnailProviderFactory thumbnailProvider) {
 		this.resizerServiceFactory = resizerServiceFactory;
 		this.thumbnailFactory = thumbnailProvider;
@@ -264,14 +264,13 @@ public class ThumbnailView {
 		/* before refresh, ask if EXIF thumbnails should be used */
 		Journal journal = currentPage.getJournal();
 		if (journal.isUseExifThumbnail() == null) {
-			MessageBox box = new MessageBox(shell, SWT.ICON_QUESTION | SWT.YES | SWT.NO);
-			box.setText("Use embedded thumnails?");
-			box.setMessage("Do you want to use embedded JPEG thumbnails if available?\n\n"
-					+ "Embedded thumnbails load quicker but may be of poor quality. If you"
-					+ " don't use them a new thumbnail will be created for each photo, "
-					+ "providing crisper thumbnails but taking longer to load.");
 			/* TODO this will trigger a refresh, supress if slow? */
-			journal.setUseExifThumbnail(box.open() == SWT.YES);
+			journal.setUseExifThumbnail(MessageDialog.openQuestion(shell, "Use embedded thumnails?",
+					"Do you want to use embedded JPEG thumbnails if available?\n\n"
+							+ "Embedded thumnbails load quicker but may be of poor quality. If you"
+							+ " don't use them a new thumbnail will be created for each photo, "
+							+ "providing crisper thumbnails but taking longer to load."));
+
 		}
 
 		thumbViewer.refresh();
@@ -279,26 +278,15 @@ public class ThumbnailView {
 
 		Boolean resize = journal.isResizeImagesBeforeUpload();
 		if (resize == null) {
-			MessageBox box = new MessageBox(shell, SWT.ICON_QUESTION | SWT.YES | SWT.NO | SWT.CANCEL);
-			box.setText("Resize photos?");
-			box.setMessage("Do you want photos added to this journal to be resized before they are uploaded to reduce upload time?");
-			switch (box.open()) {
-			case SWT.YES:
-				resize = Boolean.TRUE;
-				break;
-			case SWT.NO:
-				resize = Boolean.FALSE;
-				break;
+			resize = MessageDialog
+					.openQuestion(shell, "Resize photos?",
+							"Do you want photos added to this journal to be resized before they are uploaded to reduce upload time?");
+			if (resize) {
+				/* if fail to start the resizer, disable and don't ask again */
+				resize = registerResizer(journal, false);
 			}
+			journal.setResizeImagesBeforeUpload(resize);
 
-			if (resize != null) {
-				if (resize == Boolean.TRUE) {
-					if (!registerResizer(journal, false)) {
-						return;
-					}
-				}
-				journal.setResizeImagesBeforeUpload(resize);
-			}
 		}
 	}
 
@@ -449,6 +437,21 @@ public class ThumbnailView {
 		bindControls();
 	}
 
+	private ResizerService createResizer(Journal journal, boolean quiet) {
+		try {
+			return resizerServiceFactory.createResizerFor(journal);
+		} catch (MagicNotAvailableException e) {
+			LOG.info("Failed to start photo reszier", e);
+			if (!quiet) {
+				MessageBox error = new MessageBox(shell, SWT.ICON_ERROR | SWT.OK);
+				error.setText("Error");
+				error.setMessage("Failed to start photo resizer:\n\n" + e.getMessage());
+				error.open();
+			}
+			return null;
+		}
+	}
+
 	protected void displayPage(Page pageToShow) {
 		bindModelToUI(pageToShow);
 	}
@@ -474,21 +477,14 @@ public class ThumbnailView {
 		return thumbViewer;
 	}
 
-	private ResizerService createResizer(Journal journal, boolean quiet) {
-		try {
-			return resizerServiceFactory.createResizerFor(journal);
-		} catch (MagicNotAvailableException e) {
-			LOG.info("Failed to start photo reszier", e);
-			if (!quiet) {
-				MessageBox error = new MessageBox(shell, SWT.ICON_ERROR | SWT.OK);
-				error.setText("Error");
-				error.setMessage("Failed to start photo resizer:\n\n" + e.getMessage());
-				error.open();
-			}
-			return null;
-		}
-	}
-
+	/**
+	 * Registers the resizer, returns <tt>true</tt> if sucess, <tt>false</tt>
+	 * otherwise.
+	 * 
+	 * @param journal
+	 * @param quiet
+	 * @return
+	 */
 	public boolean registerResizer(Journal journal, boolean quiet) {
 		Assert.isNull(journal.getData(RESIZE_LISTENER_KEY));
 		Assert.isNull(journal.getData(ResizerService.KEY));
@@ -523,6 +519,7 @@ public class ThumbnailView {
 				resizer.resizeAll(photos);
 			}
 
+			@Override
 			public void photosRemoved(List<Photo> photos, Page page) {
 				resizer.removeAll(photos); // TODO remove from cache?
 			}
@@ -724,7 +721,7 @@ public class ThumbnailView {
 					// 0 or > 1
 					captionText.setDocument(new Document(""));
 					captionText.getTextWidget().setEnabled(false);
-					application.setCurrentUndoContext(ApplicationWindow.APPLICATION_CONTEXT);
+					application.setCurrentUndoContext(MainWindow.APPLICATION_CONTEXT);
 				}
 			} finally {
 				currentPage = p;

@@ -29,6 +29,8 @@ public class ThumbnailHolder {
 	private final int height = ThumbnailViewer.THUMBNAIL_HEIGHT + ThumbnailViewer.PADDING_INSIDE
 			+ ThumbnailViewer.TEXT_HEIGHT;
 
+	private Image image;
+
 	private int opacity;
 
 	private Image overlay;
@@ -40,8 +42,6 @@ public class ThumbnailHolder {
 
 	// absolute x location of this widget
 	private int x;
-
-	private Image image;
 
 	public ThumbnailHolder(File file, String txt) {
 		this.file = file;
@@ -78,6 +78,11 @@ public class ThumbnailHolder {
 	public int getHeight() {
 		throwIfDisposed();
 		return height;
+	}
+
+	public Image getImage() {
+		throwIfDisposed();
+		return image;
 	}
 
 	public int getOpacity() {
@@ -141,6 +146,11 @@ public class ThumbnailHolder {
 		this.future = future;
 	}
 
+	public void setImage(Image image) {
+		throwIfDisposed();
+		this.image = image;
+	}
+
 	public void setOpacity(int opacity) {
 		throwIfDisposed();
 		this.opacity = opacity;
@@ -171,15 +181,5 @@ public class ThumbnailHolder {
 	@Override
 	public String toString() {
 		return file.getName();
-	}
-
-	public void setImage(Image image) {
-		throwIfDisposed();
-		this.image = image;
-	}
-
-	public Image getImage() {
-		throwIfDisposed();
-		return image;
 	}
 }

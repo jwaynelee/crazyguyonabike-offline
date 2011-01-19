@@ -46,25 +46,25 @@ import com.drew.metadata.jpeg.JpegDirectory;
  */
 public class CachingThumbnailProvider implements ThumbnailProvider, FutureCompletionListener<Thumbnail> {
 
-	private static final String THUMBNAIL_EXTENSION = ".png";
-
 	private static Logger LOG = LoggerFactory.getLogger(ThumbnailProvider.class);
 
-	private boolean useExifThumbnail = true;
-
-	private final File cacheDirectory;
+	private static final String THUMBNAIL_EXTENSION = ".png";
 
 	private final ThumbnailCache cache;
 
-	private final ExecutorService executor;
+	private final File cacheDirectory;
 
 	private final Display display;
 
-	private final Map<File, Future<Thumbnail>> tasks = new HashMap<File, Future<Thumbnail>>();
+	private final ExecutorService executor;
+
+	private final List<JobListener> listeners = new ArrayList<JobListener>();
 
 	private final ResizeStrategy resizer;
 
-	private final List<JobListener> listeners = new ArrayList<JobListener>();
+	private final Map<File, Future<Thumbnail>> tasks = new HashMap<File, Future<Thumbnail>>();
+
+	private boolean useExifThumbnail = true;
 
 	public CachingThumbnailProvider(ExecutorService executor, File cacheDirectory, Display display,
 			ResizeStrategy resizer) {
@@ -78,52 +78,14 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 		}
 		this.executor = executor;
 		this.display = display;
-		this.cache = new ThumbnailCache(16 * 1024 * 1024); // ~16mb
+		this.cache = new ThumbnailCache(16 * 1024 * 1024); // 16mb
 		this.resizer = resizer;
-	}
-
-	File getNameInCache(File source) {
-		String name = source.getName();
-		int id = name.lastIndexOf(".");
-		if (id > 0) {
-			// remove ".jpeg" or ".jpg"
-			name = name.substring(0, id);
-		}
-		return new File(cacheDirectory + File.separator + name + THUMBNAIL_EXTENSION);
 	}
 
 	public void addJobListener(JobListener listener) {
 		if (!listeners.contains(listener)) {
 			listeners.add(listener);
 		}
-	}
-
-	public void removeJobListener(JobListener listener) {
-		listeners.remove(listener);
-	}
-
-	public long purge() {
-		SWTUtils.assertOnUIThread();
-		long bytesDeleted = 0;
-		for (File f : cacheDirectory.listFiles()) {
-			if (f.getName().endsWith(THUMBNAIL_EXTENSION)) {
-				bytesDeleted += f.length();
-				if (!f.delete()) {
-					LOG.debug("Failed to delete {} from file cache", f.getName());
-				}
-			}
-		}
-		cache.clear();
-		return bytesDeleted;
-	}
-
-	public boolean isUseExifThumbnail() {
-		return useExifThumbnail;
-	}
-
-	public void setUseExifThumbnail(boolean useExif) {
-		useExifThumbnail = useExif;
-		cache.clear();// AllFrom(source);
 	}
 
 	/**
@@ -142,6 +104,12 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 		cache.clear();
 	}
 
+	private void fireStatusChanged() {
+		for (JobListener listener : listeners) {
+			listener.update(tasks.size());
+		}
+	}
+
 	@Override
 	public Future<Thumbnail> get(File source, FutureCompletionListener<Thumbnail> listener, Object data) {
 		SWTUtils.assertOnUIThread();
@@ -155,7 +123,12 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 			if (f.exists()) {
 				f.delete();
 			}
-			return new CompletedFuture<Thumbnail>(null, new FileNotFoundException(source.getAbsolutePath()));
+			CompletedFuture<Thumbnail> result = new CompletedFuture<Thumbnail>(null, new FileNotFoundException(
+					source.getAbsolutePath()));
+			if (listener != null) {
+				listener.onCompletion(result, data);
+			}
+			return result;
 		}
 
 		// 1) check in-memory cache
@@ -179,22 +152,18 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 		return future;
 	}
 
-	private static class CallbackHolder {
-		final File source;
-		final FutureCompletionListener<Thumbnail> listener;
-		final Object data;
-
-		public CallbackHolder(File source, FutureCompletionListener<Thumbnail> callback, Object data) {
-			this.source = source;
-			this.listener = callback;
-			this.data = data;
+	File getNameInCache(File source) {
+		String name = source.getName();
+		int id = name.lastIndexOf(".");
+		if (id > 0) {
+			// remove ".jpeg" or ".jpg"
+			name = name.substring(0, id);
 		}
+		return new File(cacheDirectory + File.separator + name + THUMBNAIL_EXTENSION);
 	}
 
-	private void fireStatusChanged() {
-		for (JobListener listener : listeners) {
-			listener.update(tasks.size());
-		}
+	public boolean isUseExifThumbnail() {
+		return useExifThumbnail;
 	}
 
 	@Override
@@ -236,13 +205,22 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 		});
 	}
 
-	// private void put(Object name, ImageData data) {
-	// ImageLoader saver = new ImageLoader();
-	// saver.data = new ImageData[] { data };
-	// File image = createFileName(extractSourceFileName(name));
-	// saver.save(image.getAbsolutePath(), SWT.IMAGE_JPEG);
-	// }
+	public long purge() {
+		SWTUtils.assertOnUIThread();
+		long bytesDeleted = 0;
+		for (File f : cacheDirectory.listFiles()) {
+			if (f.getName().endsWith(THUMBNAIL_EXTENSION)) {
+				bytesDeleted += f.length();
+				if (!f.delete()) {
+					LOG.debug("Failed to delete {} from file cache", f.getName());
+				}
+			}
+		}
+		cache.clear();
+		return bytesDeleted;
+	}
 
+	@Override
 	public void remove(File source) {
 		SWTUtils.assertOnUIThread();
 
@@ -264,12 +242,40 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 		}
 	}
 
+	public void removeJobListener(JobListener listener) {
+		listeners.remove(listener);
+	}
+
+	public void setUseExifThumbnail(boolean useExif) {
+		useExifThumbnail = useExif;
+		cache.clear();// AllFrom(source);
+	}
+
+	// private void put(Object name, ImageData data) {
+	// ImageLoader saver = new ImageLoader();
+	// saver.data = new ImageData[] { data };
+	// File image = createFileName(extractSourceFileName(name));
+	// saver.save(image.getAbsolutePath(), SWT.IMAGE_JPEG);
+	// }
+
+	private static class CallbackHolder {
+		final Object data;
+		final FutureCompletionListener<Thumbnail> listener;
+		final File source;
+
+		public CallbackHolder(File source, FutureCompletionListener<Thumbnail> callback, Object data) {
+			this.source = source;
+			this.listener = callback;
+			this.data = data;
+		}
+	}
+
 	private class GetThumbnailTask extends ListenableCancellableTask<Thumbnail> {
 		private File destination;
-		private File source;
-		private ResizeStrategy resizer;
-		private int interpolationLevel = SWT.HIGH;
 		private Display display;
+		private int interpolationLevel = SWT.HIGH;
+		private ResizeStrategy resizer;
+		private File source;
 		private long timeTaken;
 
 		public GetThumbnailTask(File source, File destination, ResizeStrategy resizer, int interpolationLevel,
@@ -296,15 +302,6 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 				timeTaken = System.currentTimeMillis() - start;
 				LOG.info("Task finished in {}ms", timeTaken);
 			}
-		}
-
-		private Metadata loadMeta() {
-			try {
-				return JpegMetadataReader.readMetadata(source);
-			} catch (JpegProcessingException e) {
-				LOG.warn("Failed to load meta-data for [" + source.getName() + "]", e);
-			}
-			return null;
 		}
 
 		protected ImageData createThumbnail(int rotate) {
@@ -334,10 +331,6 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 			thumbnail.dispose();
 			gc.dispose();
 			return data;
-		}
-
-		private Point swapXAndY(Point p) {
-			return new Point(p.y, p.x);
 		}
 
 		private int detectRotation(Metadata meta) {
@@ -370,24 +363,6 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 			}
 
 			return SWT.NONE;
-		}
-
-		private ImageData getThumbFromMeta(Metadata meta) {
-			if (!meta.containsDirectory(ExifDirectory.class)) {
-				return null;
-			}
-			ExifDirectory exif = (ExifDirectory) meta.getDirectory(ExifDirectory.class);
-			try {
-				ImageData data = new ImageData(new ByteArrayInputStream(exif.getThumbnailData()));
-				LOG.debug("Found EXIF thumbnail with dimensions {}x{} in '{}'", new Object[] { data.width, data.height,
-						source.getName() });
-				return data;
-			} catch (SWTException e) {
-				LOG.warn("Failed to create image from EXIF thumbnail from '" + source.getName() + "'", e);
-			} catch (MetadataException e) {
-				LOG.warn("Failed to extract EXIF thumbnail from '" + source.getName() + "'", e);
-			}
-			return null;
 		}
 
 		public Thumbnail doCall() {
@@ -440,6 +415,33 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 			return result;
 		}
 
+		private ImageData getThumbFromMeta(Metadata meta) {
+			if (!meta.containsDirectory(ExifDirectory.class)) {
+				return null;
+			}
+			ExifDirectory exif = (ExifDirectory) meta.getDirectory(ExifDirectory.class);
+			try {
+				ImageData data = new ImageData(new ByteArrayInputStream(exif.getThumbnailData()));
+				LOG.debug("Found EXIF thumbnail with dimensions {}x{} in '{}'", new Object[] { data.width, data.height,
+						source.getName() });
+				return data;
+			} catch (SWTException e) {
+				LOG.warn("Failed to create image from EXIF thumbnail from '" + source.getName() + "'", e);
+			} catch (MetadataException e) {
+				LOG.warn("Failed to extract EXIF thumbnail from '" + source.getName() + "'", e);
+			}
+			return null;
+		}
+
+		private Metadata loadMeta() {
+			try {
+				return JpegMetadataReader.readMetadata(source);
+			} catch (JpegProcessingException e) {
+				LOG.warn("Failed to load meta-data for [" + source.getName() + "]", e);
+			}
+			return null;
+		}
+
 		private ImageData resizeThumbnailFromExif(ImageData exifThumbData, Metadata meta, int rotation)
 				throws MetadataException {
 			// resize & rotate using actual photo dimensions
@@ -465,11 +467,11 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 			int marginX;
 			int marginY;
 			if (rotation == SWT.LEFT || rotation == SWT.RIGHT) {
-				float expectedThumbWidth = (float) currentThumbSize.y * sourceAspect;
+				float expectedThumbWidth = currentThumbSize.y * sourceAspect;
 				marginX = Math.round((currentThumbSize.x - expectedThumbWidth) / 2);
 				marginY = 0;
 			} else {
-				float expectedThumbHeight = (float) currentThumbSize.x / sourceAspect;
+				float expectedThumbHeight = currentThumbSize.x / sourceAspect;
 				marginX = 0;
 				marginY = Math.round((currentThumbSize.y - expectedThumbHeight) / 2); // centre
 			}
@@ -492,6 +494,10 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 				if (gc != null)
 					gc.dispose();
 			}
+		}
+
+		private Point swapXAndY(Point p) {
+			return new Point(p.y, p.x);
 		}
 
 		@Override

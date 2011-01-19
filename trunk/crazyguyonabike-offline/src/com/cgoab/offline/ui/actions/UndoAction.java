@@ -9,15 +9,35 @@ import org.eclipse.core.commands.operations.OperationHistoryFactory;
 import org.eclipse.jface.action.Action;
 import org.eclipse.swt.SWT;
 
-import com.cgoab.offline.ui.ApplicationWindow;
-import com.cgoab.offline.ui.ApplicationWindow.ContextChangedListener;
+import com.cgoab.offline.ui.MainWindow;
+import com.cgoab.offline.ui.MainWindow.ContextChangedListener;
 
 public class UndoAction extends Action {
 	private static final String name = "Undo";
+	private final MainWindow application;
 	private final IOperationHistory history = OperationHistoryFactory.getOperationHistory();
-	private final ApplicationWindow application;
 
 	private final Listener listener = new Listener();
+
+	public UndoAction(final MainWindow application) {
+		super(name);
+		setAccelerator(SWT.MOD1 + 'Z');
+		this.application = application;
+		setEnabled(false);
+
+		/* enable when history appears for current operation */
+		history.addOperationHistoryListener(listener);
+		application.addUndoContextChangedListener(listener);
+	}
+
+	@Override
+	public void run() {
+		try {
+			history.undo(application.getCurrentOperationContext(), null, null);
+		} catch (ExecutionException e1) {
+			e1.printStackTrace();
+		}
+	}
 
 	private class Listener implements IOperationHistoryListener, ContextChangedListener {
 
@@ -40,26 +60,6 @@ public class UndoAction extends Action {
 				setEnabled(false);
 				setText(name);
 			}
-		}
-	}
-
-	public UndoAction(final ApplicationWindow application) {
-		super(name);
-		setAccelerator(SWT.MOD1 + 'Z');
-		this.application = application;
-		setEnabled(false);
-
-		/* enable when history appears for current operation */
-		history.addOperationHistoryListener(listener);
-		application.addUndoContextChangedListener(listener);
-	}
-
-	@Override
-	public void run() {
-		try {
-			history.undo(application.getCurrentOperationContext(), null, null);
-		} catch (ExecutionException e1) {
-			e1.printStackTrace();
 		}
 	}
 }

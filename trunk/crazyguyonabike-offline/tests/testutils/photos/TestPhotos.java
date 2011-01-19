@@ -5,14 +5,22 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
-import com.cgoab.offline.util.Assert;
+import testutils.TestUtils;
 
 public class TestPhotos {
-	public static File getPhotoAsTempFile() throws IOException {
-		String image = "P1190024.JPG";
-		File source = File.createTempFile("photo", null);
-		copyToTempFile(source, TestPhotos.class.getResourceAsStream(image));
-		return source;
+
+	public static File extractSmallPhoto() throws IOException {
+		return extractPhoto("P1050073.jpg", TestPhotos.class);
+	}
+
+	public static File extractLargePhoto() throws IOException {
+		return extractPhoto("P1190024.JPG", TestPhotos.class);
+	}
+
+	public static File extractPhoto(String name, Class<?> bias) throws IOException {
+		File f = new File(TestUtils.createTempFileName(name));
+		copyToTempFile(f, bias.getResourceAsStream(name));
+		return f;
 	}
 
 	public static void copyToTempFile(File file, InputStream in) throws IOException {
@@ -26,11 +34,4 @@ public class TestPhotos {
 		fos.close();
 	}
 
-	public static File createTempFileName(File source) {
-		String tmpDir = System.getProperty("java.io.tmpdir");
-		Assert.notNull(tmpDir);
-		File f = new File(tmpDir + File.separator + System.currentTimeMillis() + "_" + source.getName());
-		Assert.isTrue(!f.exists());
-		return f;
-	}
 }

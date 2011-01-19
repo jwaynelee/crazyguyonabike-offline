@@ -7,8 +7,8 @@ import java.util.concurrent.TimeoutException;
 
 public class CompletedFuture<T> implements Future<T> {
 
-	private T result;
 	private Throwable exception;
+	private T result;
 
 	public CompletedFuture(T result, Throwable exception) {
 		this.result = result;
@@ -18,16 +18,6 @@ public class CompletedFuture<T> implements Future<T> {
 	@Override
 	public boolean cancel(boolean mayInterruptIfRunning) {
 		return false;
-	}
-
-	@Override
-	public boolean isCancelled() {
-		return false;
-	}
-
-	@Override
-	public boolean isDone() {
-		return true;
 	}
 
 	@Override
@@ -41,5 +31,15 @@ public class CompletedFuture<T> implements Future<T> {
 	@Override
 	public T get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
 		return get();
+	}
+
+	@Override
+	public boolean isCancelled() {
+		return false;
+	}
+
+	@Override
+	public boolean isDone() {
+		return true;
 	}
 }

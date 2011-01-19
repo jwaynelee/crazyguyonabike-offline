@@ -13,6 +13,8 @@ public abstract class UploadClientFactory {
 		return port;
 	}
 
+	public abstract UploadClient newClient();
+
 	public void setHost(String host) {
 		this.host = host;
 	}
@@ -20,6 +22,4 @@ public abstract class UploadClientFactory {
 	public void setPort(int port) {
 		this.port = port;
 	}
-
-	public abstract UploadClient newClient();
 }

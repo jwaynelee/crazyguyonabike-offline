@@ -37,20 +37,13 @@ import com.cgoab.offline.ui.JournalSelectionService.JournalSelectionListener;
 
 public class JournalViewer {
 
+	MainWindow editor;
+
 	private TreeViewer treeViewer;
 
-	ApplicationWindow editor;
-
-	public JournalViewer(ApplicationWindow editor) {
+	public JournalViewer(MainWindow editor) {
 		this.editor = editor;
 		JournalSelectionService.getInstance().addListener(new JournalSelectionListener() {
-
-			PropertyChangeListener updateLabelListener = new PropertyChangeListener() {
-				@Override
-				public void propertyChange(PropertyChangeEvent evt) {
-					treeViewer.update(evt.getSource(), new String[] { evt.getPropertyName() });
-				}
-			};
 
 			PropertyChangeListener hideUploadedChangeListener = new PropertyChangeListener() {
 				@Override
@@ -61,14 +54,17 @@ public class JournalViewer {
 				}
 			};
 
+			PropertyChangeListener updateLabelListener = new PropertyChangeListener() {
+				@Override
+				public void propertyChange(PropertyChangeEvent evt) {
+					treeViewer.update(evt.getSource(), new String[] { evt.getPropertyName() });
+				}
+			};
+
 			@Override
-			public void selectionChanged(Object newSelection, Object oldSelection) {
-				if (newSelection instanceof Page) {
-					((Page) newSelection).addPropertyChangeListener(updateLabelListener);
-				}
-				if (oldSelection instanceof Page) {
-					((Page) oldSelection).removePropertyChangeListener(updateLabelListener);
-				}
+			public void journalClosed(Journal journal) {
+				treeViewer.setInput(null);
+				journal.removePropertyChangeListener(hideUploadedChangeListener);
 			}
 
 			@Override
@@ -94,9 +90,13 @@ public class JournalViewer {
 			}
 
 			@Override
-			public void journalClosed(Journal journal) {
-				treeViewer.setInput(null);
-				journal.removePropertyChangeListener(hideUploadedChangeListener);
+			public void selectionChanged(Object newSelection, Object oldSelection) {
+				if (newSelection instanceof Page) {
+					((Page) newSelection).addPropertyChangeListener(updateLabelListener);
+				}
+				if (oldSelection instanceof Page) {
+					((Page) oldSelection).removePropertyChangeListener(updateLabelListener);
+				}
 			}
 		});
 	}
@@ -122,14 +122,14 @@ public class JournalViewer {
 		editors[0] = new TextCellEditor(treeViewer.getTree());
 		treeViewer.getTree().addKeyListener(new KeyListener() {
 			@Override
+			public void keyPressed(KeyEvent e) {
+			}
+
+			@Override
 			public void keyReleased(KeyEvent e) {
 				if (e.keyCode == SWT.DEL) {
 					editor.deletePageAction.run();
 				}
-			}
-
-			@Override
-			public void keyPressed(KeyEvent e) {
 			}
 		});
 		treeViewer.setColumnProperties(new String[] {});
@@ -137,12 +137,12 @@ public class JournalViewer {
 		treeViewer.getTree().addFocusListener(new FocusListener() {
 
 			@Override
-			public void focusLost(FocusEvent e) {
+			public void focusGained(FocusEvent e) {
+				editor.setCurrentUndoContext(MainWindow.APPLICATION_CONTEXT);
 			}
 
 			@Override
-			public void focusGained(FocusEvent e) {
-				editor.setCurrentUndoContext(ApplicationWindow.APPLICATION_CONTEXT);
+			public void focusLost(FocusEvent e) {
 			}
 		});
 		treeViewer.addFilter(new ViewerFilter() {
@@ -181,15 +181,6 @@ public class JournalViewer {
 				}
 			}
 		});
-
-		// treeViewer.getTree().addKeyListener(new KeyAdapter() {
-		// @Override
-		// public void keyPressed(KeyEvent e) {
-		// if (e.keyCode == SWT.DEL) {
-		// deletePageAction.run();
-		// }
-		// }
-		// });
 
 		treeViewer.setColumnProperties(new String[] { "name" });
 		treeViewer.setContentProvider(new JournalContentProvider());

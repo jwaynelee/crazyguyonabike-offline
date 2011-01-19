@@ -9,14 +9,32 @@ import org.eclipse.core.commands.operations.OperationHistoryFactory;
 import org.eclipse.jface.action.Action;
 import org.eclipse.swt.SWT;
 
-import com.cgoab.offline.ui.ApplicationWindow;
-import com.cgoab.offline.ui.ApplicationWindow.ContextChangedListener;
+import com.cgoab.offline.ui.MainWindow;
+import com.cgoab.offline.ui.MainWindow.ContextChangedListener;
 
 public class RedoAction extends Action {
 	private static final String name = "Redo";
+	private final MainWindow application;
 	private final IOperationHistory history = OperationHistoryFactory.getOperationHistory();
-	private final ApplicationWindow application;
 	private final Listener listener = new Listener();
+
+	public RedoAction(final MainWindow application) {
+		super(name);
+		setAccelerator(SWT.MOD1 + 'Y');
+		this.application = application;
+		setEnabled(false);
+		history.addOperationHistoryListener(listener);
+		application.addUndoContextChangedListener(listener);
+	}
+
+	@Override
+	public void run() {
+		try {
+			history.redo(application.getCurrentOperationContext(), null, null);
+		} catch (ExecutionException e1) {
+			e1.printStackTrace();
+		}
+	}
 
 	private class Listener implements IOperationHistoryListener, ContextChangedListener {
 
@@ -39,24 +57,6 @@ public class RedoAction extends Action {
 				setEnabled(false);
 				setText(name);
 			}
-		}
-	}
-
-	public RedoAction(final ApplicationWindow application) {
-		super(name);
-		setAccelerator(SWT.MOD1 + 'Y');
-		this.application = application;
-		setEnabled(false);
-		history.addOperationHistoryListener(listener);
-		application.addUndoContextChangedListener(listener);
-	}
-
-	@Override
-	public void run() {
-		try {
-			history.redo(application.getCurrentOperationContext(), null, null);
-		} catch (ExecutionException e1) {
-			e1.printStackTrace();
 		}
 	}
 }

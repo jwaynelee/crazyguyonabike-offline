@@ -13,63 +13,16 @@ public class Photo {
 
 	private File file;
 
-	private UploadState state = UploadState.NEW;
-
 	/* transient, not persisted */
 	private File resizedPhotoFile;
+
+	private UploadState state = UploadState.NEW;
 
 	public Photo() {
 	}
 
 	public Photo(File file) {
 		setFile(file);
-	}
-
-	public String getCaption() {
-		return captionDocument == null ? null : captionDocument.get();
-	}
-
-	public IDocument getOrCreateCaptionDocument() {
-		return captionDocument == null ? (captionDocument = new Document()) : captionDocument;
-	}
-
-	public UploadState getState() {
-		return state;
-	}
-
-	public void setState(UploadState state) {
-		Assert.isTrue(state != UploadState.PARTIALLY_UPLOAD);
-		this.state = state;
-	}
-
-	public File getFile() {
-		return file;
-	}
-
-	// public String getImageName() {
-	// return imageName;
-	// }
-
-	public void setCaption(String caption) {
-		getOrCreateCaptionDocument().set(caption);
-	}
-
-	public void setFile(File file) {
-		this.file = file;
-	}
-
-	// public void setImageName(String imageName) {
-	// this.imageName = imageName;
-	// }
-
-	@Override
-	public String toString() {
-		return String.format("Photo [%s]", file.getName());
-	}
-
-	@Override
-	public int hashCode() {
-		return file.getName().hashCode();
 	}
 
 	/**
@@ -83,11 +36,58 @@ public class Photo {
 		return false;
 	}
 
-	public void setResizedPhotoFile(File resizedPhotoFile) {
-		this.resizedPhotoFile = resizedPhotoFile;
+	public String getCaption() {
+		return captionDocument == null ? null : captionDocument.get();
+	}
+
+	public File getFile() {
+		return file;
+	}
+
+	public IDocument getOrCreateCaptionDocument() {
+		return captionDocument == null ? (captionDocument = new Document()) : captionDocument;
 	}
 
 	public File getResizedPhoto() {
 		return resizedPhotoFile;
+	}
+
+	// public String getImageName() {
+	// return imageName;
+	// }
+
+	public UploadState getState() {
+		return state;
+	}
+
+	@Override
+	public int hashCode() {
+		return file.getName().hashCode();
+	}
+
+	// public void setImageName(String imageName) {
+	// this.imageName = imageName;
+	// }
+
+	public void setCaption(String caption) {
+		getOrCreateCaptionDocument().set(caption);
+	}
+
+	public void setFile(File file) {
+		this.file = file;
+	}
+
+	public void setResizedPhotoFile(File resizedPhotoFile) {
+		this.resizedPhotoFile = resizedPhotoFile;
+	}
+
+	public void setState(UploadState state) {
+		Assert.isTrue(state != UploadState.PARTIALLY_UPLOAD);
+		this.state = state;
+	}
+
+	@Override
+	public String toString() {
+		return String.format("Photo [%s]", file.getName());
 	}
 }

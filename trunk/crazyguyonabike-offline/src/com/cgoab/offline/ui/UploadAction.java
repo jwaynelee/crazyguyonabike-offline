@@ -26,9 +26,9 @@ import com.cgoab.offline.util.resizer.ResizerService;
  */
 public class UploadAction extends Action {
 
-	private Shell shell;
-	private Preferences preferences;
 	private UploadClientFactory factory;
+	private Preferences preferences;
+	private Shell shell;
 	private ThumbnailViewer thumbnails;
 	private TreeViewer tree;
 
@@ -39,12 +39,25 @@ public class UploadAction extends Action {
 		this.tree = tree;
 	}
 
-	public void setUploadFactory(UploadClientFactory factory) {
-		this.factory = factory;
-	}
+	public void afterUpload(Page errorPage, Photo errorPhoto) {
+		/* refresh to get new labels (updated/error) */
+		tree.refresh();
 
-	public void setPreferences(Preferences preferences) {
-		this.preferences = preferences;
+		if (errorPage == null) {
+			// TODO Fix displayPage(null);
+		} else {
+			// selection event triggers refresh of thumnail viewer
+			tree.setSelection(new StructuredSelection(errorPage), true);
+
+			if (errorPage == JournalSelectionService.getInstance().getSelectedPage()) {
+				// HACK: force refresh of thumbnail viewer
+				thumbnails.refresh();
+			}
+
+			if (errorPhoto != null) {
+				thumbnails.setSelection(new StructuredSelection(errorPhoto), true);
+			}
+		}
 	}
 
 	private UploadClient createClient(Journal journal) {
@@ -142,24 +155,11 @@ public class UploadAction extends Action {
 		}
 	}
 
-	public void afterUpload(Page errorPage, Photo errorPhoto) {
-		/* refresh to get new labels (updated/error) */
-		tree.refresh();
+	public void setPreferences(Preferences preferences) {
+		this.preferences = preferences;
+	}
 
-		if (errorPage == null) {
-			// TODO Fix displayPage(null);
-		} else {
-			// selection event triggers refresh of thumnail viewer
-			tree.setSelection(new StructuredSelection(errorPage), true);
-
-			if (errorPage == JournalSelectionService.getInstance().getSelectedPage()) {
-				// HACK: force refresh of thumbnail viewer
-				thumbnails.refresh();
-			}
-
-			if (errorPhoto != null) {
-				thumbnails.setSelection(new StructuredSelection(errorPhoto), true);
-			}
-		}
+	public void setUploadFactory(UploadClientFactory factory) {
+		this.factory = factory;
 	}
 }

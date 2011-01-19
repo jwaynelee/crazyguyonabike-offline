@@ -22,7 +22,7 @@ import org.slf4j.LoggerFactory;
 import com.cgoab.offline.client.UploadClientFactory;
 import com.cgoab.offline.client.web.DefaultWebUploadClientFactory;
 import com.cgoab.offline.client.web.FileCookieStore;
-import com.cgoab.offline.ui.ApplicationWindow;
+import com.cgoab.offline.ui.MainWindow;
 import com.cgoab.offline.ui.Preferences;
 import com.cgoab.offline.ui.thumbnailviewer.CachingThumbnailProviderFactory;
 import com.cgoab.offline.ui.thumbnailviewer.FitWithinResizeStrategy;
@@ -32,32 +32,17 @@ import com.cgoab.offline.ui.util.UIExecutor;
 import com.cgoab.offline.util.resizer.ImageMagickResizerServiceFactory;
 
 public class Application implements Runnable {
-	public static final File SETTINGS_DIR = new File(System.getProperty("user.home") + File.separator + ".cgoaboffline"
-			+ File.separator);
-	public static final ResizeStrategy THUMBNAIL_RESIZER = new FitWithinResizeStrategy(new Point(
-			ThumbnailViewer.THUMBNAIL_WIDTH, ThumbnailViewer.THUMBNAIL_HEIGHT));
-	private static final String LOG_FILE = "log.properties";
-	private static final String THUMNAILS_FOLDER = ".thumbnails";
-	private static final String RESIZED_FOLDER = ".resized";
 	private static final String COOKIES_FILE = "cookies";
 	public static final String CRAZYGUYONABIKE_HOST = "www.crazyguyonabike.com";
 	public static final int CRAZYGUYONABIKE_PORT = -1;
 	private static Logger LOG = LoggerFactory.getLogger(Application.class);
-	private Preferences preferences;
-	private CachingThumbnailProviderFactory thumbnailFactory;
-	private ImageMagickResizerServiceFactory resizerFactory;
-	private Display display;
-	private boolean configuredLogging;
-	private UploadClientFactory uploadFactory;
-
-	public void setThumbnailFactory(CachingThumbnailProviderFactory thumbnailFactory) {
-		this.thumbnailFactory = thumbnailFactory;
-	}
-
-	public void setResizerFactory(ImageMagickResizerServiceFactory resizerFactory) {
-		this.resizerFactory = resizerFactory;
-	}
-
+	private static final String LOG_FILE = "log.properties";
+	private static final String RESIZED_FOLDER = ".resized";
+	public static final File SETTINGS_DIR = new File(System.getProperty("user.home") + File.separator + ".cgoaboffline"
+			+ File.separator);
+	public static final ResizeStrategy THUMBNAIL_RESIZER = new FitWithinResizeStrategy(new Point(
+			ThumbnailViewer.THUMBNAIL_WIDTH, ThumbnailViewer.THUMBNAIL_HEIGHT));
+	private static final String THUMNAILS_FOLDER = ".thumbnails";
 	/**
 	 * Constructs a new application with default settings.
 	 * 
@@ -99,54 +84,21 @@ public class Application implements Runnable {
 		app.setPreferences(preferences);
 		return app;
 	}
-
-	private void setUploadFactory(UploadClientFactory uploadFactory) {
-		this.uploadFactory = uploadFactory;
-	}
-
-	public void setLogConfiguration(Properties logConfiguration) {
-		/* configure logging ASAP */
-		if (configuredLogging) {
-			LOG.warn("Logging already configured!");
-		}
-		PropertyConfigurator.configure(logConfiguration);
-		configuredLogging = true;
-	}
-
-	public void setDisplay(Display display) {
-		this.display = display;
-	}
-
-	public void setPreferences(Preferences preferences) {
-		this.preferences = preferences;
-	}
-
-	public void run() {
-		initLogging();
-		Shell shell = null;
+	public static void main(String[] args) {
 		try {
-			shell = new Shell(display);
-			ApplicationWindow editor = new ApplicationWindow(shell);
-			editor.setThumbnailProviderFactory(thumbnailFactory);
-			editor.setResizerServiceFactory(resizerFactory);
-			editor.setPreferences(preferences);
-			editor.setUploadFactory(uploadFactory);
-			editor.open();
-		} catch (Throwable t) {
-			LOG.error("Unhandled exception, application will terminate", t);
-		} finally {
-			if (resizerFactory != null) {
-				LOG.info("Disposing resizer factory");
-				resizerFactory.dispose();
-			}
-			if (thumbnailFactory != null) {
-				LOG.info("Disposing thumbnail factory");
-				thumbnailFactory.dispose();
-			}
-			preferences.save();
-			display.dispose();
+			defaultApplication().run();
+		} catch (Throwable e) {
+			e.printStackTrace();
 		}
 	}
+	private boolean configuredLogging;
+	private Display display;
+	private Preferences preferences;
+	private ImageMagickResizerServiceFactory resizerFactory;
+
+	private CachingThumbnailProviderFactory thumbnailFactory;
+
+	private UploadClientFactory uploadFactory;
 
 	private void initLogging() {
 		if (!configuredLogging) {
@@ -177,11 +129,60 @@ public class Application implements Runnable {
 		});
 	}
 
-	public static void main(String[] args) {
+	@Override
+	public void run() {
+		initLogging();
+		Shell shell = null;
 		try {
-			defaultApplication().run();
-		} catch (Throwable e) {
-			e.printStackTrace();
+			shell = new Shell(display);
+			MainWindow editor = new MainWindow();
+			editor.setThumbnailProviderFactory(thumbnailFactory);
+			editor.setResizerServiceFactory(resizerFactory);
+			editor.setPreferences(preferences);
+			editor.setUploadFactory(uploadFactory);
+			editor.open();
+		} catch (Throwable t) {
+			LOG.error("Unhandled exception, application will terminate", t);
+		} finally {
+			if (resizerFactory != null) {
+				LOG.info("Disposing resizer factory");
+				resizerFactory.dispose();
+			}
+			if (thumbnailFactory != null) {
+				LOG.info("Disposing thumbnail factory");
+				thumbnailFactory.dispose();
+			}
+			preferences.save();
+			display.dispose();
 		}
+	}
+
+	public void setDisplay(Display display) {
+		this.display = display;
+	}
+
+	public void setLogConfiguration(Properties logConfiguration) {
+		/* configure logging ASAP */
+		if (configuredLogging) {
+			LOG.warn("Logging already configured!");
+		}
+		PropertyConfigurator.configure(logConfiguration);
+		configuredLogging = true;
+	}
+
+	public void setPreferences(Preferences preferences) {
+		this.preferences = preferences;
+	}
+
+	public void setResizerFactory(ImageMagickResizerServiceFactory resizerFactory) {
+		this.resizerFactory = resizerFactory;
+	}
+
+	public void setThumbnailFactory(CachingThumbnailProviderFactory thumbnailFactory) {
+		this.thumbnailFactory = thumbnailFactory;
+	}
+
+	private void setUploadFactory(UploadClientFactory uploadFactory) {
+		this.uploadFactory = uploadFactory;
 	}
 }

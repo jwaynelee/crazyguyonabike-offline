@@ -2,6 +2,8 @@ package com.cgoab.offline.ui;
 
 import java.io.File;
 
+import org.eclipse.jface.dialogs.IDialogConstants;
+import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.dialogs.ProgressMonitorDialog;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.MessageBox;
@@ -16,12 +18,6 @@ import com.cgoab.offline.util.resizer.ResizerService;
 public class JournalUtils {
 
 	private static final Logger LOG = LoggerFactory.getLogger(JournalUtils.class);
-
-	private static void showError(String message, Shell shell) {
-		MessageBox box = new MessageBox(shell, SWT.ICON_ERROR | SWT.OK);
-		box.setMessage(message);
-		box.open();
-	}
 
 	/**
 	 * Opens a progress box and waits for completion of pending resize tasks.
@@ -59,29 +55,6 @@ public class JournalUtils {
 		}
 
 		JournalSelectionService.getInstance().setJournal(null);
-		return true;
-	}
-
-	/**
-	 * Prompts the user to save the given journal.
-	 * 
-	 * @param journal
-	 *            journal to save
-	 * @return <tt>false</tt> if the operation was cancelled.
-	 */
-	public static boolean promptAndSaveJournal(Journal journal, Shell shell) {
-		MessageBox box = new MessageBox(shell, SWT.ICON_WARNING | SWT.CANCEL | SWT.YES | SWT.NO);
-		box.setText("Confirm save");
-		box.setMessage("Save changes to [" + journal.getName() + "] before closing?");
-		switch (box.open()) {
-		case SWT.CANCEL:
-			return false;
-		case SWT.YES:
-			saveJournal(journal, false, shell);
-			break;
-		case SWT.NO:
-			// changes will be lost
-		}
 		return true;
 	}
 
@@ -137,6 +110,30 @@ public class JournalUtils {
 	}
 
 	/**
+	 * Prompts the user to save the given journal.
+	 * 
+	 * @param journal
+	 *            journal to save
+	 * @return <tt>false</tt> if the operation was cancelled.
+	 */
+	public static boolean promptAndSaveJournal(Journal journal, Shell shell) {
+		MessageDialog box = new MessageDialog(shell, "Confirm save", null, "Save changes to [" + journal.getName()
+				+ "] before closing?", MessageDialog.QUESTION_WITH_CANCEL, new String[] { IDialogConstants.YES_LABEL,
+				IDialogConstants.NO_LABEL, IDialogConstants.CANCEL_LABEL }, 0);
+		switch (box.open()) {
+		case 0: /* yes */
+			saveJournal(journal, false, shell);
+			break;
+		case 1: /* no */
+			// changes will be lost
+			break;
+		case 2: /* cancel */
+			return false;
+		}
+		return true;
+	}
+
+	/**
 	 * Saves the journal to disk, if <tt>silent</tt> failures will be suppressed
 	 * else an error box will pop up.
 	 * 
@@ -171,5 +168,11 @@ public class JournalUtils {
 			return false;
 		}
 		return true;
+	}
+
+	private static void showError(String message, Shell shell) {
+		MessageBox box = new MessageBox(shell, SWT.ICON_ERROR | SWT.OK);
+		box.setMessage(message);
+		box.open();
 	}
 }

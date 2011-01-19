@@ -24,17 +24,24 @@ public class Preferences {
 
 	public static final String USE_MOCK_IMPL_PATH = "/internal/useMockClient";
 
+	private static String strip(String path) {
+		if (path.startsWith("/")) {
+			return path.substring(1);
+		}
+		return path;
+	}
+
 	private final File preferencesFile;
 
 	private Document root = new Document(new Element("preferences"));
 
+	public Preferences() {
+		this(null);
+	}
+
 	public Preferences(File file) {
 		preferencesFile = file;
 		refresh();
-	}
-
-	public Preferences() {
-		this(null);
 	}
 
 	private Element findElement(String path) {
@@ -52,33 +59,6 @@ public class Preferences {
 		return n;
 	}
 
-	public void setValues(String path, List<String> values) {
-		Element e = findElement(path);
-		e.removeChildren();
-		for (String value : values) {
-			Element ev = new Element("value");
-			ev.appendChild(value);
-			e.appendChild(ev);
-		}
-	}
-
-	public void removeValue(String path) {
-		Nodes nodes = root.getRootElement().query(strip(path));
-		if (nodes.size() == 0) {
-			return;
-		} else {
-			nodes.get(0).detach();
-		}
-	}
-
-	public void setValue(String path, String value) {
-		Element e = findElement(path);
-		e.removeChildren();
-		Element ev = new Element("value");
-		ev.appendChild(value);
-		e.appendChild(ev);
-	}
-
 	public String getValue(String path) {
 		Nodes result = root.getRootElement().query(strip(path));
 		if (result.size() == 0) {
@@ -88,13 +68,6 @@ public class Preferences {
 			Element value = n.getFirstChildElement("value");
 			return value == null ? null : value.getValue();
 		}
-	}
-
-	private static String strip(String path) {
-		if (path.startsWith("/")) {
-			return path.substring(1);
-		}
-		return path;
 	}
 
 	public List<String> getValues(String path) {
@@ -109,6 +82,30 @@ public class Preferences {
 			r.add(values.get(i).getValue());
 		}
 		return r;
+	}
+
+	// reloads values from file
+	public void refresh() {
+		if (preferencesFile == null) {
+			return;
+		}
+		LOG.debug("Refreshing preferences from [" + preferencesFile.getAbsolutePath() + "]");
+		try {
+			if (preferencesFile.exists()) {
+				root = new Builder(false).build(preferencesFile);
+			}
+		} catch (Exception e) {
+			LOG.warn("Failed to referesh preferences", e);
+		}
+	}
+
+	public void removeValue(String path) {
+		Nodes nodes = root.getRootElement().query(strip(path));
+		if (nodes.size() == 0) {
+			return;
+		} else {
+			nodes.get(0).detach();
+		}
 	}
 
 	// flushes values to file
@@ -136,18 +133,21 @@ public class Preferences {
 		}
 	}
 
-	// reloads values from file
-	public void refresh() {
-		if (preferencesFile == null) {
-			return;
-		}
-		LOG.debug("Refreshing preferences from [" + preferencesFile.getAbsolutePath() + "]");
-		try {
-			if (preferencesFile.exists()) {
-				root = new Builder(false).build(preferencesFile);
-			}
-		} catch (Exception e) {
-			LOG.warn("Failed to referesh preferences", e);
+	public void setValue(String path, String value) {
+		Element e = findElement(path);
+		e.removeChildren();
+		Element ev = new Element("value");
+		ev.appendChild(value);
+		e.appendChild(ev);
+	}
+
+	public void setValues(String path, List<String> values) {
+		Element e = findElement(path);
+		e.removeChildren();
+		for (String value : values) {
+			Element ev = new Element("value");
+			ev.appendChild(value);
+			e.appendChild(ev);
 		}
 	}
 

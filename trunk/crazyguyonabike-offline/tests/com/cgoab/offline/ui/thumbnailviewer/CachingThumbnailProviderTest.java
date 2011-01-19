@@ -8,7 +8,6 @@ import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
 import java.io.File;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.BrokenBarrierException;
@@ -29,6 +28,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import testutils.TestUtils;
 import testutils.photos.TestPhotos;
 
 import com.cgoab.offline.Application;
@@ -63,13 +63,10 @@ public class CachingThumbnailProviderTest {
 
 	@Test
 	public void createThumbnail() throws Exception {
-		/* ${tmp.dir}/CachingThumbnailProviderTest/01234567/test.thumbs */
-		String tmpDir = System.getProperty("java.io.tmpdir");
-		String journalLocation = tmpDir + File.separator + getClass().getName() + File.separator
-				+ System.currentTimeMillis() + File.separator + "test";
+		String journalLocation = TestUtils.getTestTempDirectory() + File.separator + "testJournal";
 		Journal journal = new Journal(new File(journalLocation), "test");
 		final CachingThumbnailProvider provider = factory.createThumbnailProvider(journal);
-		final File source = TestPhotos.getPhotoAsTempFile();
+		final File source = TestPhotos.extractLargePhoto();
 
 		final Map<Class<?>, Object> results = new HashMap<Class<?>, Object>();
 		final CountDownLatch latch = new CountDownLatch(1);

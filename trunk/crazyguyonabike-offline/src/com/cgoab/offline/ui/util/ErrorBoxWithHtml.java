@@ -15,29 +15,25 @@ import org.eclipse.swt.widgets.Shell;
 
 public class ErrorBoxWithHtml {
 
-	private String title;
+	public static void main(String[] args) {
+		Display display = new Display();
+		Shell shell = new Shell(display);
+		ErrorBoxWithHtml p = new ErrorBoxWithHtml(shell);
+		p.setTitle("Error");
+		p.setHtml("<h1>foo</h1>");
+		p.setMessage("There was an error\na\nb\nc\nd\ne\nf");
+		p.open();
+
+		display.dispose();
+	}
+	private String html;
 	private String message;
 	private Shell parent;
-	private String html;
+
+	private String title;
 
 	public ErrorBoxWithHtml(Shell parent) {
 		this.parent = parent;
-	}
-
-	public void setHtml(String html) {
-		this.html = html;
-	}
-
-	public void setMessage(String message) {
-		this.message = message;
-	}
-
-	public void setParent(Shell parent) {
-		this.parent = parent;
-	}
-
-	public void setTitle(String title) {
-		this.title = title;
 	}
 
 	public void open() {
@@ -87,12 +83,12 @@ public class ErrorBoxWithHtml {
 		browser.setJavascriptEnabled(false);
 		browser.addLocationListener(new LocationListener() {
 			@Override
-			public void changing(LocationEvent event) {
-				event.doit = false;
+			public void changed(LocationEvent event) {
 			}
 
 			@Override
-			public void changed(LocationEvent event) {
+			public void changing(LocationEvent event) {
+				event.doit = false;
 			}
 		});
 
@@ -106,15 +102,19 @@ public class ErrorBoxWithHtml {
 		}
 	}
 
-	public static void main(String[] args) {
-		Display display = new Display();
-		Shell shell = new Shell(display);
-		ErrorBoxWithHtml p = new ErrorBoxWithHtml(shell);
-		p.setTitle("Error");
-		p.setHtml("<h1>foo</h1>");
-		p.setMessage("There was an error\na\nb\nc\nd\ne\nf");
-		p.open();
+	public void setHtml(String html) {
+		this.html = html;
+	}
 
-		display.dispose();
+	public void setMessage(String message) {
+		this.message = message;
+	}
+
+	public void setParent(Shell parent) {
+		this.parent = parent;
+	}
+
+	public void setTitle(String title) {
+		this.title = title;
 	}
 }

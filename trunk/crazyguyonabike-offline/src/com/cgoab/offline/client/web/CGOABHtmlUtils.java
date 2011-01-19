@@ -18,12 +18,28 @@ import com.cgoab.offline.client.DocumentType;
 public class CGOABHtmlUtils {
 
 	private static final Pattern DOC_ID_PATTERN = Pattern.compile(".*doc_id=(\\d+).*");
+	private static Object[] EMPTY = new Object[0];
+
 	private static final Pattern PAGE_ID_PATTERN = Pattern.compile(".*page_id=(\\d+).*");
 
 	private static String clean(String s) {
 		s = s.replace("&nbsp;", " ");
 		// s = StringEscapeUtils.unescapeHtml(s);
 		return s.trim();
+	}
+
+	private static DocumentDescription createJournal(TagNode node) throws XPatherException {
+		Object[] e = node.evaluateXPath("td");
+		String typeString = clean(((TagNode) e[0]).getText().toString()).toUpperCase();
+		TagNode anchorNode = ((TagNode) e[1]).getElementsByName("a", true)[0];
+		String url = anchorNode.getAttributeByName("href");
+		int id = CGOABHtmlUtils.getDocId(url);
+		String title = clean(anchorNode.getText().toString());
+		String status = clean(((TagNode) e[3]).getText().toString());
+		String rawCount = clean(((TagNode) e[4]).getText().toString());
+		rawCount = rawCount.replace(",", "");
+		int hits = Integer.parseInt(rawCount);
+		return new DocumentDescription(title, hits, status, id, DocumentType.valueOf(typeString));
 	}
 
 	/**
@@ -42,36 +58,6 @@ public class CGOABHtmlUtils {
 			journals.add(createJournal((TagNode) table[i]));
 		}
 		return journals;
-	}
-
-	private static DocumentDescription createJournal(TagNode node) throws XPatherException {
-		Object[] e = node.evaluateXPath("td");
-		String typeString = clean(((TagNode) e[0]).getText().toString()).toUpperCase();
-		TagNode anchorNode = ((TagNode) e[1]).getElementsByName("a", true)[0];
-		String url = anchorNode.getAttributeByName("href");
-		int id = CGOABHtmlUtils.getDocId(url);
-		String title = clean(anchorNode.getText().toString());
-		String status = clean(((TagNode) e[3]).getText().toString());
-		String rawCount = clean(((TagNode) e[4]).getText().toString());
-		rawCount = rawCount.replace(",", "");
-		int hits = Integer.parseInt(rawCount);
-		return new DocumentDescription(title, hits, status, id, DocumentType.valueOf(typeString));
-	}
-
-	public static int getPageId(String url) {
-		Matcher match = PAGE_ID_PATTERN.matcher(url);
-		if (!match.matches()) {
-			throw new IllegalStateException("Could not find page_id in url '" + url + "'");
-		}
-		return Integer.parseInt(match.group(1));
-	}
-
-	public static int getDocId(String url) {
-		Matcher match = DOC_ID_PATTERN.matcher(url);
-		if (!match.matches()) {
-			throw new IllegalStateException("Could not find page_id in url '" + url + "'");
-		}
-		return Integer.parseInt(match.group(1));
 	}
 
 	// TODO this is very fragile
@@ -96,19 +82,20 @@ public class CGOABHtmlUtils {
 		return s;
 	}
 
-	/**
-	 * Extracts current username using <tt>//input[@name='username']</tt>.
-	 * 
-	 * @param root
-	 *            html from "/my/account"
-	 * @return
-	 */
-	public static String getUsernameFromMyAccount(TagNode root) {
-		Object[] res = matches(root, "//input[@name='username']");
-		if (res.length == 0) {
-			return null;
+	public static int getDocId(String url) {
+		Matcher match = DOC_ID_PATTERN.matcher(url);
+		if (!match.matches()) {
+			throw new IllegalStateException("Could not find page_id in url '" + url + "'");
 		}
-		return ((TagNode) res[0]).getAttributeByName("value");
+		return Integer.parseInt(match.group(1));
+	}
+
+	public static int getPageId(String url) {
+		Matcher match = PAGE_ID_PATTERN.matcher(url);
+		if (!match.matches()) {
+			throw new IllegalStateException("Could not find page_id in url '" + url + "'");
+		}
+		return Integer.parseInt(match.group(1));
 	}
 
 	/**
@@ -134,17 +121,19 @@ public class CGOABHtmlUtils {
 		return first + " " + last;
 	}
 
-	private static Object[] EMPTY = new Object[0];
-
-	private static Object[] matches(TagNode root, String string) {
-		try {
-			if (root == null) {
-				return EMPTY;
-			}
-			return root.evaluateXPath(string);
-		} catch (XPatherException e) {
-			throw new RuntimeException(e);
+	/**
+	 * Extracts current username using <tt>//input[@name='username']</tt>.
+	 * 
+	 * @param root
+	 *            html from "/my/account"
+	 * @return
+	 */
+	public static String getUsernameFromMyAccount(TagNode root) {
+		Object[] res = matches(root, "//input[@name='username']");
+		if (res.length == 0) {
+			return null;
 		}
+		return ((TagNode) res[0]).getAttributeByName("value");
 	}
 
 	public static boolean isLoginPage(TagNode root) {
@@ -155,6 +144,10 @@ public class CGOABHtmlUtils {
 		}
 	}
 
+	public static boolean isUpdateAccountPage(TagNode root) {
+		return matches(root, "//h1['Update Account']").length > 0;
+	}
+
 	// public static boolean isErrorPage(TagNode root) {
 	// try {
 	// return root.evaluateXPath("//h1['Error: Forbidden']").length > 0;
@@ -163,7 +156,14 @@ public class CGOABHtmlUtils {
 	// }
 	// }
 
-	public static boolean isUpdateAccountPage(TagNode root) {
-		return matches(root, "//h1['Update Account']").length > 0;
+	private static Object[] matches(TagNode root, String string) {
+		try {
+			if (root == null) {
+				return EMPTY;
+			}
+			return root.evaluateXPath(string);
+		} catch (XPatherException e) {
+			throw new RuntimeException(e);
+		}
 	}
 }

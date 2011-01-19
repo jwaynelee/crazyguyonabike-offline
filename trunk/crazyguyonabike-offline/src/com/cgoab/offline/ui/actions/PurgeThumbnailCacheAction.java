@@ -20,7 +20,8 @@ public class PurgeThumbnailCacheAction extends ActionWithCurrentJournal {
 		this.shell = shell;
 		JournalSelectionService.getInstance().addListener(new JournalSelectionListener() {
 			@Override
-			public void selectionChanged(Object newSelection, Object oldSelection) {
+			public void journalClosed(Journal journal) {
+				setEnabled(false);
 			}
 
 			@Override
@@ -29,12 +30,12 @@ public class PurgeThumbnailCacheAction extends ActionWithCurrentJournal {
 			}
 
 			@Override
-			public void journalClosed(Journal journal) {
-				setEnabled(false);
+			public void selectionChanged(Object newSelection, Object oldSelection) {
 			}
 		});
 	}
 
+	@Override
 	public void run(Journal journal) {
 		CachingThumbnailProvider provider = (CachingThumbnailProvider) journal.getData(ThumbnailProvider.KEY);
 		if (provider == null) {

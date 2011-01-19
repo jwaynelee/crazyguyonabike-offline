@@ -8,8 +8,8 @@ public class ThumbnailHolderList implements Iterable<ThumbnailHolder> {
 
 	private List<ThumbnailHolder> thumbnails = new ArrayList<ThumbnailHolder>();
 
-	public int size() {
-		return thumbnails.size();
+	public void append(ThumbnailHolder h) {
+
 	}
 
 	public int indexOf(Object o) {
@@ -25,12 +25,22 @@ public class ThumbnailHolderList implements Iterable<ThumbnailHolder> {
 		return thumbnails.indexOf(holder);
 	}
 
-	public void append(ThumbnailHolder h) {
+	public void insert(ThumbnailHolder h, int insertionPoint) {
 
 	}
 
-	public void insert(ThumbnailHolder h, int insertionPoint) {
+	@Override
+	public Iterator<ThumbnailHolder> iterator() {
+		return thumbnails.iterator();
+	}
 
+	public int size() {
+		return thumbnails.size();
+	}
+
+	@Override
+	public String toString() {
+		return thumbnails.toString();
 	}
 
 	void updateFrom(int start) {
@@ -39,15 +49,5 @@ public class ThumbnailHolderList implements Iterable<ThumbnailHolder> {
 			ThumbnailHolder h = thumbnails.get(i);
 			h.setX(x + h.getWidth() + ThumbnailViewer.PADDING_BETWEEN_THUMNAIL);
 		}
-	}
-
-	@Override
-	public Iterator<ThumbnailHolder> iterator() {
-		return thumbnails.iterator();
-	}
-
-	@Override
-	public String toString() {
-		return thumbnails.toString();
 	}
 }

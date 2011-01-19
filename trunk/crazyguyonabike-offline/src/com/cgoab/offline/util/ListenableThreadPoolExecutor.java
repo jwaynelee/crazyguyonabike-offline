@@ -41,8 +41,10 @@ public class ListenableThreadPoolExecutor extends ThreadPoolExecutor {
 		});
 	}
 
+	@Override
 	protected <T extends Object> RunnableFuture<T> newTaskFor(final Callable<T> callable) {
 		return new FutureTask<T>(callable) {
+			@Override
 			protected void done() {
 				if (callable instanceof ListenableCancellableTask) {
 					ListenableCancellableTask<T> task = (ListenableCancellableTask<T>) callable;
