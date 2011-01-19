@@ -216,7 +216,8 @@ public class UITest {
 		 * image resizer might still be working so we'll get the progress dialog
 		 * so wait until upload opens.
 		 */
-		bot2.waitUntil(new ShellNameMatches("Upload .*"));
+		bot2.waitUntil(Conditions.shellIsActive("Make new pages visible?"));
+		bot2.activeShell().bot().button("No").click();
 
 		SWTBot uploadBot = bot.activeShell().bot();
 		assertTrue(uploadBot.activeShell().getText().startsWith("Upload"));
@@ -272,11 +273,13 @@ public class UITest {
 		ServerJournal serverJournal = server.getModel().getJournal(1);
 		assertEquals(2, serverJournal.getPages().size());
 		ServerPage serverPage1 = serverJournal.getPages().get(0);
+		assertFalse(serverPage1.isVisible());
 		ServerPage serverPage2 = serverJournal.getPages().get(1);
+		assertFalse(serverPage2.isVisible());
 		assertEquals(2, serverPage1.getPhotos().size());
 		ServerPhoto serverPhoto1 = serverPage1.getPhotos().get(0);
 		assertEquals(photo1.getName(), serverPhoto1.getFilename());
-		
+
 		/* verify the resized photo was sent */
 		assertThat(serverPhoto1.getSize(), lessThan(photo1.length()));
 		ResizerService service = (ResizerService) JournalSelectionService.getInstance().getCurrentJournal()

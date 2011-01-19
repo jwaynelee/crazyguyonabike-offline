@@ -4,10 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.eclipse.jface.action.Action;
+import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.viewers.StructuredSelection;
 import org.eclipse.jface.viewers.TreeViewer;
-import org.eclipse.swt.SWT;
-import org.eclipse.swt.widgets.MessageBox;
 import org.eclipse.swt.widgets.Shell;
 
 import com.cgoab.offline.client.UploadClient;
@@ -73,7 +72,7 @@ public class UploadAction extends Action {
 		Journal journal = JournalSelectionService.getInstance().getCurrentJournal();
 		JournalUtils.saveJournal(journal, false, shell);
 
-		// block until all photos in journal are resized
+		/* 1) block until all photos in journal are resized */
 		ResizerService service = (ResizerService) journal.getData(ResizerService.KEY);
 		if (!JournalUtils.blockUntilPhotosResized(service, shell)) {
 			return; // wait cancelled
@@ -82,9 +81,7 @@ public class UploadAction extends Action {
 		UploadDialog dialog = new UploadDialog(shell);
 		dialog.setThumbnailProvider((ThumbnailProvider) journal.getData(ThumbnailProvider.KEY));
 
-		/**
-		 * Filter out already uploaded pages...
-		 */
+		/* 2) find pages to upload, prompty if partial upload */
 		List<Page> newPages = new ArrayList<Page>();
 		boolean foundErrorPage = false;
 		boolean foundPartialPage = false;
@@ -104,17 +101,26 @@ public class UploadAction extends Action {
 		}
 
 		if (foundErrorPage || foundPartialPage) {
-			MessageBox warn = new MessageBox(shell, SWT.ICON_WARNING | SWT.YES | SWT.NO);
-			warn.setText("Confirm upload");
+			String msg;
 			if (foundErrorPage) {
-				warn.setMessage("You are attempting to upload a page that previously failed to upload, do you want to continue?");
+				msg = "You are attempting to upload a page that previously failed to upload, do you want to continue?";
 			} else {
-				warn.setMessage("You are attempting to upload a page with photo(s) that previously failed to upload, do you want to continue?");
+				msg = "You are attempting to upload a page with photo(s) that previously failed to upload, do you want to continue?";
 			}
 
-			if (warn.open() == SWT.NO) {
+			if (!MessageDialog.openConfirm(shell, "Confirm upload", msg)) {
 				return;
 			}
+		}
+
+		/* 3) ask if pages should be made visible */
+		// TODO use MessageDialogWithToggle when preferences in place
+		boolean visible = MessageDialog.openQuestion(shell, "Make new pages visible?",
+				"Do you want these uploaded pages to be visible?");
+
+		// HACK - no option in UI to set visible, so set now
+		for (Page page : newPages) {
+			page.setVisible(visible);
 		}
 
 		/**

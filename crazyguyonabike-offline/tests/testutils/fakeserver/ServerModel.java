@@ -247,6 +247,10 @@ public class ServerModel {
 		public HeadingStyle getHeadingStyle() {
 			return HeadingStyle.valueOf(params.get("toc_heading_size"));
 		}
+
+		public boolean isVisible() {
+			return "on".equals(params.get("visible"));
+		}
 	}
 
 	public static class ServerPhoto {
