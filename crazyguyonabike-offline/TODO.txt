@@ -58,3 +58,6 @@ Add launch scripts (for mac at least)
 
 Cancel upload screen during login crashes due to WidgetDisposed
 Add undo to delete Page operation
+
+page still editable after
+before upload check dates increase and photos exist?

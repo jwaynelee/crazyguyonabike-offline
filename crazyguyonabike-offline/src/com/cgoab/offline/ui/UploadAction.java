@@ -42,9 +42,7 @@ public class UploadAction extends Action {
 		/* refresh to get new labels (updated/error) */
 		tree.refresh();
 
-		if (errorPage == null) {
-			// TODO Fix displayPage(null);
-		} else {
+		if (errorPage != null) {
 			// selection event triggers refresh of thumnail viewer
 			tree.setSelection(new StructuredSelection(errorPage), true);
 

@@ -20,9 +20,9 @@ import org.eclipse.swtbot.swt.finder.SWTBot;
 import org.eclipse.swtbot.swt.finder.waits.Conditions;
 import org.eclipse.swtbot.swt.finder.waits.ICondition;
 import org.eclipse.swtbot.swt.finder.widgets.SWTBotShell;
+import org.eclipse.swtbot.swt.finder.widgets.SWTBotStyledText;
 import org.eclipse.swtbot.swt.finder.widgets.SWTBotText;
 import org.eclipse.swtbot.swt.finder.widgets.SWTBotTreeItem;
-import org.hamcrest.Matchers;
 import org.htmlcleaner.XPatherException;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -257,18 +257,22 @@ public class UITest {
 		journalNode.contextMenu("Hide uploaded").click();
 		assertEquals(2, journalNode.getItems().length);
 
-		/* 5b) TODO check uploaded is read-only */
+		/* 5b) check uploaded is read-only */
 		journalNode.getItems()[0].select();
 		final SWTBotText title = bot2.textWithLabel("Title:");
+		final SWTBotStyledText text = bot2.styledText(0);
 		assertEquals("Day 1", title.getText());
-		final AtomicBoolean editable = new AtomicBoolean();
+		final AtomicBoolean titleEditable = new AtomicBoolean();
+		final AtomicBoolean textEditable = new AtomicBoolean();
 		display.syncExec(new Runnable() {
 			@Override
 			public void run() {
-				editable.set(title.widget.getEditable());
+				titleEditable.set(title.widget.getEditable());
+				textEditable.set(text.widget.getEditable());
 			}
 		});
-		assertFalse(editable.get());
+		assertFalse(titleEditable.get());
+		assertFalse(textEditable.get());
 
 		ServerJournal serverJournal = server.getModel().getJournal(1);
 		assertEquals(2, serverJournal.getPages().size());
