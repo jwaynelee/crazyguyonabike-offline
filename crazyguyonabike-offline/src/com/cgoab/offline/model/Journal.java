@@ -58,6 +58,10 @@ public class Journal {
 		}
 	}
 
+	void addPage(Page newPage) {
+		addPage(newPage, pages.size());
+	}
+
 	public void addPage(Page newPage, int index) {
 		Assert.isTrue(newPage.getJournal() == this);
 		Assert.isTrue(index >= 0);
@@ -68,10 +72,6 @@ public class Journal {
 		pages.add(index, newPage);
 		firePageAdded(newPage);
 		setDirty(true);
-	}
-
-	void addPage(Page newPage) {
-		addPage(newPage, pages.size());
 	}
 
 	public void addPropertyChangeListener(PropertyChangeListener listener) {
@@ -246,6 +246,11 @@ public class Journal {
 	// }
 	// }
 
+	public void removeData(String key) {
+		Assert.notNull(key);
+		data.remove(key);
+	}
+
 	public void removeListener(JournalListener listener) {
 		listeners.remove(listener);
 	}
@@ -260,11 +265,6 @@ public class Journal {
 
 	public void removePropertyChangeListener(PropertyChangeListener listener) {
 		support.removePropertyChangeListener(listener);
-	}
-
-	public void removeData(String key) {
-		Assert.notNull(key);
-		data.remove(key);
 	}
 
 	/**

@@ -1,8 +1,6 @@
 package com.cgoab.offline.util.resizer;
 
 import java.io.File;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
@@ -27,9 +25,9 @@ public class ImageMagickResizerServiceFactory {
 
 	private final ExecutorService executor;
 
-	private String magickPath;
-
 	private final String folderExtension;
+
+	private String magickPath;
 
 	public ImageMagickResizerServiceFactory(Display display, String folderExtension) {
 		this.display = display;
@@ -46,11 +44,15 @@ public class ImageMagickResizerServiceFactory {
 		return tracker;
 	}
 
-	private String getOrInitializeMagickPath() throws MagicNotAvailableException {
-		if (magickPath == null) {
-			magickPath = ImageMagickResizeTask.findMagickAndCheckVersionOrThrow();
+	public void dispose() {
+		executor.shutdown();
+		try {
+			executor.awaitTermination(5, TimeUnit.SECONDS);
+		} catch (InterruptedException e) {
+			/* ignore */
+		} finally {
+			executor.shutdownNow();
 		}
-		return magickPath;
 	}
 
 	private File getOrCreatePhotoFolder(Journal source) {
@@ -75,14 +77,10 @@ public class ImageMagickResizerServiceFactory {
 	// }
 	// }
 
-	public void dispose() {
-		executor.shutdown();
-		try {
-			executor.awaitTermination(5, TimeUnit.SECONDS);
-		} catch (InterruptedException e) {
-			/* ignore */
-		} finally {
-			executor.shutdownNow();
+	private String getOrInitializeMagickPath() throws MagicNotAvailableException {
+		if (magickPath == null) {
+			magickPath = ImageMagickResizeTask.findMagickAndCheckVersionOrThrow();
 		}
+		return magickPath;
 	}
 }

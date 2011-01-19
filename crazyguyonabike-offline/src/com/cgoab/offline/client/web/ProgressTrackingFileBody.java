@@ -25,9 +25,9 @@ public class ProgressTrackingFileBody extends FileBody {
 
 		private final ProgressListener listener;
 
-		private long transferred;
-
 		private long total;
+
+		private long transferred;
 
 		public CountingOutputStream(final OutputStream out, final ProgressListener listener, long total) {
 			super(out);
@@ -36,12 +36,14 @@ public class ProgressTrackingFileBody extends FileBody {
 			this.total = total;
 		}
 
+		@Override
 		public void write(byte[] b, int off, int len) throws IOException {
 			out.write(b, off, len);
 			this.transferred += len;
 			this.listener.transferred(this.transferred, this.total);
 		}
 
+		@Override
 		public void write(int b) throws IOException {
 			out.write(b);
 			this.transferred++;

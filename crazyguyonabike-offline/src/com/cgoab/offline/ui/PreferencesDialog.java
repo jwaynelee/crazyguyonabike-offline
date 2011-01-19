@@ -16,9 +16,13 @@ import org.eclipse.swt.widgets.Shell;
 
 public class PreferencesDialog {
 
-	private Shell shell;
+	private static void addSeparator(Shell shell) {
+		new Label(shell, SWT.HORIZONTAL | SWT.SEPARATOR).setLayoutData(new GridData(SWT.FILL, SWT.BOTTOM, true, false));
+	}
 
 	private Preferences preferences;
+
+	private Shell shell;
 
 	public PreferencesDialog(Shell parent) {
 		shell = new Shell(parent, SWT.APPLICATION_MODAL | SWT.DIALOG_TRIM);
@@ -82,10 +86,6 @@ public class PreferencesDialog {
 				display.sleep();
 			}
 		}
-	}
-
-	private static void addSeparator(Shell shell) {
-		new Label(shell, SWT.HORIZONTAL | SWT.SEPARATOR).setLayoutData(new GridData(SWT.FILL, SWT.BOTTOM, true, false));
 	}
 
 	public void setPreferences(Preferences preferences) {

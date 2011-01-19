@@ -6,18 +6,22 @@ import java.lang.reflect.Proxy;
 
 import org.eclipse.swt.widgets.Display;
 
-public class UIThreadCallbackMarsheller {
+/**
+ * Utility to wrap a target object and run all method invocations on the UI
+ * thread.
+ */
+public class UICallbackMarshaller {
 
 	@SuppressWarnings("unchecked")
-	public static <T> T wrap(T target, Display  display) {
+	public static <T> T wrap(T target, Display display) {
 		// TODO verify all interface methods return null...
-		return (T) Proxy.newProxyInstance(UIThreadCallbackMarsheller.class.getClassLoader(), target.getClass()
+		return (T) Proxy.newProxyInstance(UICallbackMarshaller.class.getClassLoader(), target.getClass()
 				.getInterfaces(), new Handler(target, display));
 	}
 
 	private static class Handler implements InvocationHandler {
-		private Object target;
 		private Display display;
+		private Object target;
 
 		public Handler(Object target, Display display) {
 			this.target = target;

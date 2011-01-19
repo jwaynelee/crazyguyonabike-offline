@@ -398,19 +398,24 @@ public class Page {
 	public void setState(UploadState uploadState) {
 		this.uploadState = uploadState;
 	}
+
 	public void setText(String text) {
 		getOrCreateTextDocument().set(text);
 	}
+
 	public void setTitle(String title) {
 		support.firePropertyChange(TITLE, this.title, this.title = title);
 	}
+
 	public void setVisible(boolean visible) {
 		this.visible = visible;
 	}
+
 	@Override
 	public String toString() {
 		return String.format("Page [%s : %s] - %s", title, headline, uploadState);
 	}
+
 	public static enum EditFormat {
 		AUTO, LIST, MANUAL
 	}

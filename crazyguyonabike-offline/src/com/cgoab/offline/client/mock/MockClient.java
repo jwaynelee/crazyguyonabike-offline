@@ -24,18 +24,20 @@ import com.cgoab.offline.util.StringUtils;
  */
 public class MockClient extends AbstractUploadClient {
 
-	private int nextPageID;
+	protected String currentRealname;
 
-	private Set<Integer> uploadedPages = new HashSet<Integer>();
-
-	private Set<String> uploadedPhotos = new HashSet<String>();
-
-	private Map<Integer, DocumentDescription> documents = new HashMap<Integer, DocumentDescription>();
+	protected String currentUsername;
 
 	private int delay = 50; // simulate upload delay
 
-	protected String currentUsername;
-	protected String currentRealname;
+	private int documentId = -1;
+
+	private Map<Integer, DocumentDescription> documents = new HashMap<Integer, DocumentDescription>();
+
+	private int nextPageID;
+	private Set<Integer> uploadedPages = new HashSet<Integer>();
+
+	private Set<String> uploadedPhotos = new HashSet<String>();
 
 	public MockClient() {
 		super(new UIExecutor(Display.getCurrent()));
@@ -46,99 +48,15 @@ public class MockClient extends AbstractUploadClient {
 	}
 
 	@Override
-	public String getCurrentUsername() {
-		return currentUsername;
-	}
-
-	@Override
-	public String getCurrentUserRealName() {
-		return currentRealname;
-	}
-
-	@Override
-	public void login(final String username, String password, CompletionCallback<String> callback) {
-		asyncExec(new Task<String>(callback) {
-			protected String doRun() throws Exception {
-				Thread.sleep(delay);
-				if (username == null) {
-					currentUsername = System.getProperty("user.name");
-					currentRealname = "Mr " + StringUtils.capitalise(currentUsername);
-				} else {
-					currentUsername = username;
-					currentRealname = username;
-				}
-				return currentUsername;
-			}
-		});
-	}
-
-	@Override
-	public void getDocuments(CompletionCallback<List<DocumentDescription>> callback) {
-		asyncExec(new Task<List<DocumentDescription>>(callback) {
-			@Override
-			protected List<DocumentDescription> doRun() throws Exception {
-				Thread.sleep(delay);
-				return new ArrayList<DocumentDescription>(documents.values());
-			}
-		});
-	}
-
-	private int documentId = -1;
-
-	@Override
-	public void initialize(final int docId, CompletionCallback<Void> callback) {
-		asyncExec(new Task<Void>(callback) {
-			@Override
-			protected Void doRun() throws Exception {
-				documentId = docId;
-				return null;
-			}
-		});
-	}
-
-	private void throwIfNotInitialized() {
-		if (documentId == -1) {
-			throw new IllegalStateException("Not initialized!");
-		}
-	}
-
-	@Override
-	public void createNewPage(final Page page, CompletionCallback<Integer> callback) {
-		throwIfNotInitialized();
-		asyncExec(new Task<Integer>(callback) {
-			@Override
-			public Integer doRun() throws Exception {
-				if (!documents.containsKey(documentId)) {
-					error("Unknown documentId " + documentId);
-				}
-
-				/* to help error testing, throw if titlt contains "error" */
-				String title = page.getTitle();
-				if (title != null && title.toLowerCase().contains("error")) {
-					error("Mock Error!");
-				}
-
-				int pageId = nextPageID++;
-				Thread.sleep(delay);
-				uploadedPages.add(pageId);
-				return pageId;
-			}
-		});
-	}
-
-	private void error(String message) {
-		throw new RuntimeException(message);
-	}
-
-	private String getImageName(Photo photo) {
-		return photo.getFile().getName();
-	}
-
-	@Override
 	public void addPhoto(final int pageId, final Photo photo, CompletionCallback<Void> callback,
 			final PhotoUploadProgressListener progressListener) {
 		throwIfNotInitialized();
 		asyncExec(new Task<Void>(callback) {
+			@Override
+			protected void cancel() {
+				getWorkerThread().interrupt();
+			}
+
 			@Override
 			public Void doRun() throws Exception {
 				// check page id is valid...
@@ -170,10 +88,87 @@ public class MockClient extends AbstractUploadClient {
 				uploadedPhotos.add(name);
 				return null;
 			}
+		});
+	}
 
+	@Override
+	public void createNewPage(final Page page, CompletionCallback<Integer> callback) {
+		throwIfNotInitialized();
+		asyncExec(new Task<Integer>(callback) {
 			@Override
-			protected void cancel() {
-				getWorkerThread().interrupt();
+			public Integer doRun() throws Exception {
+				if (!documents.containsKey(documentId)) {
+					error("Unknown documentId " + documentId);
+				}
+
+				/* to help error testing, throw if titlt contains "error" */
+				String title = page.getTitle();
+				if (title != null && title.toLowerCase().contains("error")) {
+					error("Mock Error!");
+				}
+
+				int pageId = nextPageID++;
+				Thread.sleep(delay);
+				uploadedPages.add(pageId);
+				return pageId;
+			}
+		});
+	}
+
+	private void error(String message) {
+		throw new RuntimeException(message);
+	}
+
+	@Override
+	public String getCurrentUsername() {
+		return currentUsername;
+	}
+
+	@Override
+	public String getCurrentUserRealName() {
+		return currentRealname;
+	}
+
+	@Override
+	public void getDocuments(CompletionCallback<List<DocumentDescription>> callback) {
+		asyncExec(new Task<List<DocumentDescription>>(callback) {
+			@Override
+			protected List<DocumentDescription> doRun() throws Exception {
+				Thread.sleep(delay);
+				return new ArrayList<DocumentDescription>(documents.values());
+			}
+		});
+	}
+
+	private String getImageName(Photo photo) {
+		return photo.getFile().getName();
+	}
+
+	@Override
+	public void initialize(final int docId, CompletionCallback<Void> callback) {
+		asyncExec(new Task<Void>(callback) {
+			@Override
+			protected Void doRun() throws Exception {
+				documentId = docId;
+				return null;
+			}
+		});
+	}
+
+	@Override
+	public void login(final String username, String password, CompletionCallback<String> callback) {
+		asyncExec(new Task<String>(callback) {
+			@Override
+			protected String doRun() throws Exception {
+				Thread.sleep(delay);
+				if (username == null) {
+					currentUsername = System.getProperty("user.name");
+					currentRealname = "Mr " + StringUtils.capitalise(currentUsername);
+				} else {
+					currentUsername = username;
+					currentRealname = username;
+				}
+				return currentUsername;
 			}
 		});
 	}
@@ -187,6 +182,12 @@ public class MockClient extends AbstractUploadClient {
 
 	public void setOperationDelay(int delay) {
 		this.delay = delay;
+	}
+
+	private void throwIfNotInitialized() {
+		if (documentId == -1) {
+			throw new IllegalStateException("Not initialized!");
+		}
 	}
 
 	@Override

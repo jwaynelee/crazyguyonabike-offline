@@ -9,12 +9,19 @@ import java.util.concurrent.Future;
  */
 public abstract class ListenableCancellableTask<T> implements Callable<T> {
 
-	private FutureCompletionListener<T> listener;
 	private Object data;
+	private FutureCompletionListener<T> listener;
 
 	public ListenableCancellableTask(FutureCompletionListener<T> listener, Object data) {
 		this.listener = listener;
 		this.data = data;
+	}
+
+	/**
+	 * Tasks may override this to implement their cancellation when requested,
+	 * by default a TPE will only attempt to interrupt a thread to cancel it.
+	 */
+	protected void cancel() {
 	}
 
 	/**
@@ -27,12 +34,5 @@ public abstract class ListenableCancellableTask<T> implements Callable<T> {
 		if (listener != null) {
 			listener.onCompletion(future, data);
 		}
-	}
-
-	/**
-	 * Tasks may override this to implement their cancellation when requested,
-	 * by default a TPE will only attempt to interrupt a thread to cancel it.
-	 */
-	protected void cancel() {
 	}
 }

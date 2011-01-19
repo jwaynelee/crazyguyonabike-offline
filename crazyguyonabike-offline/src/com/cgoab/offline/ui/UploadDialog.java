@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
+import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.viewers.ColumnLabelProvider;
 import org.eclipse.jface.viewers.ISelectionChangedListener;
 import org.eclipse.jface.viewers.IStructuredContentProvider;
@@ -89,7 +90,6 @@ public class UploadDialog {
 	private final SelectionListener cancelCurrentOperationListener = new SelectionAdapter() {
 		@Override
 		public void widgetSelected(SelectionEvent e) {
-			System.err.println("CANCEL OP");
 			client.cancel();
 		}
 	};
@@ -99,7 +99,6 @@ public class UploadDialog {
 	private SelectionListener closeShellListener = new SelectionAdapter() {
 		@Override
 		public void widgetSelected(SelectionEvent e) {
-			System.err.println("CLOSE SHELL");
 			shell.close();
 		}
 	};
@@ -343,6 +342,7 @@ public class UploadDialog {
 				startUpload();
 			}
 
+			@Override
 			public void onError(Throwable exception) {
 				finishOperation();
 				if (exception instanceof InitializationException) {
@@ -725,11 +725,9 @@ public class UploadDialog {
 		public void finished(List<Page> uploaded) {
 			finishOperation();
 			log("Upload complete (" + uploaded.size() + " pages uploaded)");
-			MessageBox box = new MessageBox(shell, SWT.ICON_INFORMATION | SWT.OK);
-			box.setText("Upload completed");
-			box.setMessage("The upload completed sucessfully. Press OK to return");
-			box.open();
 			result = new UploadResult(true, null, null);
+			MessageDialog.openInformation(shell, "Upload completed",
+					"The upload completed sucessfully. Press OK to return");
 			shell.close();
 		}
 

@@ -27,6 +27,13 @@ import com.drew.metadata.MetadataException;
 import com.drew.metadata.Tag;
 
 public class ExifViewer {
+	public static void main(String[] args) throws Exception {
+		Display d = new Display();
+		Shell s = new Shell(d);
+		File f = new File("C:\\Users\\ben\\BenVoyage\\Photos\\108_PANA\\JPEG\\P1080690.jpg");
+		new ExifViewer(s).open(JpegMetadataReader.readMetadata(f), f);
+	}
+
 	private Shell shell;
 
 	public ExifViewer(Shell parent) {
@@ -48,16 +55,7 @@ public class ExifViewer {
 		// viewer.setColumnProperties(new String[] { "name", "value" });
 		viewer.setContentProvider(new ITreeContentProvider() {
 			@Override
-			public void inputChanged(Viewer viewer, Object oldInput, Object newInput) {
-			}
-
-			@Override
 			public void dispose() {
-			}
-
-			@Override
-			public Object[] getElements(Object parent) {
-				return getChildren(parent);
 			}
 
 			@Override
@@ -88,6 +86,11 @@ public class ExifViewer {
 			}
 
 			@Override
+			public Object[] getElements(Object parent) {
+				return getChildren(parent);
+			}
+
+			@Override
 			public Object getParent(Object element) {
 				if (element instanceof Directory) {
 					return meta;
@@ -113,6 +116,10 @@ public class ExifViewer {
 
 				}
 				return false;
+			}
+
+			@Override
+			public void inputChanged(Viewer viewer, Object oldInput, Object newInput) {
 			}
 		});
 
@@ -171,12 +178,5 @@ public class ExifViewer {
 				shell.getDisplay().sleep();
 			}
 		}
-	}
-
-	public static void main(String[] args) throws Exception {
-		Display d = new Display();
-		Shell s = new Shell(d);
-		File f = new File("C:\\Users\\ben\\BenVoyage\\Photos\\108_PANA\\JPEG\\P1080690.jpg");
-		new ExifViewer(s).open(JpegMetadataReader.readMetadata(f), f);
 	}
 }

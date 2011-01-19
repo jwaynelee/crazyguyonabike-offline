@@ -12,16 +12,16 @@ public class DefaultWebUploadClientFactory extends UploadClientFactory {
 	private CookieStore cookies;
 	private Executor executor;
 
-	public void setCookies(CookieStore cookies) {
-		this.cookies = cookies;
+	@Override
+	public UploadClient newClient() {
+		return new DefaultWebUploadClient(getHost(), getPort(), cookies, executor);
 	}
 
 	public void setCallbackExecutor(Executor executor) {
 		this.executor = executor;
 	}
 
-	@Override
-	public UploadClient newClient() {
-		return new DefaultWebUploadClient(getHost(), getPort(), cookies, executor);
+	public void setCookies(CookieStore cookies) {
+		this.cookies = cookies;
 	}
 }

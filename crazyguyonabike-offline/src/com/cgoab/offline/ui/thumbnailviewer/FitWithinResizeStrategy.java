@@ -16,6 +16,7 @@ public class FitWithinResizeStrategy implements ResizeStrategy {
 		this.bounds = bounds;
 	}
 
+	@Override
 	public Point resize(Point origional) {
 		float scaleX = (float) bounds.x / origional.x;
 		float scaleY = (float) bounds.y / origional.y;

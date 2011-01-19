@@ -2,32 +2,25 @@ package com.cgoab.offline.client.web;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.fail;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executor;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 import org.apache.http.impl.client.BasicCookieStore;
-import org.apache.log4j.Level;
 import org.joda.time.LocalDate;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import testutils.TestProperties;
+import testutils.TestLogSetup;
 import testutils.fakeserver.FakeCGOABServer;
 import testutils.fakeserver.ServerModel.ServerJournal;
 import testutils.fakeserver.ServerModel.ServerPage;
 import testutils.photos.TestPhotos;
 
-import com.cgoab.offline.client.CompletionCallback;
 import com.cgoab.offline.client.DocumentDescription;
 import com.cgoab.offline.client.web.DefaultWebUploadClient.ServerOperationException;
 import com.cgoab.offline.model.Journal;
@@ -44,7 +37,7 @@ public class DefaultWebUploadClientTest {
 	static FakeCGOABServer server;
 
 	static {
-		org.apache.log4j.Logger.getLogger("org.apache.http.wire").setLevel(Level.WARN);
+		TestLogSetup.configure();
 	}
 
 	@BeforeClass
@@ -70,7 +63,7 @@ public class DefaultWebUploadClientTest {
 
 	@Test
 	public void loginSucess() throws Throwable {
-		Callback<String> completion = new Callback<String>();
+		BlockingCallback<String> completion = new BlockingCallback<String>();
 		client.login("bob", "secret", completion);
 		String result = completion.get();
 		assertEquals("bob", result);
@@ -80,7 +73,7 @@ public class DefaultWebUploadClientTest {
 
 	@Test
 	public void loginFails() throws Throwable {
-		Callback<String> completion = new Callback<String>();
+		BlockingCallback<String> completion = new BlockingCallback<String>();
 		client.login("bob", "incorrect_password", completion);
 		ServerOperationException exception = null;
 		try {
@@ -95,14 +88,37 @@ public class DefaultWebUploadClientTest {
 	}
 
 	@Test
+	public void autoLogin() throws Throwable {
+		/* should fail */
+		BlockingCallback<String> login1 = new BlockingCallback<String>();
+		client.login(null, null, login1);
+		try {
+			login1.get();
+			fail("login expected to fail");
+		} catch (ServerOperationException e) {
+			/* ok */
+		}
+
+		/* login normally */
+		BlockingCallback<String> login2 = new BlockingCallback<String>();
+		client.login("bob", "secret", login2);
+		login2.get();
+
+		/* login should work using cookie */
+		BlockingCallback<String> login3 = new BlockingCallback<String>();
+		client.login(null, null, login3);
+		assertEquals("bob", login3.get());
+	}
+
+	@Test
 	public void getDocuments() throws Throwable {
 		/* login */
-		Callback<String> loginCompletion = new Callback<String>();
+		BlockingCallback<String> loginCompletion = new BlockingCallback<String>();
 		client.login("bob", "secret", loginCompletion);
 		assertEquals("bob", loginCompletion.get());
 
 		/* get documents */
-		Callback<List<DocumentDescription>> completion = new Callback<List<DocumentDescription>>();
+		BlockingCallback<List<DocumentDescription>> completion = new BlockingCallback<List<DocumentDescription>>();
 		client.getDocuments(completion);
 		List<DocumentDescription> documents = completion.get();
 		assertEquals(3, documents.size());
@@ -117,24 +133,24 @@ public class DefaultWebUploadClientTest {
 	@Test
 	public void addPageAddPhotos() throws Throwable {
 		/* login */
-		Callback<String> loginCompletion = new Callback<String>();
+		BlockingCallback<String> loginCompletion = new BlockingCallback<String>();
 		client.login("bob", "secret", loginCompletion);
 		assertEquals("bob", loginCompletion.get());
 
 		/* get documents */
-		Callback<List<DocumentDescription>> completion = new Callback<List<DocumentDescription>>();
+		BlockingCallback<List<DocumentDescription>> completion = new BlockingCallback<List<DocumentDescription>>();
 		client.getDocuments(completion);
 		List<DocumentDescription> documents = completion.get();
 
 		int docid = documents.get(0).getDocumentId();
 
 		/* init the client */
-		Callback<Void> initCallback = new Callback<Void>();
+		BlockingCallback<Void> initCallback = new BlockingCallback<Void>();
 		client.initialize(docid, initCallback);
 		initCallback.get();
 
 		/* add page & photo */
-		Callback<Integer> createPageCallback = new Callback<Integer>();
+		BlockingCallback<Integer> createPageCallback = new BlockingCallback<Integer>();
 		Journal clientJournal = new Journal(null, "<bogus>");
 		Page clientPage = clientJournal.createNewPage();
 		clientPage.setTitle("title");
@@ -146,11 +162,11 @@ public class DefaultWebUploadClientTest {
 		clientPage.setDistance(10);
 		clientPage.setDate(new LocalDate(2011, 1, 1));
 		clientPage.setText("text");
-		Photo photo = new Photo(TestPhotos.getPhotoAsTempFile());
+		Photo photo = new Photo(TestPhotos.extractLargePhoto());
 		clientPage.addPhotos(Arrays.asList(photo), 0);
 		client.createNewPage(clientPage, createPageCallback);
 		Integer pageid = createPageCallback.get();
-		Callback<Void> addPageCallback = new Callback<Void>();
+		BlockingCallback<Void> addPageCallback = new BlockingCallback<Void>();
 		client.addPhoto(pageid, photo, addPageCallback, null);
 		addPageCallback.get();
 
@@ -173,61 +189,5 @@ public class DefaultWebUploadClientTest {
 
 	@Test
 	public void retryPhoto() {
-	}
-
-	static class Callback<T> implements CompletionCallback<T> {
-
-		private static final Logger LOG = LoggerFactory.getLogger(DefaultWebUploadClientTest.class);
-
-		private CountDownLatch latch = new CountDownLatch(1);
-
-		T result;
-
-		Throwable exception;
-
-		public T get() throws Throwable {
-			if (TestProperties.waitForever) {
-				latch.await();
-			} else {
-				int loops = 0;
-				int timePerLoop = 5;
-				while (!latch.await(timePerLoop, TimeUnit.SECONDS)) {
-					loops++;
-					LOG.info("Waited {}s for completion", loops * timePerLoop);
-					if (loops > 10) {
-						throw new TimeoutException();
-					}
-				}
-			}
-
-			if (exception != null) {
-				throw exception;
-			}
-			return result;
-		}
-
-		@Override
-		public void onCompletion(T result) {
-			this.result = result;
-			latch.countDown();
-		}
-
-		@Override
-		public void onError(Throwable exception) {
-			this.exception = exception;
-			latch.countDown();
-		}
-
-		@Override
-		public void retryNotify(Throwable exception, int retryCount) {
-			/* ignore */
-		}
-	}
-
-	static class CallingThreadExecutor implements Executor {
-		@Override
-		public void execute(Runnable command) {
-			command.run();
-		}
 	}
 }

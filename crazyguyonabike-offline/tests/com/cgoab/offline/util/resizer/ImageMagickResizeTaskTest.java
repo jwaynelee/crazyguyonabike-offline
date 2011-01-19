@@ -1,5 +1,8 @@
 package com.cgoab.offline.util.resizer;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
@@ -8,6 +11,7 @@ import org.apache.log4j.BasicConfigurator;
 import org.junit.Assert;
 import org.junit.Test;
 
+import testutils.TestUtils;
 import testutils.photos.TestPhotos;
 
 import com.cgoab.offline.util.Which;
@@ -46,41 +50,43 @@ public class ImageMagickResizeTaskTest {
 	public void testResizeSucess() throws Exception {
 
 		// prepare for the test
-		File source = TestPhotos.getPhotoAsTempFile();
-		File target = TestPhotos.createTempFileName(source);
+		File source = TestPhotos.extractLargePhoto();
+		String targetStr = TestUtils.createTempFileName(source.getName());
 		source.deleteOnExit();
-		target.deleteOnExit();
+		File target = new File(targetStr);
 
 		Metadata sourceMeta = JpegMetadataReader.readMetadata(source);
 		JpegDirectory sjDir = (JpegDirectory) sourceMeta.getDirectory(JpegDirectory.class);
-		Assert.assertEquals(2232, sjDir.getImageHeight());
-		Assert.assertEquals(3968, sjDir.getImageWidth());
+		assertEquals(2232, sjDir.getImageHeight());
+		assertEquals(3968, sjDir.getImageWidth());
 		execute(source, target);
-		Assert.assertTrue(target.exists());
-
+		assertTrue(target.exists());
+		target.deleteOnExit();
 		// load up target and check size
 		Metadata targetMeta = JpegMetadataReader.readMetadata(target);
 		JpegDirectory tjDir = (JpegDirectory) targetMeta.getDirectory(JpegDirectory.class);
-		Assert.assertEquals(1000, tjDir.getImageHeight());
-		Assert.assertEquals(1778, tjDir.getImageWidth());
+		assertEquals(1000, tjDir.getImageHeight());
+		assertEquals(1778, tjDir.getImageWidth());
 
 		// check aspect ratio was maintained
 		float sourceAspect = (float) sjDir.getImageWidth() / sjDir.getImageHeight();
 		float targetAspect = (float) tjDir.getImageWidth() / tjDir.getImageHeight();
-		Assert.assertEquals(sourceAspect, targetAspect, 0.001); /* 1 pixel in 1000 */
+		assertEquals(sourceAspect, targetAspect, 0.001); /*
+														 * 1 pixel in 1000
+														 */
 	}
 
 	@Test
 	public void testResizeBogusFileFails() throws IOException {
 		File source = File.createTempFile("in_bogus", null);
-		File target = TestPhotos.createTempFileName(source);
+		String target = TestUtils.createTempFileName(source.getName());
 
 		// create bogus jpeg file
 		TestPhotos.copyToTempFile(source, new ByteArrayInputStream(new byte[] { (byte) 0xFF, (byte) 0xD8, (byte) 0x00,
 				(byte) 0x00 }));
 		Exception failure = null;
 		try {
-			execute(source, target);
+			execute(source, new File(target));
 		} catch (MagickException e) {
 			/* expected */
 			failure = e;

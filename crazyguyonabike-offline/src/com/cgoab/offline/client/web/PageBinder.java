@@ -64,12 +64,12 @@ public class PageBinder extends AbstractFormBinder {
 		return builder.getMap();
 	}
 
-	public void setDocumentId(int documentId) {
-		this.documentId = documentId;
-	}
-
 	@Override
 	public boolean isInitialized() {
 		return super.isInitialized() && documentId != -1;
+	}
+
+	public void setDocumentId(int documentId) {
+		this.documentId = documentId;
 	}
 }

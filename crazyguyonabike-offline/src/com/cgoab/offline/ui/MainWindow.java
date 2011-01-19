@@ -11,6 +11,7 @@ import org.eclipse.jface.action.IContributionManager;
 import org.eclipse.jface.action.MenuManager;
 import org.eclipse.jface.action.Separator;
 import org.eclipse.jface.action.StatusLineManager;
+import org.eclipse.jface.window.ApplicationWindow;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.SashForm;
 import org.eclipse.swt.layout.GridData;
@@ -41,21 +42,36 @@ import com.cgoab.offline.ui.thumbnailviewer.CachingThumbnailProviderFactory;
 import com.cgoab.offline.util.Utils;
 import com.cgoab.offline.util.resizer.ImageMagickResizerServiceFactory;
 
-public class ApplicationWindow extends org.eclipse.jface.window.ApplicationWindow {
+public class MainWindow extends ApplicationWindow {
 
-	private static final String OPENJOURNALS_PREFERENCE_PATH = "/openjournals";
+	public static final IUndoContext APPLICATION_CONTEXT = new UndoContext();
+
+	static final String OPENJOURNALS_PREFERENCE_PATH = "/openjournals";
+
+	AddPhotosAction addPhotosAction;
+
+	CloseJournalAction closeJournalAction;
+
+	private IUndoContext currentContext = APPLICATION_CONTEXT;
+
+	DeletePageAction deletePageAction;
+
+	MenuManager editMenuMgr;
+
+	MenuManager fileMenuMgr;
 
 	private JournalViewer journalView;
 
+	private List<ContextChangedListener> listeners = new ArrayList<MainWindow.ContextChangedListener>();
 	// private ImageCache thumbnailCache;
-	public Action newJournalAction, openJournalAction, closeJournalAction, saveAction, uploadAction, deletePageAction,
-			addPhotosAction, openPageInBrowserAction, toggleHideUploadedContent, toggleResizePhotos,
-			viewResizedPhotosFolder, purgeResizedPhotos, toggleUseExifThumbnailAction, purgeThumbnailCache,
-			newPageAction;
 
-	public static IUndoContext APPLICATION_CONTEXT = new UndoContext();
+	NewJournalAction newJournalAction;
 
-	IUndoContext currentContext = APPLICATION_CONTEXT;
+	NewPageAction newPageAction;
+
+	OpenJournalAction openJournalAction;
+
+	OpenPageInBrowserAction openPageInBrowserAction;
 
 	private IAction openPreferencesAction = new Action("Preferences") {
 		@Override
@@ -66,6 +82,16 @@ public class ApplicationWindow extends org.eclipse.jface.window.ApplicationWindo
 		}
 	};
 
+	PageEditor pageEditor;
+
+	private Preferences preferences;
+
+	PurgeResizedPhotosAction purgeResizedPhotos;
+
+	PurgeThumbnailCacheAction purgeThumbnailCache;
+
+	private ImageMagickResizerServiceFactory resizerServiceFactory;
+
 	// private IAction renameJournalAction = new Action("Rename") {
 	// public void run() {
 	// treeViewer.editElement(((IStructuredSelection)
@@ -73,23 +99,33 @@ public class ApplicationWindow extends org.eclipse.jface.window.ApplicationWindo
 	// }
 	// };
 
-	private Preferences preferences;
-	private ImageMagickResizerServiceFactory resizerServiceFactory;
+	SaveAction saveAction;
+
 	private CachingThumbnailProviderFactory thumbnailProviderFactory;
-	private ThumbnailView thumbnailView;
+
+	ThumbnailView thumbnailView;
+
+	ToggleHideUploadedContent toggleHideUploadedContent;
+
+	ToggleResizeImagesBeforeUpload toggleResizePhotos;
+
+	ToggleUseExifThumbnailAction toggleUseExifThumbnailAction;
+
+	UploadAction uploadAction;
 
 	private UploadClientFactory uploadFactory;
 
-	public ApplicationWindow(Shell shell) {
-		super(shell);
+	ViewResizedPhotosAction viewResizedPhotosFolder;
+
+	public MainWindow() {
+		super(null);
 		setBlockOnOpen(true);
 		addStatusLine();
 		addMenuBar();
 	}
 
-	@Override
-	protected boolean showTopSeperator() {
-		return false;
+	public void addUndoContextChangedListener(ContextChangedListener listener) {
+		listeners.add(listener);
 	}
 
 	@Override
@@ -123,6 +159,7 @@ public class ApplicationWindow extends org.eclipse.jface.window.ApplicationWindo
 		uploadAction.setPreferences(preferences);
 		this.uploadAction = uploadAction;
 
+		/* populate main menu */
 		fileMenuMgr.add(newJournalAction);
 		fileMenuMgr.add(newPageAction);
 		fileMenuMgr.add(openJournalAction);
@@ -148,6 +185,21 @@ public class ApplicationWindow extends org.eclipse.jface.window.ApplicationWindo
 		root.update(true);
 	}
 
+	@Override
+	protected Control createContents(Composite parent) {
+		createControls(parent);
+		createActions();
+
+		/* TODO load on background thread? */
+		String journalToOpen = preferences.getValue(OPENJOURNALS_PREFERENCE_PATH);
+		if (journalToOpen != null && !JournalUtils.openJournal(journalToOpen, true, getShell())) {
+			// update preferences if last journal failed to load
+			preferences.removeValue(OPENJOURNALS_PREFERENCE_PATH);
+			preferences.save();
+		}
+		return parent;
+	}
+
 	private void createControls(final Composite parent) {
 		SashForm sashV = new SashForm(parent, SWT.VERTICAL);
 		SashForm sashH = new SashForm(sashV, SWT.HORIZONTAL);
@@ -156,7 +208,6 @@ public class ApplicationWindow extends org.eclipse.jface.window.ApplicationWindo
 		journalView = new JournalViewer(this);
 		journalView.createComponents(sashH);
 
-		PageEditor pageEditor;
 		pageEditor = new PageEditor(this);
 		pageEditor.createControls(sashH);
 		Composite thumbViewerGroup = new Composite(sashV, SWT.NONE);
@@ -168,15 +219,6 @@ public class ApplicationWindow extends org.eclipse.jface.window.ApplicationWindo
 		sashH.setWeights(new int[] { 1, 3 });
 	}
 
-	MenuManager fileMenuMgr;
-
-	@Override
-	protected StatusLineManager getStatusLineManager() {
-		return super.getStatusLineManager();
-	}
-
-	MenuManager editMenuMgr;
-
 	@Override
 	protected MenuManager createMenuManager() {
 		/* actions not created yet so just make top level menus */
@@ -186,6 +228,19 @@ public class ApplicationWindow extends org.eclipse.jface.window.ApplicationWindo
 		root.add(fileMenuMgr);
 		root.add(editMenuMgr);
 		return root;
+	}
+
+	public IUndoContext getCurrentOperationContext() {
+		return currentContext;
+	}
+
+	public Preferences getPreferences() {
+		return preferences;
+	}
+
+	@Override
+	protected StatusLineManager getStatusLineManager() {
+		return super.getStatusLineManager();
 	}
 
 	@Override
@@ -201,19 +256,15 @@ public class ApplicationWindow extends org.eclipse.jface.window.ApplicationWindo
 		super.handleShellCloseEvent();
 	}
 
-	@Override
-	protected Control createContents(Composite parent) {
-		createControls(parent);
-		createActions();
-
-		/* TODO load on background thread? */
-		String journalToOpen = preferences.getValue(OPENJOURNALS_PREFERENCE_PATH);
-		if (journalToOpen != null && !JournalUtils.openJournal(journalToOpen, true, getShell())) {
-			// update preferences if last journal failed to load
-			preferences.removeValue(OPENJOURNALS_PREFERENCE_PATH);
-			preferences.save();
+	public void setCurrentUndoContext(IUndoContext newContext) {
+		if (newContext == null) {
+			currentContext = APPLICATION_CONTEXT;
+		} else {
+			currentContext = newContext;
 		}
-		return parent;
+		for (ContextChangedListener listener : listeners) {
+			listener.contextChanged(currentContext);
+		}
 	}
 
 	public void setPreferences(Preferences preferences) {
@@ -232,25 +283,9 @@ public class ApplicationWindow extends org.eclipse.jface.window.ApplicationWindo
 		this.uploadFactory = uploadFactory;
 	}
 
-	public void setCurrentUndoContext(IUndoContext newContext) {
-		if (newContext == null) {
-			currentContext = APPLICATION_CONTEXT;
-		} else {
-			currentContext = newContext;
-		}
-		for (ContextChangedListener listener : listeners) {
-			listener.contextChanged(currentContext);
-		}
-	}
-
-	public void addUndoContextChangedListener(ContextChangedListener listener) {
-		listeners.add(listener);
-	}
-
-	private List<ContextChangedListener> listeners = new ArrayList<ApplicationWindow.ContextChangedListener>();
-
-	public IUndoContext getCurrentOperationContext() {
-		return currentContext;
+	@Override
+	protected boolean showTopSeperator() {
+		return false;
 	}
 
 	public interface ContextChangedListener {

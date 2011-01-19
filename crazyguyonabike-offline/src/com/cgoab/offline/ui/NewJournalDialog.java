@@ -25,8 +25,16 @@ public class NewJournalDialog {
 
 	public static final String EXTENSION = ".xml";
 
-	private String name;
+	public static void main(String[] args) {
+		Display display = new Display();
+		Shell shell = new Shell(display);
+		NewJournalDialog d = new NewJournalDialog(shell);
+		d.open();
+		System.out.println(d.getName());
+	}
 	private String location;
+	private String name;
+
 	private int result = SWT.CANCEL;
 
 	private Shell shell;
@@ -35,12 +43,25 @@ public class NewJournalDialog {
 		shell = new Shell(parent, SWT.APPLICATION_MODAL | SWT.DIALOG_TRIM);
 	}
 
-	public String getName() {
-		return name;
+	private void error(String msg) {
+		MessageBox box = new MessageBox(shell, SWT.ICON_ERROR | SWT.OK);
+		box.setText("Error");
+		box.setMessage(msg);
+		box.open();
+	}
+
+	// TODO handle null home?
+	protected String getDefaultLocation(String name) {
+		String home = System.getProperty("user.home");
+		return home + File.separator + "crazyguyonabike" + File.separator + name + EXTENSION;
 	}
 
 	public String getLocation() {
 		return location;
+	}
+
+	public String getName() {
+		return name;
 	}
 
 	public int open() {
@@ -176,13 +197,6 @@ public class NewJournalDialog {
 		return result;
 	}
 
-	private void error(String msg) {
-		MessageBox box = new MessageBox(shell, SWT.ICON_ERROR | SWT.OK);
-		box.setText("Error");
-		box.setMessage(msg);
-		box.open();
-	}
-
 	protected boolean verifyBeforeClose() {
 		if (name == null || name.isEmpty()) {
 			error("Journal name must not be empty!");
@@ -216,19 +230,5 @@ public class NewJournalDialog {
 		}
 
 		return true;
-	}
-
-	// TODO handle null home?
-	protected String getDefaultLocation(String name) {
-		String home = System.getProperty("user.home");
-		return home + File.separator + "crazyguyonabike" + File.separator + name + EXTENSION;
-	}
-
-	public static void main(String[] args) {
-		Display display = new Display();
-		Shell shell = new Shell(display);
-		NewJournalDialog d = new NewJournalDialog(shell);
-		d.open();
-		System.out.println(d.getName());
 	}
 }

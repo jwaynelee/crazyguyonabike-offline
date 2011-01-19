@@ -18,7 +18,7 @@ import testutils.fakeserver.ServerModel.ServerJournal;
 import testutils.fakeserver.ServerModel.ServerPage;
 import testutils.fakeserver.ServerModel.ServerPhoto;
 
-import com.cgoab.offline.ui.util.UIThreadCallbackMarsheller;
+import com.cgoab.offline.ui.util.UICallbackMarshaller;
 
 public class FakeServerUI {
 	public void open(final FakeCGOABServer server) {
@@ -97,7 +97,7 @@ public class FakeServerUI {
 			this.viewer = viewer;
 			this.model = (ServerModel) newInput;
 			if (model != null) {
-				model.addListener(UIThreadCallbackMarsheller.wrap(this, viewer.getControl().getShell().getDisplay()));
+				model.addListener(UICallbackMarshaller.wrap(this, viewer.getControl().getShell().getDisplay()));
 			}
 		}
 

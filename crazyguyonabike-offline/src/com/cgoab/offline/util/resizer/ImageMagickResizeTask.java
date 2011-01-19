@@ -23,6 +23,8 @@ import com.cgoab.offline.util.Which;
  */
 public class ImageMagickResizeTask extends ListenableCancellableTask<File> {
 
+	private static final int JPEG_QUALITY = 70;
+
 	private static final Logger LOG = LoggerFactory.getLogger(ImageMagickResizeTask.class);
 
 	public static final String MAGICK_COMMAND = "convert";
@@ -47,12 +49,89 @@ public class ImageMagickResizeTask extends ListenableCancellableTask<File> {
 	private static final Pattern VERSION_PATTERN = Pattern
 			.compile("Version: ImageMagick (\\d)\\.(\\d)\\.(\\d)-(\\d)?.*");
 
-	private static final int JPEG_QUALITY = 70;
+	/**
+	 * Searches for ImageMagick on the path and asserts the version is at least
+	 * the required version.
+	 * 
+	 * @return path to valid install of ImageMagick
+	 * @throws MagicNotAvailableException
+	 *             if the correct version of ImageMagic cannot be found
+	 */
+	static String findMagickAndCheckVersionOrThrow() throws MagicNotAvailableException {
+		String testMagickPath = Which.find(MAGICK_COMMAND_TO_CHECK_INSTALLATION);
+		if (testMagickPath == null) {
+			throw new MagicNotAvailableException(
+					"ImageMagick not found on system path. Install ImageMagick (at least version " + REQUIRED_VERSION
+							+ ") and restart.");
+		}
+		String magickPath = new File(testMagickPath).getParent() + File.separator + MAGICK_COMMAND;
+		if (!new File(magickPath).exists()) {
+			if (OS.isWindows() && new File(magickPath + ".exe").exists()) {
+				/* OK; windows cmd searches for exe when resolving binary */
+			} else {
+				throw new MagicNotAvailableException("ImageMagick was found, but '" + MAGICK_COMMAND
+						+ "' binary does not exist!");
+			}
+		}
 
-	private final File source, destination;
+		MagickVersion currentVersion = getCurrentMagickVersion(magickPath);
+		if (currentVersion == null) {
+			throw new MagicNotAvailableException("Unable to get ImageMagick version\n\n" + magickPath);
+		}
+		if (!currentVersion.isAtLeast(REQUIRED_VERSION)) {
+			throw new MagicNotAvailableException("Require ImageMagick version " + REQUIRED_VERSION
+					+ " or above (found version " + currentVersion + "). Upgrade and restart.");
+		}
+		return magickPath;
+	}
+	private static MagickVersion getCurrentMagickVersion(String magickPath) {
+		ProcessBuilder builder = new ProcessBuilder(magickPath, "-version");
+		builder.redirectErrorStream(true);
+		MagickVersion currentVersion = null;
+		BufferedReader reader = null;
+		try {
+			Process process = builder.start();
+			reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+			String line;
+			while ((line = reader.readLine()) != null) {
+				if (currentVersion == null) {
+					Matcher match = VERSION_PATTERN.matcher(line);
+					if (match.matches()) {
+						int major = Integer.parseInt(match.group(1));
+						int minor = Integer.parseInt(match.group(2));
+						int rev = Integer.parseInt(match.group(3));
+						int patch = Integer.parseInt(match.group(4));
+						currentVersion = new MagickVersion(major, minor, rev, patch);
+						LOG.debug("Detected ImageMagick version {}", currentVersion);
+					}
+				}
+				/*
+				 * continue to drain I/O after a match as subprocess could block
+				 * if stdout buffers fills and we wait in waitFor()
+				 */
+			}
+
+			process.waitFor();
+		} catch (IOException e) {
+			/* ignore */
+			LOG.debug("Exception finding ImageMagick version", e);
+		} catch (InterruptedException e) {
+			/* ignore */
+		} finally {
+			if (reader != null) {
+				try {
+					reader.close();
+				} catch (IOException e) {
+				}
+			}
+		}
+
+		return currentVersion;
+	}
 	private final String cmdPath;
 	private final Object lock = new Object();
 	private Process process; /* guarded by lock */
+	private final File source, destination;
 
 	public ImageMagickResizeTask(String cmd, File source, File destination, FutureCompletionListener<File> listener,
 			Object data) {
@@ -153,88 +232,6 @@ public class ImageMagickResizeTask extends ListenableCancellableTask<File> {
 		public MagickException(String message) {
 			super(message);
 		}
-	}
-
-	/**
-	 * Searches for ImageMagick on the path and asserts the version is at least
-	 * the required version.
-	 * 
-	 * @return path to valid install of ImageMagick
-	 * @throws MagicNotAvailableException
-	 *             if the correct version of ImageMagic cannot be found
-	 */
-	static String findMagickAndCheckVersionOrThrow() throws MagicNotAvailableException {
-		String testMagickPath = Which.find(MAGICK_COMMAND_TO_CHECK_INSTALLATION);
-		if (testMagickPath == null) {
-			throw new MagicNotAvailableException(
-					"ImageMagick not found on system path. Install ImageMagick (at least version " + REQUIRED_VERSION
-							+ ") and restart.");
-		}
-		String magickPath = new File(testMagickPath).getParent() + File.separator + MAGICK_COMMAND;
-		if (!new File(magickPath).exists()) {
-			if (OS.isWindows() && new File(magickPath + ".exe").exists()) {
-				/* OK; windows cmd searches for exe when resolving binary */
-			} else {
-				throw new MagicNotAvailableException("ImageMagick was found, but '" + MAGICK_COMMAND
-						+ "' binary does not exist!");
-			}
-		}
-
-		MagickVersion currentVersion = getCurrentMagickVersion(magickPath);
-		if (currentVersion == null) {
-			throw new MagicNotAvailableException("Unable to check ImageMagick version\n\n" + magickPath);
-		}
-
-		if (!currentVersion.isAtLeast(REQUIRED_VERSION)) {
-			throw new MagicNotAvailableException("Require ImageMagick version " + REQUIRED_VERSION
-					+ " or above (found version " + currentVersion + ")");
-		}
-		return magickPath;
-	}
-
-	private static MagickVersion getCurrentMagickVersion(String magickPath) {
-		ProcessBuilder builder = new ProcessBuilder(magickPath, "-version");
-		builder.redirectErrorStream(true);
-		MagickVersion currentVersion = null;
-		BufferedReader reader = null;
-		try {
-			Process process = builder.start();
-			reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-			String line;
-			while ((line = reader.readLine()) != null) {
-				if (currentVersion == null) {
-					Matcher match = VERSION_PATTERN.matcher(line);
-					if (match.matches()) {
-						int major = Integer.parseInt(match.group(1));
-						int minor = Integer.parseInt(match.group(2));
-						int rev = Integer.parseInt(match.group(3));
-						int patch = Integer.parseInt(match.group(4));
-						currentVersion = new MagickVersion(major, minor, rev, patch);
-						LOG.debug("Detected ImageMagick version {}", currentVersion);
-					}
-				}
-				/*
-				 * continue to drain I/O after a match as subprocess could block
-				 * if stdout buffers fills and we wait in waitFor()
-				 */
-			}
-
-			process.waitFor();
-		} catch (IOException e) {
-			/* ignore */
-			LOG.debug("Exception finding ImageMagick version", e);
-		} catch (InterruptedException e) {
-			/* ignore */
-		} finally {
-			if (reader != null) {
-				try {
-					reader.close();
-				} catch (IOException e) {
-				}
-			}
-		}
-
-		return currentVersion;
 	}
 
 	public static class MagickVersion {

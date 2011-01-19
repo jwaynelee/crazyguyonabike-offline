@@ -1,6 +1,5 @@
 package com.cgoab.offline.client;
 
-
 /**
  * Describes a document (article or journal) held on the CGOAB server to which
  * Pages may be uploaded.
@@ -10,10 +9,10 @@ package com.cgoab.offline.client;
  */
 public class DocumentDescription {
 
-	private final String title;
-	private final int hits;
 	private final int documentId;
+	private final int hits;
 	private final String status;
+	private final String title;
 	private final DocumentType type;
 
 	// /**
@@ -47,8 +46,8 @@ public class DocumentDescription {
 		this.type = type;
 	}
 
-	public String getTitle() {
-		return title;
+	public int getDocumentId() {
+		return documentId;
 	}
 
 	public int getHits() {
@@ -59,8 +58,8 @@ public class DocumentDescription {
 		return status;
 	}
 
-	public int getDocumentId() {
-		return documentId;
+	public String getTitle() {
+		return title;
 	}
 
 	public DocumentType getType() {

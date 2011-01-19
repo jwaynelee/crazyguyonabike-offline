@@ -1,9 +1,9 @@
 package com.cgoab.offline.client.web;
 
 public class TOCEntry {
-	private String title, headline;
-	private int sequence, indent;
 	private int id;
+	private int sequence, indent;
+	private String title, headline;
 
 	public TOCEntry(String title, String headline, int sequence, int indent, int id) {
 		this.title = title;

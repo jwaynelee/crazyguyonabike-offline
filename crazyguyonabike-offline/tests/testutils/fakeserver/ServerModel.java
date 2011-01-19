@@ -8,8 +8,6 @@ import java.util.Map;
 
 import org.eclipse.swt.graphics.Image;
 
-import testutils.fakeserver.ServerModel.ServerPage;
-
 import com.cgoab.offline.model.Page.HeadingStyle;
 import com.cgoab.offline.util.Assert;
 import com.cgoab.offline.util.Utils;
@@ -255,7 +253,7 @@ public class ServerModel {
 		private String filename;
 		private Image image;
 		ServerPage page;
-		private int size;
+		private long size;
 
 		public Object getPage() {
 			return page;
@@ -265,13 +263,21 @@ public class ServerModel {
 			this.filename = filename;
 		}
 
-		public void setSize(int size) {
+		public void setSize(long size) {
 			this.size = size;
+		}
+
+		public long getSize() {
+			return size;
 		}
 
 		@Override
 		public String toString() {
 			return filename + " (" + Utils.formatBytes(size) + ")";
+		}
+
+		public Object getFilename() {
+			return filename;
 		}
 	}
 

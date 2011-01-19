@@ -72,7 +72,6 @@ import com.cgoab.offline.model.Page;
 import com.cgoab.offline.model.Photo;
 import com.cgoab.offline.util.Assert;
 import com.cgoab.offline.util.FormFinder;
-import com.cgoab.offline.util.FormFinder.FormItem;
 import com.cgoab.offline.util.FormFinder.HtmlForm;
 import com.cgoab.offline.util.StringUtils;
 
@@ -181,8 +180,37 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 				+ Arrays.toString(expected), html);
 	}
 
-	private URI createURI(String path, String query) throws URISyntaxException {
-		return URIUtils.createURI("http", host, port, path, query, null);
+	private static HttpEntity createFormEntity(Map<String, Object> properties) throws UnsupportedEncodingException {
+		List<NameValuePair> pairs = new ArrayList<NameValuePair>(properties.size());
+		for (Entry<String, Object> e : properties.entrySet()) {
+			Object value = e.getValue();
+			if (value instanceof String) {
+				pairs.add(new BasicNameValuePair(e.getKey(), (String) value));
+			} else if (value == null) {
+				/* ignore */
+			} else {
+				throw new IllegalArgumentException("Unhandled type " + value);
+			}
+		}
+		return new UrlEncodedFormEntity(pairs);
+	}
+
+	private static HttpEntity createMultipartFormEntity(Map<String, Object> properties)
+			throws UnsupportedEncodingException {
+		MultipartEntity entity = new MultipartEntity();
+		for (Entry<String, Object> e : properties.entrySet()) {
+			Object value = e.getValue();
+			ContentBody body;
+			if (value instanceof ContentBody) {
+				body = (ContentBody) value;
+			} else if (value instanceof String) {
+				body = new StringBody((String) value);
+			} else {
+				throw new IllegalArgumentException("Unhandled type " + value);
+			}
+			entity.addPart(e.getKey(), body);
+		}
+		return entity;
 	}
 
 	static boolean isRedirect(int code) {
@@ -212,9 +240,7 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 
 	private String currentRealname;
 
-	private PhotoBinder photoBinder;
-
-	private PageBinder pageBinder;
+	private String currentUsername;
 
 	// public void delete(int pageId) {
 	//
@@ -222,11 +248,15 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 	// HttpGet get = new HttpGet(createURI("doc/edit/page/", ))
 	// }
 
-	private String currentUsername;
-
 	private final String host;
 
+	private PageBinder pageBinder;
+
+	private PhotoBinder photoBinder;
+
 	private final int port;
+
+	boolean validatedAddPageForm;
 
 	/**
 	 * Creates a new client
@@ -286,10 +316,18 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 		asyncExec(new AddPageTask(callback, page));
 	}
 
-	private void throwIfNotInitialized() {
-		if (photoBinder == null || pageBinder == null || !photoBinder.isInitialized() || !pageBinder.isInitialized()) {
-			throw new IllegalStateException("UploadClient not initialized!");
-		}
+	private URI createURI(String path, String query) throws URISyntaxException {
+		return URIUtils.createURI("http", host, port, path, query, null);
+	}
+
+	public void deletePage(final int pageId, CompletionCallback<Void> callback) {
+		asyncExec(new CancellableHttpTask<Void>(callback) {
+			@Override
+			protected Void doRun() throws Exception {
+				doDeletePageGET(pageId, this);
+				return null;
+			}
+		});
 	}
 
 	@Override
@@ -298,6 +336,25 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 		currentRealname = currentUsername = null;
 		client.getConnectionManager().shutdown();
 		super.dispose();
+	}
+
+	/**
+	 * Exposed for testing
+	 * 
+	 * @param pageId
+	 * @param task
+	 * @throws IOException
+	 * @throws URISyntaxException
+	 */
+	private void doDeletePageGET(int pageId, CancellableHttpTask<?> task) throws IOException, URISyntaxException {
+		HttpGet deletePage = new HttpGet(createURI("/doc/edit/page/", "command=do_delete&page_id=" + pageId
+				+ "&from=editcontents"));
+		HttpResponse response = task.execute(deletePage);
+		String html = EntityUtils.toString(response.getEntity());
+		int code = response.getStatusLine().getStatusCode();
+		if (code != HttpStatus.SC_MOVED_PERMANENTLY) {
+			throw new ServerOperationException("Unexpected response code [" + code + "] after delete", html);
+		}
 	}
 
 	private void doLogoutGET(CancellableHttpTask<?> task) throws URISyntaxException, ClientProtocolException,
@@ -330,6 +387,7 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 		asyncExec(new GetDocumentsTask(callback));
 	}
 
+	@Override
 	public void initialize(int docId, final CompletionCallback<Void> callback) {
 		asyncExec(new InitializeFormsTask(callback, docId));
 	}
@@ -347,13 +405,216 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 		pageBinder = null;
 	}
 
+	private void throwIfNotInitialized() {
+		if (photoBinder == null || pageBinder == null || !photoBinder.isInitialized() || !pageBinder.isInitialized()) {
+			throw new IllegalStateException("UploadClient not initialized!");
+		}
+	}
+
+	//
+	// public List<TOCEntry> getTableOfContents(int journalId) throws Exception
+	// {
+	//
+	// HttpGet g2 = new HttpGet(createURI("/doc/edit/", "doc_id=" + journalId));
+	//
+	// HttpResponse contents = client.execute(g2, context);
+	// TagNode n1 = cleaner.clean(contents.getEntity().getContent());
+	//
+	// List<TOCEntry> toc = new ArrayList<TOCEntry>();
+	//
+	// // [0] is header
+	// Object[] entries = n1.evaluateXPath("/body/table[3]/tbody/tr");
+	// for (int i = 1; i < entries.length; ++i) {
+	// TagNode t = (TagNode) entries[i];
+	// TagNode[] es = t.getElementsByName("th", true);
+	// String sequence = clean(es[0].getText().toString());
+	// String indent = clean(es[1].getText().toString());
+	// es = t.getElementsByName("td", true);
+	//
+	// // unwrap "hx" wrapper
+	// Object[] aas = es[0].evaluateXPath("//a");
+	// List<Object> childTags = ((TagNode) aas[0]).getParent().getChildren();
+	//
+	// // find 2nd "a" link and merge string
+	// String text = "";
+	// TagNode a = null;
+	// int ai = 0;
+	// for (Iterator<Object> j = childTags.iterator(); j.hasNext();) {
+	// Object o = j.next();
+	// if (o instanceof TagNode) {
+	// TagNode tn = (TagNode) o;
+	// if (tn.getName().equals("a")) {
+	// if (++ai == 2) {
+	// a = tn;
+	// }
+	// }
+	// } else if (o instanceof ContentToken) {
+	// text += o.toString();
+	// } else if (o instanceof EndTagToken) { // ignore } else { throw
+	// new IllegalStateException("Unexpected: " + o.getClass());
+	// }
+	// }
+	//
+	// text = clean(text);
+	//
+	// // trim ":"
+	// String description = text.length() > 0 ? text.substring(1) : text;
+	//
+	// String title = clean(a.getText().toString());
+	// int id = getId(a.getAttributeByName("href"), PAGE_ID);
+	// toc.add(new TOCEntry(title, description, Integer.parseInt(sequence),
+	// Integer.parseInt(indent), id));
+	// }
+	// return toc;
+	// }
+
 	void toFile(String name, HttpEntity entity) throws IOException {
 		FileWriter file = new FileWriter(name);
 		file.write(EntityUtils.toString(entity));
 		file.close();
 	}
 
-	boolean validatedAddPageForm;
+	@Override
+	public String toString() {
+		return host + (port == -1 ? "" : ":" + port);
+	}
+
+	class AddPageTask extends CancellableHttpTask<Integer> {
+		private Page page;
+
+		public AddPageTask(CompletionCallback<Integer> callback, Page page) {
+			super(callback);
+			this.page = page;
+		}
+
+		@Override
+		protected Integer doRun() throws Exception {
+			HttpPost post = new HttpPost(createURI("/doc/edit/page/", null));
+			post.setEntity(createFormEntity(pageBinder.bind(page)));
+			HttpResponse result = execute(post);
+			String html = EntityUtils.toString(result.getEntity());
+			int statusCode = result.getStatusLine().getStatusCode();
+			if (isRedirect(statusCode)) {
+				/* page-id should be in the redirect header */
+				result.getEntity().consumeContent();
+				Header locationHeader = result.getFirstHeader("Location");
+				if (locationHeader == null) {
+					throw new IllegalStateException("No location header returned by server.");
+				}
+				String location = locationHeader.getValue();
+				Matcher match = PAGE_ID_PATTERN.matcher(location);
+				if (!match.matches()) {
+					throw new ServerOperationException("Could not find page_id in url [" + location + "]", html);
+				}
+				return Integer.parseInt(match.group(1));
+			} else if (statusCode == HttpStatus.SC_OK) {
+				/* page html is the error message */
+				throw new ServerOperationException("Failed to add page", html);
+			} else {
+				throw new IllegalStateException("Unexpected status code [" + statusCode + "]");
+			}
+		}
+	}
+
+	class AddPhotoTask extends CancellableHttpTask<Void> {
+
+		private PhotoUploadProgressListener listener;
+		private int pageId;
+		private Photo photo;
+
+		public AddPhotoTask(CompletionCallback<Void> callback, int pageId, Photo photo,
+				PhotoUploadProgressListener listener) {
+			super(callback);
+			this.listener = listener;
+			this.photo = photo;
+			this.pageId = pageId;
+		}
+
+		@Override
+		public Void doRun() throws ClientProtocolException, IOException, URISyntaxException {
+			HttpPost post = new HttpPost(createURI("doc/edit/page/pic/", null));
+			File file = photo.getResizedPhoto();
+			if (file == null) {
+				file = photo.getFile();
+			}
+			FileBody fb = new ProgressTrackingFileBody(file, new ProgressListener() {
+				@Override
+				public void transferred(final long sent, final long total) {
+					getCallbackExecutor().execute(new Runnable() {
+						@Override
+						public void run() {
+							listener.uploadPhotoProgress(photo, sent, total);
+						}
+					});
+				}
+			});
+
+			post.setEntity(createMultipartFormEntity(photoBinder.bind(photo, fb, pageId)));
+			HttpResponse response = execute(post);
+			String html = EntityUtils.toString(response.getEntity());
+
+			int statusCode = response.getStatusLine().getStatusCode();
+			if (isRedirect(statusCode)) {
+				/* TODO assert is a redirect to /doc/edit/page/? */
+				return null;
+			} else if (statusCode == HttpStatus.SC_OK) {
+				throw new ServerOperationException("Error adding photo " + photo.getFile(), html);
+			} else {
+				throw new IllegalStateException("Unexpected status code [" + statusCode + "]");
+			}
+		}
+	}
+
+	abstract class CancellableHttpTask<T> extends Task<T> {
+
+		private final AtomicBoolean cancelled = new AtomicBoolean();
+		private final AtomicReference<HttpRequestBase> currentOperation = new AtomicReference<HttpRequestBase>();
+
+		protected CancellableHttpTask(CompletionCallback<T> callback) {
+			super(callback);
+		}
+
+		@Override
+		protected final void cancel() {
+			cancelled.set(true);
+			HttpRequestBase request = currentOperation.get();
+			if (request != null) {
+				request.abort();
+			}
+		}
+
+		protected HttpResponse execute(HttpRequestBase request) throws ClientProtocolException, IOException {
+			if (cancelled.get()) {
+				throw new CancellationException("Task is cancelled!");
+			}
+			try {
+				currentOperation.set(request);
+				return client.execute(request, context);
+			} finally {
+				currentOperation.set(null);
+			}
+		}
+
+		public boolean isCancelled() {
+			return cancelled.get();
+		}
+	}
+
+	class GetDocumentsTask extends CancellableHttpTask<List<DocumentDescription>> {
+
+		public GetDocumentsTask(CompletionCallback<List<DocumentDescription>> callback) {
+			super(callback);
+		}
+
+		@Override
+		protected List<DocumentDescription> doRun() throws Exception {
+			HttpGet get = new HttpGet(createURI("/my/", null));
+			HttpResponse response = execute(get);
+			String html = EntityUtils.toString(response.getEntity());
+			assertStatusCode(html, response.getStatusLine().getStatusCode(), HttpStatus.SC_OK);
+			return CGOABHtmlUtils.extractDocuments(cleaner.clean(html));
+		}
+	}
 
 	class InitializeFormsTask extends CancellableHttpTask<Void> {
 
@@ -435,17 +696,13 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 				// 3) delete the temporary page we just created
 				try {
 					if (pageId != 0) {
-						LOG.debug("Deleting temporary page {}", pageId);
-						HttpGet deletePage = new HttpGet(createURI("/doc/edit/page/", "command=do_delete&page_id="
-								+ pageId + "&from=editcontents"));
-						response = execute(deletePage);
-						int code = response.getStatusLine().getStatusCode();
-						if (code != HttpStatus.SC_MOVED_PERMANENTLY) {
-							LOG.warn(
-									"Unexpected status code {} deleting temporary page, it may need to be deleted manually",
-									code);
+						try {
+							LOG.debug("Deleting temporary page {}", pageId);
+							doDeletePageGET(pageId, this);
+							LOG.debug("Deleted temporary page {}", pageId);
+						} catch (ServerOperationException e) {
+							LOG.warn("Exception deleting temporary page, it may need to be deleted manually", e);
 						}
-						response.getEntity().consumeContent();
 					}
 				} catch (Throwable e) {
 					LOG.warn("Unexpected exception deleting temporary page, it may need to be deleted manually", e);
@@ -462,199 +719,6 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 		}
 	}
 
-	abstract class CancellableHttpTask<T> extends Task<T> {
-
-		private final AtomicReference<HttpRequestBase> currentOperation = new AtomicReference<HttpRequestBase>();
-		private final AtomicBoolean cancelled = new AtomicBoolean();
-
-		protected CancellableHttpTask(CompletionCallback<T> callback) {
-			super(callback);
-		}
-
-		public boolean isCancelled() {
-			return cancelled.get();
-		}
-
-		protected HttpResponse execute(HttpRequestBase request) throws ClientProtocolException, IOException {
-			if (cancelled.get()) {
-				throw new CancellationException("Task is cancelled!");
-			}
-			try {
-				currentOperation.set(request);
-				return client.execute(request, context);
-			} finally {
-				currentOperation.set(null);
-			}
-		}
-
-		@Override
-		protected final void cancel() {
-			cancelled.set(true);
-			HttpRequestBase request = currentOperation.get();
-			if (request != null) {
-				request.abort();
-			}
-		}
-	}
-
-	class AddPageTask extends CancellableHttpTask<Integer> {
-		private Page page;
-
-		public AddPageTask(CompletionCallback<Integer> callback, Page page) {
-			super(callback);
-			this.page = page;
-		}
-
-		@Override
-		protected Integer doRun() throws Exception {
-			HttpPost post = new HttpPost(createURI("/doc/edit/page/", null));
-			post.setEntity(createFormEntity(pageBinder.bind(page)));
-			HttpResponse result = execute(post);
-			String html = EntityUtils.toString(result.getEntity());
-			int statusCode = result.getStatusLine().getStatusCode();
-			if (isRedirect(statusCode)) {
-				/* page-id should be in the redirect header */
-				result.getEntity().consumeContent();
-				Header locationHeader = result.getFirstHeader("Location");
-				if (locationHeader == null) {
-					throw new IllegalStateException("No location header returned by server.");
-				}
-				String location = locationHeader.getValue();
-				Matcher match = PAGE_ID_PATTERN.matcher(location);
-				if (!match.matches()) {
-					throw new ServerOperationException("Could not find page_id in url [" + location + "]", html);
-				}
-				return Integer.parseInt(match.group(1));
-			} else if (statusCode == HttpStatus.SC_OK) {
-				/* page html is the error message */
-				throw new ServerOperationException("Failed to add page", html);
-			} else {
-				throw new IllegalStateException("Unexpected status code [" + statusCode + "]");
-			}
-		}
-	}
-
-	// public List<TOCEntry> getTableOfContents(int journalId) throws Exception
-	// {
-	//
-	// HttpGet g2 = new HttpGet(createURI("/doc/edit/", "doc_id=" + journalId));
-	//
-	// HttpResponse contents = client.execute(g2, context);
-	// TagNode n1 = cleaner.clean(contents.getEntity().getContent());
-	//
-	// List<TOCEntry> toc = new ArrayList<TOCEntry>();
-	//
-	// // [0] is header
-	// Object[] entries = n1.evaluateXPath("/body/table[3]/tbody/tr");
-	// for (int i = 1; i < entries.length; ++i) {
-	// TagNode t = (TagNode) entries[i];
-	// TagNode[] es = t.getElementsByName("th", true);
-	// String sequence = clean(es[0].getText().toString());
-	// String indent = clean(es[1].getText().toString());
-	// es = t.getElementsByName("td", true);
-	//
-	// // unwrap "hx" wrapper
-	// Object[] aas = es[0].evaluateXPath("//a");
-	// List<Object> childTags = ((TagNode) aas[0]).getParent().getChildren();
-	//
-	// // find 2nd "a" link and merge string
-	// String text = "";
-	// TagNode a = null;
-	// int ai = 0;
-	// for (Iterator<Object> j = childTags.iterator(); j.hasNext();) {
-	// Object o = j.next();
-	// if (o instanceof TagNode) {
-	// TagNode tn = (TagNode) o;
-	// if (tn.getName().equals("a")) {
-	// if (++ai == 2) {
-	// a = tn;
-	// }
-	// }
-	// } else if (o instanceof ContentToken) {
-	// text += o.toString();
-	// } else if (o instanceof EndTagToken) { // ignore } else { throw
-	// new IllegalStateException("Unexpected: " + o.getClass());
-	// }
-	// }
-	//
-	// text = clean(text);
-	//
-	// // trim ":"
-	// String description = text.length() > 0 ? text.substring(1) : text;
-	//
-	// String title = clean(a.getText().toString());
-	// int id = getId(a.getAttributeByName("href"), PAGE_ID);
-	// toc.add(new TOCEntry(title, description, Integer.parseInt(sequence),
-	// Integer.parseInt(indent), id));
-	// }
-	// return toc;
-	// }
-
-	class AddPhotoTask extends CancellableHttpTask<Void> {
-
-		private PhotoUploadProgressListener listener;
-		private int pageId;
-		private Photo photo;
-
-		public AddPhotoTask(CompletionCallback<Void> callback, int pageId, Photo photo,
-				PhotoUploadProgressListener listener) {
-			super(callback);
-			this.listener = listener;
-			this.photo = photo;
-			this.pageId = pageId;
-		}
-
-		@Override
-		public Void doRun() throws ClientProtocolException, IOException, URISyntaxException {
-			HttpPost post = new HttpPost(createURI("doc/edit/page/pic/", null));
-			File file = photo.getResizedPhoto();
-			if (file == null) {
-				file = photo.getFile();
-			}
-			FileBody fb = new ProgressTrackingFileBody(file, new ProgressListener() {
-				@Override
-				public void transferred(final long sent, final long total) {
-					getCallbackExecutor().execute(new Runnable() {
-						@Override
-						public void run() {
-							listener.uploadPhotoProgress(photo, sent, total);
-						}
-					});
-				}
-			});
-
-			post.setEntity(createMultipartFormEntity(photoBinder.bind(photo, fb, pageId)));
-			HttpResponse response = execute(post);
-			String html = EntityUtils.toString(response.getEntity());
-
-			int statusCode = response.getStatusLine().getStatusCode();
-			if (isRedirect(statusCode)) {
-				/* TODO assert is a redirect to /doc/edit/page/? */
-				return null;
-			} else if (statusCode == HttpStatus.SC_OK) {
-				throw new ServerOperationException("Error adding photo " + photo.getFile(), html);
-			} else {
-				throw new IllegalStateException("Unexpected status code [" + statusCode + "]");
-			}
-		}
-	}
-
-	class GetDocumentsTask extends CancellableHttpTask<List<DocumentDescription>> {
-
-		public GetDocumentsTask(CompletionCallback<List<DocumentDescription>> callback) {
-			super(callback);
-		}
-
-		@Override
-		protected List<DocumentDescription> doRun() throws Exception {
-			HttpGet get = new HttpGet(createURI("/my/", null));
-			HttpResponse response = execute(get);
-			String html = EntityUtils.toString(response.getEntity());
-			assertStatusCode(html, response.getStatusLine().getStatusCode(), HttpStatus.SC_OK);
-			return CGOABHtmlUtils.extractDocuments(cleaner.clean(html));
-		}
-	}
-
 	class LoginTask extends CancellableHttpTask<String> {
 
 		private static final String LOGIN_PATH = "/login/index.html";
@@ -665,28 +729,6 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 			super(callback);
 			this.username = username;
 			this.password = password;
-		}
-
-		private LoginBinder initializeBinder() throws URISyntaxException, ClientProtocolException, IOException,
-				XPatherException {
-			HttpGet get = new HttpGet(createURI(LOGIN_PATH, null));
-			HttpResponse response = execute(get);
-			String html = EntityUtils.toString(response.getEntity());
-			assertStatusCode(html, response.getStatusLine().getStatusCode(), HttpStatus.SC_OK);
-			HtmlForm form = FormFinder.findFormWithName(cleaner.clean(html), "form");
-			if (form == null) {
-				throw new InitializationErrorException("No [form] found");
-			} else {
-				LOG.debug("Found login-form {}", form);
-			}
-			LoginBinder binder = new LoginBinder();
-			List<String> errors = new ArrayList<String>();
-			if (!binder.initialize(form, errors)) {
-				throw new InitializationErrorException(StringUtils.join(errors, "\n"));
-			} else if (errors.size() > 0) {
-				throw new InitializationWarningException(StringUtils.join(errors, "\n"));
-			}
-			return binder;
 		}
 
 		private String doLoginPOST(String username, String password) throws ClientProtocolException, IOException,
@@ -771,6 +813,28 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 			LOG.debug("Sucessfully logged in as {} ({})", currentUsername, currentRealname);
 			return username;
 		}
+
+		private LoginBinder initializeBinder() throws URISyntaxException, ClientProtocolException, IOException,
+				XPatherException {
+			HttpGet get = new HttpGet(createURI(LOGIN_PATH, null));
+			HttpResponse response = execute(get);
+			String html = EntityUtils.toString(response.getEntity());
+			assertStatusCode(html, response.getStatusLine().getStatusCode(), HttpStatus.SC_OK);
+			HtmlForm form = FormFinder.findFormWithName(cleaner.clean(html), "form");
+			if (form == null) {
+				throw new InitializationErrorException("No [form] found");
+			} else {
+				LOG.debug("Found login-form {}", form);
+			}
+			LoginBinder binder = new LoginBinder();
+			List<String> errors = new ArrayList<String>();
+			if (!binder.initialize(form, errors)) {
+				throw new InitializationErrorException(StringUtils.join(errors, "\n"));
+			} else if (errors.size() > 0) {
+				throw new InitializationWarningException(StringUtils.join(errors, "\n"));
+			}
+			return binder;
+		}
 	}
 
 	class LogoutTask extends CancellableHttpTask<Void> {
@@ -852,43 +916,5 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 			fireOnRetry(exception, executionCount);
 			return super.retryRequest(exception, executionCount, context);
 		}
-	}
-
-	@Override
-	public String toString() {
-		return host + (port == -1 ? "" : ":" + port);
-	}
-
-	private static HttpEntity createMultipartFormEntity(Map<String, Object> properties)
-			throws UnsupportedEncodingException {
-		MultipartEntity entity = new MultipartEntity();
-		for (Entry<String, Object> e : properties.entrySet()) {
-			Object value = e.getValue();
-			ContentBody body;
-			if (value instanceof ContentBody) {
-				body = (ContentBody) value;
-			} else if (value instanceof String) {
-				body = new StringBody((String) value);
-			} else {
-				throw new IllegalArgumentException("Unhandled type " + value);
-			}
-			entity.addPart(e.getKey(), body);
-		}
-		return entity;
-	}
-
-	private static HttpEntity createFormEntity(Map<String, Object> properties) throws UnsupportedEncodingException {
-		List<NameValuePair> pairs = new ArrayList<NameValuePair>(properties.size());
-		for (Entry<String, Object> e : properties.entrySet()) {
-			Object value = e.getValue();
-			if (value instanceof String) {
-				pairs.add(new BasicNameValuePair(e.getKey(), (String) value));
-			} else if (value == null) {
-				/* ignore */
-			} else {
-				throw new IllegalArgumentException("Unhandled type " + value);
-			}
-		}
-		return new UrlEncodedFormEntity(pairs);
 	}
 }

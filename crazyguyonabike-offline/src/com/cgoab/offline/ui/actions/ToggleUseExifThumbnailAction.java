@@ -4,6 +4,7 @@ import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 
 import org.eclipse.jface.action.Action;
+import org.eclipse.jface.action.IAction;
 
 import com.cgoab.offline.model.Journal;
 import com.cgoab.offline.ui.JournalSelectionService;
@@ -12,7 +13,7 @@ import com.cgoab.offline.ui.JournalSelectionService.JournalSelectionListener;
 public class ToggleUseExifThumbnailAction extends ActionWithCurrentJournal {
 
 	public ToggleUseExifThumbnailAction() {
-		super("Use EXIF thumbnail", Action.AS_CHECK_BOX);
+		super("Use EXIF thumbnail", IAction.AS_CHECK_BOX);
 		JournalSelectionService.getInstance().addListener(new JournalSelectionListener() {
 
 			PropertyChangeListener listener = new PropertyChangeListener() {
@@ -27,7 +28,10 @@ public class ToggleUseExifThumbnailAction extends ActionWithCurrentJournal {
 			};
 
 			@Override
-			public void selectionChanged(Object newSelection, Object oldSelection) {
+			public void journalClosed(Journal journal) {
+				setEnabled(false);
+				setChecked(false);
+				journal.removePropertyChangeListener(listener);
 			}
 
 			@Override
@@ -38,10 +42,7 @@ public class ToggleUseExifThumbnailAction extends ActionWithCurrentJournal {
 			}
 
 			@Override
-			public void journalClosed(Journal journal) {
-				setEnabled(false);
-				setChecked(false);
-				journal.removePropertyChangeListener(listener);
+			public void selectionChanged(Object newSelection, Object oldSelection) {
 			}
 		});
 	}

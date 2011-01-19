@@ -4,6 +4,7 @@ import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 
 import org.eclipse.jface.action.Action;
+import org.eclipse.jface.action.IAction;
 
 import com.cgoab.offline.model.Journal;
 import com.cgoab.offline.ui.JournalSelectionService;
@@ -15,7 +16,7 @@ public class ToggleResizeImagesBeforeUpload extends Action {
 	private final ThumbnailView thumbView;
 
 	public ToggleResizeImagesBeforeUpload(ThumbnailView thumbnailView) {
-		super("Resize photos", Action.AS_CHECK_BOX);
+		super("Resize photos", IAction.AS_CHECK_BOX);
 		this.thumbView = thumbnailView;
 		JournalSelectionService.getInstance().addListener(new JournalSelectionListener() {
 
@@ -31,7 +32,10 @@ public class ToggleResizeImagesBeforeUpload extends Action {
 			};
 
 			@Override
-			public void selectionChanged(Object newSelection, Object oldSelection) {
+			public void journalClosed(Journal journal) {
+				setChecked(false);
+				setEnabled(false);
+				journal.removePropertyChangeListener(listener);
 			}
 
 			@Override
@@ -42,10 +46,7 @@ public class ToggleResizeImagesBeforeUpload extends Action {
 			}
 
 			@Override
-			public void journalClosed(Journal journal) {
-				setChecked(false);
-				setEnabled(false);
-				journal.removePropertyChangeListener(listener);
+			public void selectionChanged(Object newSelection, Object oldSelection) {
 			}
 		});
 	}

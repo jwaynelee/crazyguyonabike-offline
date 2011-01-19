@@ -14,6 +14,34 @@ public class SWTUtils {
 		Assert.notNull(Display.findDisplay(thread), thread.getName() + " is not UI thread");
 	}
 
+	public static FontData[] createModifiedFontData(FontData[] originalData, int additionalStyle) {
+		FontData[] styleData = new FontData[originalData.length];
+		for (int i = 0; i < styleData.length; i++) {
+			FontData base = originalData[i];
+			styleData[i] = new FontData(base.getName(), base.getHeight(), base.getStyle() | additionalStyle);
+		}
+		return styleData;
+	}
+
+	public static int getAccelerator(KeyEvent event) {
+		int key = event.character;
+		if (key == 0) {
+			key = event.keyCode;
+		} else {
+			if (0 <= key && key <= 0x1F) {
+				if ((event.stateMask & SWT.CTRL) != 0) {
+					key += 0x40;
+				}
+			} else {
+				if ('a' <= key && key <= 'z') {
+					key -= 'a' - 'A';
+				}
+			}
+		}
+		int mods = event.stateMask & SWT.MODIFIER_MASK;
+		return mods + key;
+	}
+
 	public static ImageData rotate(ImageData srcData, int direction) {
 		int bytesPerPixel = srcData.bytesPerLine / srcData.width;
 		int destBytesPerLine = (direction == SWT.DOWN) ? srcData.width * bytesPerPixel : srcData.height * bytesPerPixel;
@@ -50,33 +78,5 @@ public class SWTUtils {
 		// destBytesPerLine is used as scanlinePad to ensure that no padding is
 		// required
 		return new ImageData(width, height, srcData.depth, srcData.palette, destBytesPerLine, newData);
-	}
-
-	public static int getAccelerator(KeyEvent event) {
-		int key = event.character;
-		if (key == 0) {
-			key = event.keyCode;
-		} else {
-			if (0 <= key && key <= 0x1F) {
-				if ((event.stateMask & SWT.CTRL) != 0) {
-					key += 0x40;
-				}
-			} else {
-				if ('a' <= key && key <= 'z') {
-					key -= 'a' - 'A';
-				}
-			}
-		}
-		int mods = event.stateMask & SWT.MODIFIER_MASK;
-		return mods + key;
-	}
-
-	public static FontData[] createModifiedFontData(FontData[] originalData, int additionalStyle) {
-		FontData[] styleData = new FontData[originalData.length];
-		for (int i = 0; i < styleData.length; i++) {
-			FontData base = originalData[i];
-			styleData[i] = new FontData(base.getName(), base.getHeight(), base.getStyle() | additionalStyle);
-		}
-		return styleData;
 	}
 }

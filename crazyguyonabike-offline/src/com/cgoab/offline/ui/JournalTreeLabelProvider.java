@@ -27,12 +27,21 @@ import com.cgoab.offline.util.StringUtils;
 
 public class JournalTreeLabelProvider extends StyledCellLabelProvider {
 
-	private Map<ImageDescriptor, Image> imageCache = new HashMap<ImageDescriptor, Image>();
+	public static ImageDescriptor getImageDescriptor(String name) {
+		String iconPath = "/icons/";
+		URL resource = MainWindow.class.getResource(iconPath + name);
+		if (resource == null) {
+			return ImageDescriptor.getMissingImageDescriptor();
+		}
+		return ImageDescriptor.createFromURL(resource);
+	}
 	private Font boldFont;
-	private Font italicFont;
 	private Font boldItalicFont;
-	private Shell shell;
+	private Map<ImageDescriptor, Image> imageCache = new HashMap<ImageDescriptor, Image>();
+	private Font italicFont;
 	private Set<String> labelProperties = new HashSet<String>();
+
+	private Shell shell;
 
 	public JournalTreeLabelProvider(TreeViewer viewer, Shell shell) {
 		this.shell = shell;
@@ -46,6 +55,50 @@ public class JournalTreeLabelProvider extends StyledCellLabelProvider {
 		labelProperties.add(Page.INDENT);
 		labelProperties.add(Page.TITLE);
 		labelProperties.add(Page.HEADLINE);
+	}
+
+	@Override
+	public void dispose() {
+		for (Iterator<Image> i = imageCache.values().iterator(); i.hasNext();) {
+			(i.next()).dispose();
+		}
+		imageCache.clear();
+		super.dispose();
+	}
+
+	private Image getImage(Object obj) {
+		ImageDescriptor desc = null;
+		if (obj instanceof Journal) {
+			desc = getImageDescriptor("folder3.gif");
+		}
+		if (obj instanceof Page) {
+			Page p = (Page) obj;
+			switch (p.getState()) {
+			case NEW:
+				desc = getImageDescriptor("page.gif");
+				break;
+			case ERROR:
+				desc = getImageDescriptor("error.gif");
+				break;
+			case PARTIALLY_UPLOAD:
+				desc = getImageDescriptor("partialupload.gif");
+				break;
+			case UPLOADED:
+				desc = getImageDescriptor("locked.gif");
+				break;
+			}
+		}
+
+		if (desc == null) {
+			return null;
+		}
+
+		Image image = imageCache.get(desc);
+		if (image == null) {
+			image = desc.createImage();
+			imageCache.put(desc, image);
+		}
+		return image;
 	}
 
 	@Override
@@ -96,57 +149,5 @@ public class JournalTreeLabelProvider extends StyledCellLabelProvider {
 		cell.setImage(getImage(obj));
 		super.update(cell);
 
-	}
-
-	private Image getImage(Object obj) {
-		ImageDescriptor desc = null;
-		if (obj instanceof Journal) {
-			desc = getImageDescriptor("folder3.gif");
-		}
-		if (obj instanceof Page) {
-			Page p = (Page) obj;
-			switch (p.getState()) {
-			case NEW:
-				desc = getImageDescriptor("page.gif");
-				break;
-			case ERROR:
-				desc = getImageDescriptor("error.gif");
-				break;
-			case PARTIALLY_UPLOAD:
-				desc = getImageDescriptor("partialupload.gif");
-				break;
-			case UPLOADED:
-				desc = getImageDescriptor("locked.gif");
-				break;
-			}
-		}
-
-		if (desc == null) {
-			return null;
-		}
-
-		Image image = imageCache.get(desc);
-		if (image == null) {
-			image = desc.createImage();
-			imageCache.put(desc, image);
-		}
-		return image;
-	}
-
-	public static ImageDescriptor getImageDescriptor(String name) {
-		String iconPath = "/icons/";
-		URL resource = ApplicationWindow.class.getResource(iconPath + name);
-		if (resource == null) {
-			return ImageDescriptor.getMissingImageDescriptor();
-		}
-		return ImageDescriptor.createFromURL(resource);
-	}
-
-	public void dispose() {
-		for (Iterator<Image> i = imageCache.values().iterator(); i.hasNext();) {
-			((Image) i.next()).dispose();
-		}
-		imageCache.clear();
-		super.dispose();
 	}
 }

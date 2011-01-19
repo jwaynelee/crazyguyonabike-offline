@@ -12,16 +12,16 @@ abstract class ActionWithCurrentJournal extends Action {
 		super();
 	}
 
+	public ActionWithCurrentJournal(String text) {
+		super(text);
+	}
+
 	public ActionWithCurrentJournal(String text, ImageDescriptor image) {
 		super(text, image);
 	}
 
 	public ActionWithCurrentJournal(String text, int style) {
 		super(text, style);
-	}
-
-	public ActionWithCurrentJournal(String text) {
-		super(text);
 	}
 
 	@Override

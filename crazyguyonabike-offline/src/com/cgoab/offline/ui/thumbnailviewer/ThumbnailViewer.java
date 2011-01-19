@@ -58,14 +58,14 @@ import com.drew.metadata.Metadata;
 
 public class ThumbnailViewer extends Canvas {
 
-	public static final int THUMBNAIL_HEIGHT = 120;
-	public static final int THUMBNAIL_WIDTH = 200;
 	static final int PADDING_BETWEEN_THUMNAIL = 5;
 	static final int PADDING_INSIDE = 5;
 	static final int PADDING_TOP = 5;
-	static final int TEXT_HEIGHT = 20;
+	public static final int THUMBNAIL_HEIGHT = 120;
+	public static final int THUMBNAIL_WIDTH = 200;
 	public static ResizeStrategy RESIZE_STRATEGY = new FitWithinResizeStrategy(new Point(THUMBNAIL_WIDTH,
 			THUMBNAIL_HEIGHT));
+	static final int TEXT_HEIGHT = 20;
 
 	private static boolean hasValidExtension(String fileName) {
 		String lower = fileName.toLowerCase();
@@ -330,6 +330,11 @@ public class ThumbnailViewer extends Canvas {
 		});
 		menu.addMenuListener(new MenuListener() {
 			@Override
+			public void menuHidden(MenuEvent e) {
+
+			}
+
+			@Override
 			public void menuShown(MenuEvent e) {
 				getInfoItem.setEnabled(false);
 				removeItem.setEnabled(false);
@@ -339,11 +344,6 @@ public class ThumbnailViewer extends Canvas {
 				if (selected.size() > 0) {
 					removeItem.setEnabled(true);
 				}
-			}
-
-			@Override
-			public void menuHidden(MenuEvent e) {
-
 			}
 		});
 
@@ -389,7 +389,7 @@ public class ThumbnailViewer extends Canvas {
 		for (int i = 1; i < thumbnails.size(); ++i) {
 			item = thumbnails.get(i);
 			int limitLeft = item.getX() - (int) ((float) previous.getWidth() / 2) - PADDING_BETWEEN_THUMNAIL;
-			int limitRight = item.getX() + (int) ((item.getWidth() / 2));
+			int limitRight = item.getX() + ((item.getWidth() / 2));
 			if (xToAdd <= limitRight && xToAdd >= limitLeft) {
 				return i;
 			}
@@ -474,109 +474,8 @@ public class ThumbnailViewer extends Canvas {
 		return null;
 	}
 
-	private void handleThumbnailReady(Future<Thumbnail> future, ThumbnailHolder holder) {
-		if (holder.isDisposed()) {
-			return;
-		}
-
-		ExecutionException exception = null;
-		Thumbnail result = null;
-
-		try {
-			result = future.get();
-		} catch (InterruptedException e) {
-			/* ignore */
-			return;
-		} catch (CancellationException e) {
-			/* ignore */
-			return;
-		} catch (ExecutionException e) {
-			exception = e;
-		}
-
-		if (result != null) {
-			Image image = new Image(getDisplay(), result.imageData);
-			holder.setImage(image);
-		} else if (exception != null) {
-			if (onInvalidImage(holder.getData(), exception)) {
-				holder.setFailedToLoad(true);
-			} else {
-				remove(new Object[] { holder.getData() });
-				return;
-			}
-		}
-
-		if (isThumbnailVisible(holder)) {
-			// TODO clip redraw
-			redraw();
-		}
-	}
-
-	private void handleDeleteKey() {
-		deleteCurrentSelection();
-		return;
-	}
-
-	private void handleEndOrHomeKey(KeyEvent e) {
-		if (thumbnails.size() > 0) {
-			int newId = e.keyCode == SWT.END ? thumbnails.size() - 1 : 0;
-			ThumbnailHolder newItem = thumbnails.get(newId);
-			selected.clear();
-			selected.add(newItem);
-			fireSelectionListener();
-			scrollToDisplay(newItem);
-			redraw();
-		}
-		return;
-	}
-
-	// select all
-	private void handleCtrlAKey() {
-		if (thumbnails.size() > 0) {
-			selected.clear();
-			selected.addAll(thumbnails);
-			fireSelectionListener();
-			redraw();
-		}
-		return;
-	}
-
-	// move (or grow selection) to the right (starting from far left if no
-	// selection)
-	private void handleArrowRightKey(KeyEvent e) {
-		int totalThumbnails = thumbnails.size();
-		ThumbnailHolder newItem = null;
-		if (selected.size() == 0) {
-			if (totalThumbnails == 0) {
-				return;
-			}
-			newItem = thumbnails.get(0);
-			selected.add(newItem);
-		} else {
-			ThumbnailHolder lastInSelection = selected.get(selected.size() - 1);
-			int iLastInSelection = thumbnails.indexOf(lastInSelection);
-			if (isShiftKeyOn(e.stateMask)) {
-				// expand selection
-				if (iLastInSelection + 1 == totalThumbnails) {
-					// selection already up against edge
-					return;
-				}
-				newItem = thumbnails.get(iLastInSelection + 1);
-				selected.add(newItem);
-			} else {
-				if (iLastInSelection + 1 >= totalThumbnails) {
-					newItem = lastInSelection;
-				} else {
-					newItem = thumbnails.get(iLastInSelection + 1);
-				}
-				selected.clear();
-				selected.add(newItem);
-			}
-		}
-
-		fireSelectionListener();
-		scrollToDisplay(newItem);
-		redraw();
+	public ThumbnailProvider getThumbnailProvider() {
+		return thumbnailProvider;
 	}
 
 	// move (or grow selection) to the left (starting from far right if no
@@ -623,6 +522,73 @@ public class ThumbnailViewer extends Canvas {
 		fireSelectionListener();
 		scrollToDisplay(newItem);
 		redraw();
+	}
+
+	// move (or grow selection) to the right (starting from far left if no
+	// selection)
+	private void handleArrowRightKey(KeyEvent e) {
+		int totalThumbnails = thumbnails.size();
+		ThumbnailHolder newItem = null;
+		if (selected.size() == 0) {
+			if (totalThumbnails == 0) {
+				return;
+			}
+			newItem = thumbnails.get(0);
+			selected.add(newItem);
+		} else {
+			ThumbnailHolder lastInSelection = selected.get(selected.size() - 1);
+			int iLastInSelection = thumbnails.indexOf(lastInSelection);
+			if (isShiftKeyOn(e.stateMask)) {
+				// expand selection
+				if (iLastInSelection + 1 == totalThumbnails) {
+					// selection already up against edge
+					return;
+				}
+				newItem = thumbnails.get(iLastInSelection + 1);
+				selected.add(newItem);
+			} else {
+				if (iLastInSelection + 1 >= totalThumbnails) {
+					newItem = lastInSelection;
+				} else {
+					newItem = thumbnails.get(iLastInSelection + 1);
+				}
+				selected.clear();
+				selected.add(newItem);
+			}
+		}
+
+		fireSelectionListener();
+		scrollToDisplay(newItem);
+		redraw();
+	}
+
+	// select all
+	private void handleCtrlAKey() {
+		if (thumbnails.size() > 0) {
+			selected.clear();
+			selected.addAll(thumbnails);
+			fireSelectionListener();
+			redraw();
+		}
+		return;
+	}
+
+	private void handleDeleteKey() {
+		deleteCurrentSelection();
+		return;
+	}
+
+	private void handleEndOrHomeKey(KeyEvent e) {
+		if (thumbnails.size() > 0) {
+			int newId = e.keyCode == SWT.END ? thumbnails.size() - 1 : 0;
+			ThumbnailHolder newItem = thumbnails.get(newId);
+			selected.clear();
+			selected.add(newItem);
+			fireSelectionListener();
+			scrollToDisplay(newItem);
+			redraw();
+		}
+		return;
 	}
 
 	private void handleKeyPressed(KeyEvent e) {
@@ -746,6 +712,44 @@ public class ThumbnailViewer extends Canvas {
 			origin.x = -hSelection;
 		}
 		redraw();
+	}
+
+	private void handleThumbnailReady(Future<Thumbnail> future, ThumbnailHolder holder) {
+		if (holder.isDisposed()) {
+			return;
+		}
+
+		ExecutionException exception = null;
+		Thumbnail result = null;
+
+		try {
+			result = future.get();
+		} catch (InterruptedException e) {
+			/* ignore */
+			return;
+		} catch (CancellationException e) {
+			/* ignore */
+			return;
+		} catch (ExecutionException e) {
+			exception = e;
+		}
+
+		if (result != null) {
+			Image image = new Image(getDisplay(), result.imageData);
+			holder.setImage(image);
+		} else if (exception != null) {
+			if (onInvalidImage(holder.getData(), exception)) {
+				holder.setFailedToLoad(true);
+			} else {
+				remove(new Object[] { holder.getData() });
+				return;
+			}
+		}
+
+		if (isThumbnailVisible(holder)) {
+			// TODO clip redraw
+			redraw();
+		}
 	}
 
 	private void installDragAndDropTarget() {
@@ -1253,9 +1257,5 @@ public class ThumbnailViewer extends Canvas {
 				redraw(p.x, PADDING_TOP, CARET_WIDTH, p.y, false);
 			}
 		}
-	}
-
-	public ThumbnailProvider getThumbnailProvider() {
-		return thumbnailProvider;
 	}
 }

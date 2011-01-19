@@ -32,12 +32,9 @@ public class ViewResizedPhotosAction extends ActionWithCurrentJournal {
 				}
 			};
 
-			private void syncWithJournal(Boolean enabled) {
-				setEnabled(enabled == Boolean.TRUE && Desktop.isDesktopSupported());
-			}
-
 			@Override
-			public void selectionChanged(Object newSelection, Object oldSelection) {
+			public void journalClosed(Journal journal) {
+				setEnabled(false);
 			}
 
 			@Override
@@ -47,12 +44,16 @@ public class ViewResizedPhotosAction extends ActionWithCurrentJournal {
 			}
 
 			@Override
-			public void journalClosed(Journal journal) {
-				setEnabled(false);
+			public void selectionChanged(Object newSelection, Object oldSelection) {
+			}
+
+			private void syncWithJournal(Boolean enabled) {
+				setEnabled(enabled == Boolean.TRUE && Desktop.isDesktopSupported());
 			}
 		});
 	}
 
+	@Override
 	public void run(Journal journal) {
 		ResizerService resizer = (ResizerService) journal.getData(ResizerService.KEY);
 		if (resizer == null) {

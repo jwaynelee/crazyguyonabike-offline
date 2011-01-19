@@ -27,24 +27,52 @@ public class PhotosContentProvider implements ThumbnailViewerContentProvider, Th
 
 	private static final Logger LOG = LoggerFactory.getLogger(PhotosContentProvider.class);
 
-	private ThumbnailViewer viewer;
-
-	private ThumbnailView view;
+	public static List<Photo> toPhotoList(Object[] os) {
+		List<Photo> photos = new ArrayList<Photo>(os.length);
+		for (Object o : os) {
+			photos.add((Photo) o);
+		}
+		return photos;
+	}
 
 	private Page currentPage;
 
 	private Shell shell;
+
+	private ThumbnailView view;
+
+	private ThumbnailViewer viewer;
 
 	public PhotosContentProvider(Shell shell, ThumbnailView view) {
 		this.shell = shell;
 		this.view = view;
 	}
 
+	// TODO review if insertion point should be an absolute position and not
+	// from filtered list
+	private int adjustInsertionPointForHiddenPhotos(int point) {
+		if (!currentPage.getJournal().isHideUploadedContent()) {
+			return point;
+		}
+
+		// add index of last UPLOADED photo
+		List<Photo> photos = currentPage.getPhotos();
+		int lastUploaded = 0;
+		for (; lastUploaded < photos.size(); ++lastUploaded) {
+			Photo p = photos.get(lastUploaded);
+			if (p.getState() != UploadState.UPLOADED) {
+				break;
+			}
+		}
+
+		return lastUploaded + point;
+	}
+
 	@Override
-	public void inputChanges(ThumbnailViewer viewer, Object oldInput, Object newInput) {
-		this.viewer = viewer;
-		currentPage = (Page) newInput;
-		viewer.addEventListener(this); // no-op if already registered
+	public void dispose() {
+		if (viewer != null) {
+			viewer.removeEventListener(this);
+		}
 	}
 
 	@Override
@@ -53,10 +81,10 @@ public class PhotosContentProvider implements ThumbnailViewerContentProvider, Th
 	}
 
 	@Override
-	public void dispose() {
-		if (viewer != null) {
-			viewer.removeEventListener(this);
-		}
+	public void inputChanges(ThumbnailViewer viewer, Object oldInput, Object newInput) {
+		this.viewer = viewer;
+		currentPage = (Page) newInput;
+		viewer.addEventListener(this); // no-op if already registered
 	}
 
 	@Override
@@ -86,12 +114,24 @@ public class PhotosContentProvider implements ThumbnailViewerContentProvider, Th
 		}
 	}
 
-	public static List<Photo> toPhotoList(Object[] os) {
-		List<Photo> photos = new ArrayList<Photo>(os.length);
-		for (Object o : os) {
-			photos.add((Photo) o);
+	@Override
+	public void itemsAdded(File[] newItems, int insertionPoint) {
+		view.addPhotosRetryIfDuplicates(newItems, adjustInsertionPointForHiddenPhotos(insertionPoint));
+	}
+
+	@Override
+	public void itemsMoved(Object[] selection, int insertionPoint) {
+		// refresh not necessary as binding to sort button above will trigger
+		try {
+			currentPage.movePhotos(toPhotoList(selection), adjustInsertionPointForHiddenPhotos(insertionPoint));
+		} catch (InvalidInsertionPointException e) {
+			/* ignore */
+			return;
+		} catch (PageNotEditableException e) {
+			/* ignore */
+			return;
 		}
-		return photos;
+		viewer.refresh();
 	}
 
 	@Override
@@ -119,46 +159,6 @@ public class PhotosContentProvider implements ThumbnailViewerContentProvider, Th
 		} catch (PageNotEditableException e) {
 			return; /* ignore */
 		}
-	}
-
-	// TODO review if insertion point should be an absolute position and not
-	// from filtered list
-	private int adjustInsertionPointForHiddenPhotos(int point) {
-		if (!currentPage.getJournal().isHideUploadedContent()) {
-			return point;
-		}
-
-		// add index of last UPLOADED photo
-		List<Photo> photos = currentPage.getPhotos();
-		int lastUploaded = 0;
-		for (; lastUploaded < photos.size(); ++lastUploaded) {
-			Photo p = photos.get(lastUploaded);
-			if (p.getState() != UploadState.UPLOADED) {
-				break;
-			}
-		}
-
-		return lastUploaded + point;
-	}
-
-	@Override
-	public void itemsMoved(Object[] selection, int insertionPoint) {
-		// refresh not necessary as binding to sort button above will trigger
-		try {
-			currentPage.movePhotos(toPhotoList(selection), adjustInsertionPointForHiddenPhotos(insertionPoint));
-		} catch (InvalidInsertionPointException e) {
-			/* ignore */
-			return;
-		} catch (PageNotEditableException e) {
-			/* ignore */
-			return;
-		}
-		viewer.refresh();
-	}
-
-	@Override
-	public void itemsAdded(File[] newItems, int insertionPoint) {
-		view.addPhotosRetryIfDuplicates(newItems, adjustInsertionPointForHiddenPhotos(insertionPoint));
 	}
 
 	// @Override

@@ -11,13 +11,13 @@ import com.cgoab.offline.util.ListenableThreadPoolExecutor;
 
 public class CachingThumbnailProviderFactory {
 
-	private final ExecutorService executor;
-
 	private final Display display;
 
-	private ResizeStrategy resizer;
+	private final ExecutorService executor;
 
 	private final String folderExtension;
+
+	private ResizeStrategy resizer;
 
 	public CachingThumbnailProviderFactory(Display display, ResizeStrategy resizer, String folderExtension) {
 		this.executor = ListenableThreadPoolExecutor.newOptimalSizedExecutorService("ThumbnailProvider",
@@ -39,14 +39,6 @@ public class CachingThumbnailProviderFactory {
 		return service;
 	}
 
-	public File getOrCreateThumbnailsFolder(Journal journal) {
-		File file = new File(journal.getFile().getParent() + File.separator + journal.getName() + folderExtension);
-		if (!file.exists()) {
-			file.mkdirs();
-		}
-		return file;
-	}
-
 	public void dispose() {
 		executor.shutdown();
 		try {
@@ -56,5 +48,13 @@ public class CachingThumbnailProviderFactory {
 		} finally {
 			executor.shutdownNow();
 		}
+	}
+
+	public File getOrCreateThumbnailsFolder(Journal journal) {
+		File file = new File(journal.getFile().getParent() + File.separator + journal.getName() + folderExtension);
+		if (!file.exists()) {
+			file.mkdirs();
+		}
+		return file;
 	}
 }

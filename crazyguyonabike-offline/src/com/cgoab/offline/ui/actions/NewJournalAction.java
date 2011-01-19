@@ -21,6 +21,7 @@ public class NewJournalAction extends Action {
 		this.shell = shell;
 	}
 
+	@Override
 	public void run() {
 		// 1) save current journal
 		JournalSelectionService selection = JournalSelectionService.getInstance();

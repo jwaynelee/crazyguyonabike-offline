@@ -32,7 +32,8 @@ public class PurgeResizedPhotosAction extends ActionWithCurrentJournal {
 			};
 
 			@Override
-			public void selectionChanged(Object newSelection, Object oldSelection) {
+			public void journalClosed(Journal journal) {
+				setEnabled(false);
 			}
 
 			@Override
@@ -42,12 +43,12 @@ public class PurgeResizedPhotosAction extends ActionWithCurrentJournal {
 			}
 
 			@Override
-			public void journalClosed(Journal journal) {
-				setEnabled(false);
+			public void selectionChanged(Object newSelection, Object oldSelection) {
 			}
 		});
 	}
 
+	@Override
 	public void run(Journal journal) {
 		ResizerService service = (ResizerService) journal.getData(ResizerService.KEY);
 		if (service == null) {

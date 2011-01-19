@@ -47,20 +47,25 @@ public class FileCookieStore implements CookieStore {
 		load();
 	}
 
-	// writes current state of cookies to disk
-	public void persist() {
-		FileOutputStream fos = null;
-		try {
-			fos = new FileOutputStream(file);
-			Serializable list = (Serializable) delegate.getCookies();
-			ObjectOutputStream oos = new ObjectOutputStream(fos);
-			oos.writeObject(list);
-			oos.close();
-		} catch (IOException e) {
-			LOGGER.warn("Failed to write to cookies file [" + file.getAbsolutePath() + "]", e);
-		} finally {
-			Utils.close(fos);
-		}
+	@Override
+	public void addCookie(Cookie cookie) {
+		LOGGER.info("Saving Cookie [{}]", cookie);
+		delegate.addCookie(cookie);
+	}
+
+	@Override
+	public void clear() {
+		delegate.clear();
+	}
+
+	@Override
+	public boolean clearExpired(Date date) {
+		return delegate.clearExpired(date);
+	}
+
+	@Override
+	public List<Cookie> getCookies() {
+		return delegate.getCookies();
 	}
 
 	public void load() {
@@ -94,21 +99,20 @@ public class FileCookieStore implements CookieStore {
 		}
 	}
 
-	public void addCookie(Cookie cookie) {
-		LOGGER.info("Saving Cookie [{}]", cookie);
-		delegate.addCookie(cookie);
-	}
-
-	public List<Cookie> getCookies() {
-		return delegate.getCookies();
-	}
-
-	public boolean clearExpired(Date date) {
-		return delegate.clearExpired(date);
-	}
-
-	public void clear() {
-		delegate.clear();
+	// writes current state of cookies to disk
+	public void persist() {
+		FileOutputStream fos = null;
+		try {
+			fos = new FileOutputStream(file);
+			Serializable list = (Serializable) delegate.getCookies();
+			ObjectOutputStream oos = new ObjectOutputStream(fos);
+			oos.writeObject(list);
+			oos.close();
+		} catch (IOException e) {
+			LOGGER.warn("Failed to write to cookies file [" + file.getAbsolutePath() + "]", e);
+		} finally {
+			Utils.close(fos);
+		}
 	}
 
 	@Override

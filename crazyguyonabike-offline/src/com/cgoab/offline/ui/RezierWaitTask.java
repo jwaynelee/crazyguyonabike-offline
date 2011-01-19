@@ -12,10 +12,10 @@ import com.cgoab.offline.util.resizer.ResizerService;
 
 public class RezierWaitTask implements IRunnableWithProgress, JobListener {
 
-	private final ResizerService service;
+	private boolean cancelled;
 	private final Display display;
 	private IProgressMonitor monitor;
-	private boolean cancelled;
+	private final ResizerService service;
 
 	// number of tasks left to complete (used to track how many just completed)
 	private int tasks;
@@ -23,13 +23,6 @@ public class RezierWaitTask implements IRunnableWithProgress, JobListener {
 	public RezierWaitTask(ResizerService service, Display display) {
 		this.service = service;
 		this.display = display;
-	}
-
-	@Override
-	public void update(int remainingJobs) {
-		int completed = tasks - remainingJobs; // how many just completed
-		tasks = remainingJobs;
-		monitor.worked(completed);
 	}
 
 	/**
@@ -60,5 +53,12 @@ public class RezierWaitTask implements IRunnableWithProgress, JobListener {
 		} finally {
 			service.removeJobListener(this);
 		}
+	}
+
+	@Override
+	public void update(int remainingJobs) {
+		int completed = tasks - remainingJobs; // how many just completed
+		tasks = remainingJobs;
+		monitor.worked(completed);
 	}
 }

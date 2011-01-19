@@ -23,9 +23,7 @@ public class JournalSelectionService {
 		return instance;
 	}
 
-	private List<JournalSelectionListener> listeners = new ArrayList<JournalSelectionService.JournalSelectionListener>();
 	private Object current;
-	private TreeViewer viewer;
 	private ISelectionChangedListener listener = new ISelectionChangedListener() {
 
 		@Override
@@ -45,22 +43,11 @@ public class JournalSelectionService {
 			}
 		}
 	};
+	private List<JournalSelectionListener> listeners = new ArrayList<JournalSelectionService.JournalSelectionListener>();
+	private TreeViewer viewer;
 
-	public void register(TreeViewer viewer) {
-		viewer.addSelectionChangedListener(listener);
-		this.viewer = viewer;
-	}
-
-	public void unregister(ISelectionProvider provider) {
-		provider.removeSelectionChangedListener(listener);
-	}
-
-	public Page getSelectedPage() {
-		return current instanceof Page ? (Page) current : null;
-	}
-
-	public Journal getSelectedJournal() {
-		return current instanceof Journal ? (Journal) current : null;
+	public void addListener(JournalSelectionListener listener) {
+		listeners.add(listener);
 	}
 
 	public Journal getCurrentJournal() {
@@ -68,20 +55,21 @@ public class JournalSelectionService {
 		return input == null ? null : input.getJournal();
 	}
 
-	public void addListener(JournalSelectionListener listener) {
-		listeners.add(listener);
+	public Journal getSelectedJournal() {
+		return current instanceof Journal ? (Journal) current : null;
 	}
 
-	public interface JournalSelectionListener {
-		public void selectionChanged(Object newSelection, Object oldSelection);
-
-		public void journalOpened(Journal journal);
-
-		public void journalClosed(Journal journal);
+	public Page getSelectedPage() {
+		return current instanceof Page ? (Page) current : null;
 	}
 
-	public void setPage(Page page) {
-		viewer.setSelection(new StructuredSelection(page), true);
+	public void register(TreeViewer viewer) {
+		viewer.addSelectionChangedListener(listener);
+		this.viewer = viewer;
+	}
+
+	public void removeListener(JournalSelectionListener listener) {
+		listeners.remove(listener);
 	}
 
 	public void setJournal(Journal newJournal) {
@@ -102,7 +90,19 @@ public class JournalSelectionService {
 		}
 	}
 
-	public void removeListener(JournalSelectionListener listener) {
-		listeners.remove(listener);
+	public void setPage(Page page) {
+		viewer.setSelection(new StructuredSelection(page), true);
+	}
+
+	public void unregister(ISelectionProvider provider) {
+		provider.removeSelectionChangedListener(listener);
+	}
+
+	public interface JournalSelectionListener {
+		public void journalClosed(Journal journal);
+
+		public void journalOpened(Journal journal);
+
+		public void selectionChanged(Object newSelection, Object oldSelection);
 	}
 }

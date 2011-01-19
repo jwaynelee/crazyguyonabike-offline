@@ -13,7 +13,8 @@ public class NewPageAction extends ActionWithCurrentJournal {
 		setAccelerator(SWT.MOD1 + 'N');
 		JournalSelectionService.getInstance().addListener(new JournalSelectionListener() {
 			@Override
-			public void selectionChanged(Object newSelection, Object oldSelection) {
+			public void journalClosed(Journal journal) {
+				setEnabled(false);
 			}
 
 			@Override
@@ -22,12 +23,12 @@ public class NewPageAction extends ActionWithCurrentJournal {
 			}
 
 			@Override
-			public void journalClosed(Journal journal) {
-				setEnabled(false);
+			public void selectionChanged(Object newSelection, Object oldSelection) {
 			}
 		});
 	}
 
+	@Override
 	public void run(Journal journal) {
 		journal.createNewPage();
 	}
