@@ -633,32 +633,25 @@ public class UploadDialog {
 			p.setMessage(message + "\n\nException: " + t.toString());
 			p.open();
 		} else { /* all other exceptions */
-			MessageBox box = new MessageBox(shell, SWT.ICON_ERROR | SWT.OK);
-			box.setText("Error " + action);
-			box.setMessage(message + "\n\nException: " + t.toString());
-			box.open();
+			MessageDialog.openError(shell, "Error " + action, message + "\n\nException: " + t.toString());
 		}
 	}
 
 	private boolean showInitializationException(InitializationException t) {
 		if (t instanceof InitializationErrorException) {
 			log("Detected fatal server changes");
-			MessageBox box = new MessageBox(shell, SWT.ICON_ERROR | SWT.OK);
-			box.setText("Detected fatal server changes");
-			box.setMessage("Potentially fatal server changes detected (details below).\n\nThese changes "
+			String msg = "Potentially fatal server changes detected (details below).\n\nThese changes "
 					+ "indicate the server has changed since this software was released. "
 					+ "Check for updates and contact the author if you are already using the latest verersion.\n\n"
-					+ t.getMessage());
-			box.open();
+					+ t.getMessage();
+			MessageDialog.openError(shell, "Detected fatal server changes", msg.toString());
 		} else if (t instanceof InitializationWarningException) {
 			log("Detected server changes");
-			MessageBox box = new MessageBox(shell, SWT.ICON_ERROR | SWT.YES | SWT.NO);
-			box.setText("Detected server changes");
-			box.setMessage("Server changes detected (details below). Do you want to proceed with the upload?\n\nThese changes "
+			String msg = "Server changes detected (details below). Do you want to proceed with the upload?\n\nThese changes "
 					+ "indicate the server has changed since this software was released, however no fatal changes "
 					+ "were detected so it may be safe to continue. Check for updates and contact the author "
-					+ "if you are already using the latest verersion.\n\n" + t.getMessage());
-			if (box.open() == SWT.YES) {
+					+ "if you are already using the latest verersion.\n\n" + t.getMessage();
+			if (MessageDialog.openQuestion(shell, "Detected server changes", msg)) {
 				/* continue */
 				return true;
 			}

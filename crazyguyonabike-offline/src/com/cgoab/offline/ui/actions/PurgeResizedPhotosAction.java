@@ -3,6 +3,7 @@ package com.cgoab.offline.ui.actions;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 
+import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.MessageBox;
 import org.eclipse.swt.widgets.Shell;
@@ -56,10 +57,8 @@ public class PurgeResizedPhotosAction extends ActionWithCurrentJournal {
 		}
 		long bytes = service.purge();
 		if (bytes > 0) {
-			MessageBox box = new MessageBox(shell, SWT.ICON_INFORMATION | SWT.OK);
-			box.setText("Photos purged");
-			box.setMessage(Utils.formatBytes(bytes) + " of resized photos deleted");
-			box.open();
+			MessageDialog.openInformation(shell, "Photos purged", Utils.formatBytes(bytes)
+					+ " of resized photos deleted");
 		}
 	}
 }

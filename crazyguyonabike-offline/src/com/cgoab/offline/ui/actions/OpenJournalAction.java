@@ -28,7 +28,7 @@ public class OpenJournalAction extends Action {
 		if (path != null) {
 			Journal current = JournalSelectionService.getInstance().getCurrentJournal();
 			if (current != null) {
-				if (!JournalUtils.promptAndSaveJournal(current, shell)) {
+				if (!JournalUtils.closeJournal(current, shell)) {
 					return;
 				}
 				JournalSelectionService.getInstance().setJournal(null);

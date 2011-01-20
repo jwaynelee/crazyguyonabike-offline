@@ -145,6 +145,13 @@ public class Page {
 			photos.addAll(insertionPoint, photosToAdd);
 		}
 
+		sortPhotos();
+
+		journal.setDirty(true);
+		journal.photosAdded(photosToAdd, this);
+	}
+
+	private void sortPhotos() {
 		// order photos if no photos have yet been uploaded
 		if (uploadState == UploadState.NEW || uploadState == UploadState.ERROR) {
 			Comparator<Photo> comparator = getComparator(order);
@@ -154,11 +161,14 @@ public class Page {
 		} else {
 			LOGGER.info("Not ordering photos as page is in state {}", uploadState);
 		}
-
-		journal.setDirty(true);
-		journal.photosAdded(photosToAdd, this);
 	}
 
+	/**
+	 * <b>WARNING</b> only certain properties fire callbacks (those with
+	 * constant property names, eg, {@link #TITLE})! Implement as required.
+	 * 
+	 * @param listener
+	 */
 	public void addPropertyChangeListener(PropertyChangeListener listener) {
 		support.addPropertyChangeListener(listener);
 	}
@@ -387,8 +397,11 @@ public class Page {
 		journal.photosAdded(p, this);
 	}
 
-	public void setPhotosOrder(PhotosOrder order) {
-		support.firePropertyChange(PHOTOS_ORDER, this.order, this.order = order);
+	public void setPhotosOrder(PhotosOrder newOrder) {
+		PhotosOrder oldOrder = this.order;
+		this.order = newOrder;
+		sortPhotos();
+		support.firePropertyChange(PHOTOS_ORDER, oldOrder, newOrder);
 	}
 
 	public void setServerId(int id) {

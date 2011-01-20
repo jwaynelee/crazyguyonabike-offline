@@ -21,6 +21,9 @@ import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
+import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Event;
+import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Shell;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,11 +52,11 @@ import com.cgoab.offline.util.resizer.ImageMagickResizerServiceFactory;
 
 public class MainWindow extends ApplicationWindow {
 
+	private static final Logger LOG = LoggerFactory.getLogger(MainWindow.class);
+
 	public static final IUndoContext APPLICATION_CONTEXT = new UndoContext();
 
 	static final String OPENJOURNALS_PREFERENCE_PATH = "/openjournals";
-
-	private static final Logger LOG = LoggerFactory.getLogger(MainWindow.class);
 
 	AddPhotosAction addPhotosAction;
 
@@ -70,7 +73,6 @@ public class MainWindow extends ApplicationWindow {
 	private JournalViewer journalView;
 
 	private List<ContextChangedListener> listeners = new ArrayList<MainWindow.ContextChangedListener>();
-	// private ImageCache thumbnailCache;
 
 	NewJournalAction newJournalAction;
 
@@ -126,6 +128,13 @@ public class MainWindow extends ApplicationWindow {
 
 	public MainWindow() {
 		super(null);
+		Display.getCurrent().addListener(SWT.Dispose, new Listener() {
+			@Override
+			public void handleEvent(Event event) {
+				JournalSelectionService.dispose();
+			}
+		});
+		JournalSelectionService.init();
 		setBlockOnOpen(true);
 		addStatusLine();
 		addMenuBar();
@@ -226,16 +235,17 @@ public class MainWindow extends ApplicationWindow {
 
 	private void createControls(final Composite parent) {
 		SashForm sashV = new SashForm(parent, SWT.VERTICAL);
+		sashV.setLayout(new GridLayout());
 		SashForm sashH = new SashForm(sashV, SWT.HORIZONTAL);
 		sashH.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
-		sashV.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
 		journalView = new JournalViewer(this);
 		journalView.createComponents(sashH);
 
 		pageEditor = new PageEditor(this);
 		pageEditor.createControls(sashH);
 		Composite thumbViewerGroup = new Composite(sashV, SWT.NONE);
-		thumbViewerGroup.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
+		GridData data = new GridData(SWT.FILL, SWT.FILL, true, true);
+		thumbViewerGroup.setLayoutData(data);
 		thumbViewerGroup.setLayout(new GridLayout());
 		thumbnailView = new ThumbnailView(this, resizerServiceFactory, thumbnailProviderFactory);
 		thumbnailView.createComponents(thumbViewerGroup);

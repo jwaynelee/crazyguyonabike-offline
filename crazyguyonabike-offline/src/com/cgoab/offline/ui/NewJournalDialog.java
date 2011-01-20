@@ -3,6 +3,7 @@ package com.cgoab.offline.ui;
 import java.io.File;
 import java.io.IOException;
 
+import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.ModifyEvent;
 import org.eclipse.swt.events.ModifyListener;
@@ -32,6 +33,7 @@ public class NewJournalDialog {
 		d.open();
 		System.out.println(d.getName());
 	}
+
 	private String location;
 	private String name;
 
@@ -44,10 +46,7 @@ public class NewJournalDialog {
 	}
 
 	private void error(String msg) {
-		MessageBox box = new MessageBox(shell, SWT.ICON_ERROR | SWT.OK);
-		box.setText("Error");
-		box.setMessage(msg);
-		box.open();
+		MessageDialog.openError(shell, "Error creating new journal", msg);
 	}
 
 	// TODO handle null home?

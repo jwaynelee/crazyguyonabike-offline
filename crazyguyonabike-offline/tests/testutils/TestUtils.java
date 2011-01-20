@@ -51,6 +51,14 @@ public class TestUtils {
 		});
 	}
 
+	/**
+	 * Returns a temporary directory unique to the currently running test method
+	 * (fails if the thread is not inside a test method - {@link #getTestName()}
+	 * ).
+	 * 
+	 * @return
+	 * @throws IOException
+	 */
 	public static File getTestTempDirectory() throws IOException {
 		File f = new File(TEST_DATA_DIRECTORY + File.separator + TestUtils.getTestName() + File.separator);
 		if (!f.exists() && !f.mkdirs()) {

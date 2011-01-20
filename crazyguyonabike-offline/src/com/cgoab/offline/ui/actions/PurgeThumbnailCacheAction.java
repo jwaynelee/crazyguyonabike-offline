@@ -1,7 +1,6 @@
 package com.cgoab.offline.ui.actions;
 
-import org.eclipse.swt.SWT;
-import org.eclipse.swt.widgets.MessageBox;
+import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.swt.widgets.Shell;
 
 import com.cgoab.offline.model.Journal;
@@ -43,10 +42,8 @@ public class PurgeThumbnailCacheAction extends ActionWithCurrentJournal {
 		}
 		long bytes = provider.purge();
 		if (bytes > 0) {
-			MessageBox box = new MessageBox(shell, SWT.ICON_INFORMATION | SWT.OK);
-			box.setText("Thumbnails purged");
-			box.setMessage(Utils.formatBytes(bytes) + " of thumbnails deleted");
-			box.open();
+			MessageDialog.openInformation(shell, "Thumbnails purged", Utils.formatBytes(bytes)
+					+ " of thumbnails deleted");
 		}
 	}
 }

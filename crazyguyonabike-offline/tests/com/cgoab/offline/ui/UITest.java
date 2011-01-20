@@ -8,11 +8,14 @@ import static org.junit.Assert.assertTrue;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Date;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.http.impl.client.BasicCookieStore;
 import org.eclipse.swt.widgets.Display;
@@ -43,9 +46,12 @@ import com.cgoab.offline.client.web.DefaultWebUploadClientFactory;
 import com.cgoab.offline.model.Journal;
 import com.cgoab.offline.model.JournalXmlLoader;
 import com.cgoab.offline.model.Page;
+import com.cgoab.offline.model.Page.PhotosOrder;
+import com.cgoab.offline.model.Photo;
 import com.cgoab.offline.ui.thumbnailviewer.CachingThumbnailProviderFactory;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailViewer;
 import com.cgoab.offline.ui.util.UIExecutor;
+import com.cgoab.offline.util.Utils;
 import com.cgoab.offline.util.resizer.ImageMagickResizerServiceFactory;
 import com.cgoab.offline.util.resizer.ResizerService;
 
@@ -76,11 +82,12 @@ public class UITest {
 		}
 	}
 
+	Thread uiThread;
+
 	@Before
 	public void setup() throws InterruptedException, TimeoutException {
 		final CountDownLatch latch = new CountDownLatch(1);
-		new Thread(new Runnable() {
-
+		uiThread = new Thread(new Runnable() {
 			public void run() {
 				display = new Display();
 				application = new MainWindow();
@@ -103,7 +110,8 @@ public class UITest {
 					display.dispose();
 				}
 			}
-		}, "UI").start();
+		}, "UI");
+		uiThread.start();
 
 		if (!latch.await(1, TimeUnit.SECONDS)) {
 			throw new TimeoutException();
@@ -111,21 +119,25 @@ public class UITest {
 	}
 
 	@After
-	public void destroyUI() {
+	public void destroyUI() throws InterruptedException {
 		if (thumbnailFactory != null) {
 			thumbnailFactory.dispose();
 		}
 		if (resizerFactory != null) {
 			resizerFactory.dispose();
 		}
-		// if (display != null && !display.isDisposed()) {
-		// display.syncExec(new Runnable() {
-		// @Override
-		// public void run() {
-		// display.dispose();
-		// }
-		// });
-		// }
+
+		if (uiThread.isAlive()) {
+			if (display != null && !display.isDisposed()) {
+				display.syncExec(new Runnable() {
+					@Override
+					public void run() {
+						display.dispose();
+					}
+				});
+			}
+			uiThread.join();
+		}
 	}
 
 	/**
@@ -146,7 +158,7 @@ public class UITest {
 		String journalName = "TestJournal";
 		nameTextBox.setText(journalName);
 		SWTBotText locationTextBox = newJournalShell.bot().textWithLabel("Location: ");
-		String journalLocation = TestUtils.getTestTempDirectory().getAbsolutePath() + File.separator + "journal.xml";
+		String journalLocation = getTestJournalFilePath().getAbsolutePath();
 		locationTextBox.setText(journalLocation);
 		newJournalShell.bot().button("OK").click();
 
@@ -302,6 +314,89 @@ public class UITest {
 		String path = application.getPreferences().getValue(MainWindow.OPENJOURNALS_PREFERENCE_PATH);
 		assertEquals(journal.getFile().getAbsolutePath(), path);
 		assertTrue(display.isDisposed());
+	}
+
+	@Test
+	public void photoSortOrder() throws Exception {
+		final Journal testJournal = new Journal(getTestJournalFilePath(), "test");
+		File extractedPhoto = TestPhotos.extractSmallPhoto();
+		Photo photo1 = new Photo(new File(extractedPhoto.getParent() + File.separator + "P100.jpg"));
+		Photo photo2 = new Photo(new File(extractedPhoto.getParent() + File.separator + "P101.jpg"));
+		Photo photo3 = new Photo(new File(extractedPhoto.getParent() + File.separator + "P102.jpg"));
+		Utils.copyFile(extractedPhoto, photo1.getFile());
+		Utils.copyFile(extractedPhoto, photo2.getFile());
+		Utils.copyFile(extractedPhoto, photo3.getFile());
+
+		final Page page = testJournal.createNewPage();
+		page.setPhotosOrder(PhotosOrder.NAME);
+		/* add out of order */
+		page.addPhotos(Arrays.asList(photo2, photo1, photo3), 0);
+
+		/* bind into UI */
+		display.syncExec(new Runnable() {
+			@Override
+			public void run() {
+				JournalSelectionService.getInstance().setJournal(testJournal);
+			}
+		});
+
+		/* sanity check they are returned from journal in NAME order */
+		assertEquals(Arrays.asList(photo1, photo2, photo3), page.getPhotos());
+		assertEquals(Arrays.asList(photo1, photo2, photo3), getThumbnailViewerObjects());
+
+		SWTBot bot = new SWTBot(application.getShell());
+		assertTrue(bot.radio("name").isSelected());
+		assertFalse(bot.radio("manual").isSelected());
+
+		/* simulate moving 3rd photo back one spot */
+		display.syncExec(new Runnable() {
+			@Override
+			public void run() {
+				/* manually move */
+				try {
+					page.movePhotos(Arrays.asList(page.getPhotos().get(2)), 1);
+					application.thumbnailView.getViewer().refresh();
+				} catch (Exception e) {
+					throw new RuntimeException(e);
+				}
+			}
+		});
+
+		/* verify radio was updated */
+		assertFalse(bot.radio("name").isSelected());
+		assertTrue(bot.radio("manual").isSelected());
+
+		/* sanity check they are returned from journal in MANUAL order */
+		assertEquals(Arrays.asList(photo1, photo3, photo2), page.getPhotos());
+		assertEquals(Arrays.asList(photo1, photo3, photo2), getThumbnailViewerObjects());
+		assertEquals(PhotosOrder.MANUAL, page.getPhotosOrder());
+
+		/* click on NAME radio */
+		bot.radio("name").click();
+
+		/* verify radio was updated */
+		assertTrue(bot.radio("name").isSelected());
+		assertFalse(bot.radio("manual").isSelected());
+
+		/* should be back in order */
+		assertEquals(Arrays.asList(photo1, photo2, photo3), page.getPhotos());
+		assertEquals(Arrays.asList(photo1, photo2, photo3), getThumbnailViewerObjects());
+		assertEquals(PhotosOrder.NAME, page.getPhotosOrder());
+	}
+
+	private List<Object> getThumbnailViewerObjects() {
+		final AtomicReference<List<Object>> h = new AtomicReference<List<Object>>();
+		display.syncExec(new Runnable() {
+			@Override
+			public void run() {
+				h.set(application.thumbnailView.getViewer().getThumbnails());
+			}
+		});
+		return h.get();
+	}
+
+	private File getTestJournalFilePath() throws IOException {
+		return new File(TestUtils.getTestTempDirectory() + File.separator + "journal.xml");
 	}
 
 	/**

@@ -17,29 +17,40 @@ import com.cgoab.offline.util.Assert;
 
 public class JournalSelectionService {
 
-	private static JournalSelectionService instance = new JournalSelectionService();
+	private static JournalSelectionService instance;
+
+	static void init() {
+		Assert.isNull(instance, "service was not disposed");
+		instance = new JournalSelectionService();
+	}
+
+	static void dispose() {
+		instance = null;
+	}
 
 	public static JournalSelectionService getInstance() {
+		Assert.notNull(instance, "service not initialized");
 		return instance;
 	}
 
-	private Object current;
+	private Object currentSelection;
+
 	private ISelectionChangedListener listener = new ISelectionChangedListener() {
 
 		@Override
 		public void selectionChanged(SelectionChangedEvent event) {
 			IStructuredSelection s = (IStructuredSelection) event.getSelection();
 
-			Object old = current;
+			Object old = currentSelection;
 
 			if (s.size() == 1) {
-				current = s.getFirstElement();
+				currentSelection = s.getFirstElement();
 			} else {
-				current = null;
+				currentSelection = null;
 			}
 
 			for (JournalSelectionListener l : new ArrayList<JournalSelectionListener>(listeners)) {
-				l.selectionChanged(current, old);
+				l.selectionChanged(currentSelection, old);
 			}
 		}
 	};
@@ -56,11 +67,11 @@ public class JournalSelectionService {
 	}
 
 	public Journal getSelectedJournal() {
-		return current instanceof Journal ? (Journal) current : null;
+		return currentSelection instanceof Journal ? (Journal) currentSelection : null;
 	}
 
 	public Page getSelectedPage() {
-		return current instanceof Page ? (Page) current : null;
+		return currentSelection instanceof Page ? (Page) currentSelection : null;
 	}
 
 	public void register(TreeViewer viewer) {

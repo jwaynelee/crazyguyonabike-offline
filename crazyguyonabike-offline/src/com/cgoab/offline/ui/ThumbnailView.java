@@ -43,7 +43,6 @@ import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Group;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Listener;
-import org.eclipse.swt.widgets.MessageBox;
 import org.eclipse.swt.widgets.Shell;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -99,7 +98,6 @@ public class ThumbnailView {
 	private Button btnSortManual;
 	private Listener btnSortSelectionListener;
 	private TextViewer captionText;
-
 	private Page currentPage;
 
 	Map<PhotosOrder, Button> orderByButtonMap = new HashMap<Page.PhotosOrder, Button>();
@@ -107,8 +105,9 @@ public class ThumbnailView {
 	PropertyChangeListener photoOrderListener = new PropertyChangeListener() {
 		@Override
 		public void propertyChange(PropertyChangeEvent evt) {
-			if (Page.PHOTOS_ORDER.equals(evt.getPropertyName())) {
+			if (Page.PHOTOS_ORDER.equals(evt.getPropertyName()) && evt.getNewValue() != evt.getOldValue()) {
 				selectOrderByButton((PhotosOrder) evt.getNewValue());
+				thumbViewer.refresh();
 			}
 		}
 	};
@@ -117,18 +116,18 @@ public class ThumbnailView {
 
 	private Shell shell;
 
-	// TODO stash in a generica journal data map?
-	private StatusUpdater statusListener;
+	private StatusUpdater statusUpdater;
 
 	private CachingThumbnailProviderFactory thumbnailFactory;
 
 	private ThumbnailViewer thumbViewer;
 
 	/**
-	 * Cache a few undo stacks maintained, otherwise caption history will be
-	 * lost when another image is selected (and new document bound).
+	 * Cache a few undo stacks, otherwise caption history will be lost when
+	 * another image is selected (and new document bound to textviewer).
 	 */
 	private DocumentUndoCache undoCache = new DocumentUndoCache(3);
+
 	private TextViewerUndoManager undoManager = new TextViewerUndoManager(20);
 
 	public ThumbnailView(final MainWindow application, final ImageMagickResizerServiceFactory resizerServiceFactory,
@@ -137,6 +136,20 @@ public class ThumbnailView {
 		this.thumbnailFactory = thumbnailProvider;
 		this.application = application;
 		JournalSelectionService.getInstance().addListener(new JournalSelectionListener() {
+
+			JournalListener addPhotosListener = new JournalAdapter() {
+				public void photosAdded(List<Photo> photo, Page page) {
+					if (currentPage == page) {
+						thumbViewer.refresh();
+					}
+				}
+
+				public void photosRemoved(List<Photo> photos, Page page) {
+					if (currentPage == page) {
+						thumbViewer.remove(photos.toArray());
+					}
+				}
+			};
 
 			PropertyChangeListener journalPropertyListener = new PropertyChangeListener() {
 				@Override
@@ -157,8 +170,10 @@ public class ThumbnailView {
 			public void journalClosed(Journal journal) {
 				/* make sure history is cleared */
 				undoCache.clear();
+
+				journal.removeListener(addPhotosListener);
 				CachingThumbnailProvider provider = (CachingThumbnailProvider) journal.getData(ThumbnailProvider.KEY);
-				provider.removeJobListener(statusListener.thumnailListener);
+				provider.removeJobListener(statusUpdater.thumnailListener);
 				provider.close();
 
 				ResizerService resizer = (ResizerService) journal.getData(ResizerService.KEY);
@@ -179,8 +194,9 @@ public class ThumbnailView {
 					/* null = ask, false = disabled */
 				}
 
+				journal.addJournalListener(addPhotosListener);
 				CachingThumbnailProvider provider = thumbnailFactory.createThumbnailProvider(journal);
-				provider.addJobListener(statusListener.thumnailListener);
+				provider.addJobListener(statusUpdater.thumnailListener);
 				thumbViewer.setThumbnailProvider(provider);
 				journal.addPropertyChangeListener(journalPropertyListener);
 			}
@@ -216,39 +232,36 @@ public class ThumbnailView {
 		} catch (PageNotEditableException e) {
 			return;
 		} catch (DuplicatePhotoException e) {
-			StringBuilder b = new StringBuilder("The following photos are already added to this journal:\n\n");
+			StringBuilder msg = new StringBuilder("The following photos are already added to this journal:\n\n");
 			int i = 0;
 			Map<Photo, Page> duplicates = e.getDuplicatePhotos();
 			for (Iterator<Entry<Photo, Page>> it = duplicates.entrySet().iterator(); it.hasNext();) {
 				Entry<Photo, Page> next = it.next();
 				if (i++ == 10) {
-					b.append("  ").append("... ").append(duplicates.size() - i).append(" more\n");
+					msg.append("  ").append("... ").append(duplicates.size() - i).append(" more\n");
 					break;
 				}
-				b.append("  ").append(next.getKey().getFile().getName());
+				msg.append("  ").append(next.getKey().getFile().getName());
 				if (next.getValue() == null) {
-					b.append("\n");
+					msg.append("\n");
 				} else if (next.getValue() == currentPage) {
-					b.append(" (this page)\n");
+					msg.append(" (this page)\n");
 				} else {
-					b.append(" (page " + next.getValue().getTitle() + ")\n");
+					msg.append(" (page " + next.getValue().getTitle() + ")\n");
 				}
 			}
-			b.append("\nIf you need to attach a duplicate photo, copy to a new file first.");
+			msg.append("\nIf you need to attach a duplicate photo, copy to a new file first.");
 			int nonDuplicatePhotos = photos.size() - duplicates.size();
-			int style = SWT.ICON_WARNING;
-			if (nonDuplicatePhotos > 0) {
-				b.append("Do you want to continue with the duplicates removed?");
-				style |= SWT.YES | SWT.NO;
-			} else {
-				style |= SWT.OK;
-			}
-			MessageBox msg = new MessageBox(shell, style);
-			msg.setText("Duplicate image(s) detected");
-			msg.setMessage(b.toString());
-			if (msg.open() != SWT.YES) {
+			if (nonDuplicatePhotos == 0) {
+				MessageDialog.openWarning(shell, "Duplicate image(s) detected", msg.toString());
 				return;
 			}
+
+			msg.append(" Do you want to continue with the duplicates removed?");
+			if (!MessageDialog.openQuestion(shell, "Duplicate image(s) detected", msg.toString())) {
+				return;
+			}
+
 			photos.removeAll(duplicates.keySet());
 			try {
 				currentPage.addPhotos(photos, insertionPoint);
@@ -273,9 +286,7 @@ public class ThumbnailView {
 
 		}
 
-		thumbViewer.refresh();
 		thumbViewer.setSelection(new StructuredSelection(photos), true);
-
 		Boolean resize = journal.isResizeImagesBeforeUpload();
 		if (resize == null) {
 			resize = MessageDialog
@@ -286,7 +297,6 @@ public class ThumbnailView {
 				resize = registerResizer(journal, false);
 			}
 			journal.setResizeImagesBeforeUpload(resize);
-
 		}
 	}
 
@@ -308,10 +318,9 @@ public class ThumbnailView {
 						throw new IllegalStateException();
 					}
 
-					// order is null for the deselection event
+					// order is null on deselection events
 					if (order != null && order != currentPage.getPhotosOrder()) {
 						currentPage.setPhotosOrder(order);
-						thumbViewer.refresh(); // requests sorted input
 					}
 				}
 			}
@@ -335,8 +344,8 @@ public class ThumbnailView {
 		} else {
 			captionText.setDocument(new Document());
 			selectOrderByButton(orderByButtonMap.get(pageToShow.getPhotosOrder()));
-			thumbViewer.setInput(pageToShow);
 			pageToShow.addPropertyChangeListener(photoOrderListener);
+			thumbViewer.setInput(pageToShow);
 			thumbViewer.setEnabled(true);
 			thumbViewer.setEditable(pageToShow.getState() != UploadState.UPLOADED);
 		}
@@ -345,7 +354,7 @@ public class ThumbnailView {
 		currentPage = pageToShow;
 
 		/* HACK: removes previous page photo count in status */
-		statusListener.updateStatusBar();
+		statusUpdater.updateStatusBar();
 	}
 
 	public void createComponents(Composite parent) {
@@ -365,8 +374,8 @@ public class ThumbnailView {
 				return true;
 			}
 		});
-		statusListener = new StatusUpdater();
-		thumbViewer.addSelectionListener(statusListener);
+		statusUpdater = new StatusUpdater();
+		thumbViewer.addSelectionListener(statusUpdater);
 		thumbViewer.addTraverseListener(new TraverseListener() {
 			@Override
 			public void keyTraversed(TraverseEvent e) {
@@ -443,10 +452,7 @@ public class ThumbnailView {
 		} catch (MagicNotAvailableException e) {
 			LOG.info("Failed to start photo reszier", e);
 			if (!quiet) {
-				MessageBox error = new MessageBox(shell, SWT.ICON_ERROR | SWT.OK);
-				error.setText("Error");
-				error.setMessage("Failed to start photo resizer:\n\n" + e.getMessage());
-				error.open();
+				MessageDialog.openError(shell, "Error", "Failed to start photo resizer:\n\n" + e.getMessage());
 			}
 			return null;
 		}
@@ -524,7 +530,7 @@ public class ThumbnailView {
 				resizer.removeAll(photos); // TODO remove from cache?
 			}
 		};
-		resizer.addJobListener(statusListener.resizeListener);
+		resizer.addJobListener(statusUpdater.resizeListener);
 		journal.addJournalListener(resizeListener);
 		journal.setData(RESIZE_LISTENER_KEY, resizeListener);
 		return true;
@@ -549,7 +555,7 @@ public class ThumbnailView {
 	public void unregisterResizer(Journal journal) {
 		ResizerService resizer = (ResizerService) journal.getData(ResizerService.KEY);
 		if (resizer != null) {
-			resizer.removeJobListener(statusListener.resizeListener);
+			resizer.removeJobListener(statusUpdater.resizeListener);
 			JournalListener listener = (JournalListener) journal.getData(RESIZE_LISTENER_KEY);
 			journal.removeListener(listener);
 			resizer.cancelAll(); /* don't wait */
