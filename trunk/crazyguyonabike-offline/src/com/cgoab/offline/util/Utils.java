@@ -1,5 +1,8 @@
 package com.cgoab.offline.util;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -98,6 +101,35 @@ public class Utils {
 	public static void print(List<?> toPrint) {
 		for (Object object : toPrint) {
 			System.out.println(object);
+		}
+	}
+
+	public static void copyFile(File fromFile, File toFile) throws IOException {
+		FileInputStream in = null;
+		FileOutputStream out = null;
+		try {
+			in = new FileInputStream(fromFile);
+			out = new FileOutputStream(toFile);
+			byte[] buff = new byte[8 * 1024]; // 4kb chunks
+			int read;
+			while ((read = in.read(buff)) > 0) {
+				out.write(buff, 0, read);
+			}
+		} finally {
+			if (in != null) {
+				try {
+					in.close();
+				} catch (IOException e) {
+					/* ignore */
+				}
+			}
+			if (out != null) {
+				try {
+					out.close();
+				} catch (IOException e) {
+					/* ignore */
+				}
+			}
 		}
 	}
 

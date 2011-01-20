@@ -37,7 +37,7 @@ import com.cgoab.offline.ui.JournalSelectionService.JournalSelectionListener;
 
 public class JournalViewer {
 
-	MainWindow editor;
+	private MainWindow editor;
 
 	private TreeViewer treeViewer;
 
@@ -69,7 +69,7 @@ public class JournalViewer {
 
 			@Override
 			public void journalOpened(Journal journal) {
-				/* select the last page non-uploaded page, or the journal itself */
+				/* select the last non-uploaded page else the journal */
 				List<Page> pages = journal.getPages();
 				Object o = journal;
 				if (pages.size() > 0) {
@@ -83,7 +83,10 @@ public class JournalViewer {
 				Display.getCurrent().asyncExec(new Runnable() {
 					@Override
 					public void run() {
-						/* hack; can't select before all listeners are run */
+						/*
+						 * hack; a page can't be openend until all the others
+						 * listeners finish.
+						 */
 						treeViewer.setSelection(new StructuredSelection(toSelect));
 					}
 				});
@@ -188,14 +191,11 @@ public class JournalViewer {
 		treeViewer.getControl().setMenu(createMenu());
 	}
 
-	Menu createMenu() {
+	private Menu createMenu() {
 		MenuManager menuMgr = new MenuManager();
 		menuMgr.addMenuListener(new IMenuListener() {
-
 			@Override
 			public void menuAboutToShow(IMenuManager manager) {
-				// add static menu items
-
 				IStructuredSelection currentSelection = ((IStructuredSelection) treeViewer.getSelection());
 				boolean selectedPage = false, selectedJournal = false, selectedMultiple = false;
 				if (currentSelection.size() > 0) {

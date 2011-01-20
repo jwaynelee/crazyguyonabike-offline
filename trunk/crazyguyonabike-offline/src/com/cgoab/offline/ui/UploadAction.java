@@ -9,7 +9,6 @@ import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.viewers.StructuredSelection;
 import org.eclipse.jface.viewers.TreeViewer;
 import org.eclipse.swt.widgets.Shell;
-import org.joda.time.LocalDate;
 
 import com.cgoab.offline.client.UploadClient;
 import com.cgoab.offline.client.UploadClientFactory;
@@ -73,7 +72,7 @@ public class UploadAction extends Action {
 		Journal journal = JournalSelectionService.getInstance().getCurrentJournal();
 		JournalUtils.saveJournal(journal, false, shell);
 
-		/* 1) filter pages to upload, prompt if previous partial upload */
+		/* 1) filter pages to upload, prompt if failed upload found */
 		List<Page> newPages = new ArrayList<Page>();
 		boolean foundErrorPage = false;
 		boolean foundPartialPage = false;

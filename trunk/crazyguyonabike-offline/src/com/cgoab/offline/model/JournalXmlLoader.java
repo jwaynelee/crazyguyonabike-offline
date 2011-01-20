@@ -1,8 +1,6 @@
 package com.cgoab.offline.model;
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -29,6 +27,7 @@ import com.cgoab.offline.model.Page.HeadingStyle;
 import com.cgoab.offline.model.Page.PhotosOrder;
 import com.cgoab.offline.util.Assert;
 import com.cgoab.offline.util.StringUtils;
+import com.cgoab.offline.util.Utils;
 
 /**
  * Loads (and saves) journals in an XML format.
@@ -66,17 +65,6 @@ public class JournalXmlLoader {
 	private static final String USE_EXIF_THUMBNAIL_ATTR = "useExifThumbnail";
 	private static final String VERSION_ATTR = "version";
 	private static final String VISIBLE_ATTR = "visible";
-	private static void copy(File tempFile, File targetFile) throws IOException {
-		FileInputStream in = new FileInputStream(tempFile);
-		FileOutputStream out = new FileOutputStream(targetFile);
-		byte[] buff = new byte[8 * 1024]; // 8kb chunks
-		int read;
-		while ((read = in.read(buff)) > 0) {
-			out.write(buff, 0, read);
-		}
-		in.close();
-		out.close();
-	}
 
 	private static int getAttributeOrDefault(Element xml, String name, int defaultValue) {
 		Attribute attr = xml.getAttribute(name);
@@ -89,8 +77,6 @@ public class JournalXmlLoader {
 		Assert.isTrue(FileVersion.parse(version) == CURRENT_VERSION);
 		String name = xml.getRootElement().getAttributeValue(NAME_ATTR);
 		Journal journal = new Journal(file, name);
-		journal.setLastModifiedWhenLoaded(file.lastModified());
-
 		/* parse settings (TODO move to preferences?) */
 		Elements settings = xml.getRootElement().getChildElements(SETTINGS_EL);
 		if (settings.size() > 0) {
@@ -242,7 +228,7 @@ public class JournalXmlLoader {
 			tempWriter.close();
 			if (!tempFile.renameTo(targetFile.getAbsoluteFile())) {
 				// already exists, copy manually
-				copy(tempFile, targetFile);
+				Utils.copyFile(tempFile, targetFile);
 			}
 			journal.setLastModifiedWhenLoaded(targetFile.lastModified());
 		} finally {

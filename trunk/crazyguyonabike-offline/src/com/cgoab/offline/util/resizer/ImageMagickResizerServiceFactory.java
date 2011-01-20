@@ -12,7 +12,7 @@ import com.cgoab.offline.util.resizer.ImageMagickResizeTask.MagicNotAvailableExc
 
 /**
  * An asynchronous photo resizing service that saves resized photos in a local
- * folder
+ * folder.
  * <p>
  * This implementation invokes a new ImageMagick sub-process per resize
  * operation. As such ImageMagik version 6.3.8-3 must be installed prior to
@@ -31,6 +31,7 @@ public class ImageMagickResizerServiceFactory {
 
 	public ImageMagickResizerServiceFactory(Display display, String folderExtension) {
 		this.display = display;
+		/* MIN_PRIORITY allows OS to preempt resize tasks with a thumbnail task */
 		this.executor = ListenableThreadPoolExecutor
 				.newOptimalSizedExecutorService("ImageResizer", Thread.MIN_PRIORITY);
 		this.folderExtension = folderExtension;

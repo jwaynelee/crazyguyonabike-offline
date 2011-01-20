@@ -1258,4 +1258,13 @@ public class ThumbnailViewer extends Canvas {
 			}
 		}
 	}
+
+	/* for testing */
+	public List<Object> getThumbnails() {
+		List<Object> t = new ArrayList<Object>();
+		for (ThumbnailHolder h : thumbnails) {
+			t.add(h.getData());
+		}
+		return t;
+	}
 }

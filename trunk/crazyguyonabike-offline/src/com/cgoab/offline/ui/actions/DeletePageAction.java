@@ -4,8 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.ListIterator;
 
-import javax.management.RuntimeErrorException;
-
 import org.eclipse.core.commands.ExecutionException;
 import org.eclipse.core.commands.operations.AbstractOperation;
 import org.eclipse.core.commands.operations.OperationHistoryFactory;
@@ -14,18 +12,17 @@ import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.jface.action.Action;
+import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.jface.viewers.StructuredSelection;
 import org.eclipse.jface.viewers.TreeViewer;
-import org.eclipse.swt.SWT;
-import org.eclipse.swt.widgets.MessageBox;
 import org.eclipse.swt.widgets.Shell;
 
 import com.cgoab.offline.model.Journal;
 import com.cgoab.offline.model.Page;
-import com.cgoab.offline.ui.MainWindow;
 import com.cgoab.offline.ui.JournalSelectionService;
 import com.cgoab.offline.ui.JournalSelectionService.JournalSelectionListener;
+import com.cgoab.offline.ui.MainWindow;
 
 public class DeletePageAction extends Action {
 
@@ -54,15 +51,12 @@ public class DeletePageAction extends Action {
 		if (pagesToDelete.size() == 0) {
 			return;
 		}
-		
-		MessageBox confirm = new MessageBox(shell, SWT.CANCEL | SWT.OK | SWT.ICON_QUESTION);
-		StringBuilder str = new StringBuilder("Are you sure you want to delete the following page(s):\n");
+
+		StringBuilder msg = new StringBuilder("Are you sure you want to delete the following page(s):\n");
 		for (Page p : pagesToDelete) {
-			str.append("   '").append(p.getTitle()).append(":").append(p.getHeadline()).append("'\n");
+			msg.append("   '").append(p.getTitle()).append(":").append(p.getHeadline()).append("'\n");
 		}
-		confirm.setText("Confirm delete");
-		confirm.setMessage(str.toString());
-		if (confirm.open() != SWT.OK) {
+		if (!MessageDialog.openConfirm(shell, "Confirm delete", msg.toString())) {
 			return;
 		}
 		DeleteOperation operation = new DeleteOperation(pagesToDelete);

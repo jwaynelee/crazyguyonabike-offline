@@ -1,12 +1,13 @@
 package com.cgoab.offline.ui;
 
 import java.io.File;
+import java.io.IOException;
+
+import nu.xom.ParsingException;
 
 import org.eclipse.jface.dialogs.IDialogConstants;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.dialogs.ProgressMonitorDialog;
-import org.eclipse.swt.SWT;
-import org.eclipse.swt.widgets.MessageBox;
 import org.eclipse.swt.widgets.Shell;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,8 +55,32 @@ public class JournalUtils {
 			}
 		}
 
+		/* release the lock */
+		// FileLock lock = (FileLock) journal.getData(FileLock.class.getName());
+		// Assert.notNull(lock);
 		JournalSelectionService.getInstance().setJournal(null);
 		return true;
+	}
+
+	// private static void releaseLock(FileLock lock) {
+	// if (lock != null && lock.isValid()) {
+	// try {
+	// lock.release();
+	// } catch (IOException e) {
+	// /* ignore */
+	// LOG.warn("Ignoring exception releasing lock", e);
+	// }
+	// }
+	// }
+
+	private static void errorParsingFile(Shell shell, Throwable exception, File file, boolean quiet) {
+		LOG.warn("Failed to load journal from [" + file.getAbsolutePath() + "]", exception);
+		if (!quiet) {
+			StringBuilder msg = new StringBuilder();
+			msg.append("Failed to load file '").append(file.getName()).append("'").append(": ")
+					.append(exception.toString());
+			MessageDialog.openError(shell, "Failed to load Journal", msg.toString());
+		}
 	}
 
 	public static boolean openJournal(String path, boolean quiet, Shell shell) {
@@ -64,26 +89,42 @@ public class JournalUtils {
 		if (!file.exists()) {
 			LOG.debug("File [{}] does not exist!", path);
 			if (!quiet) {
-				showError("File '" + path + "' does not exist!", shell);
+				MessageDialog.openError(shell, "File not found", "File [" + path + "] does not exist!");
 			}
 			return false;
 		}
 		Journal journal;
+
+		// /* attempt to lock the file */
+		// RandomAccessFile rof;
+		// try {
+		// rof = new RandomAccessFile(file, "rw");
+		// } catch (IOException e) {
+		// throw new IllegalStateException(e);
+		// }
+		// FileLock lock = null;
+		// try {
+		// lock = rof.getChannel().tryLock();
+		// } catch (IOException e) {
+		// LOG.error("Failed to lock file [" + file + "]", e);
+		// }
+		//
+		// if (lock == null) {
+		// MessageDialog.openError(shell, "Cannot lock file", "Journal file [" +
+		// file.getAbsolutePath()
+		// + "] cannot be locked, check it is not openened by another process");
+		// return false;
+		// }
+
 		try {
 			journal = JournalXmlLoader.open(file);
 			LOG.debug("Loaded journal [{} with {} pages] from [{}]", new Object[] { journal.getName(),
 					journal.getPages().size(), path });
-
-		} catch (Exception e) {
-			LOG.warn("Failed to load journal from [" + path + "]", e);
-			if (!quiet) {
-				StringBuilder b = new StringBuilder();
-				b.append("Failed to load file '").append(file.getName()).append("'").append(": ").append(e.toString());
-				MessageBox box = new MessageBox(shell, SWT.ICON_ERROR | SWT.OK);
-				box.setMessage(b.toString());
-				box.setText("Failed to load journal");
-				box.open();
-			}
+		} catch (ParsingException e) {
+			errorParsingFile(shell, e, file, quiet);
+			return false;
+		} catch (IOException e) {
+			errorParsingFile(shell, e, file, quiet);
 			return false;
 		}
 
@@ -93,13 +134,10 @@ public class JournalUtils {
 		} catch (AssertionError e) {
 			LOG.warn("Journal [" + journal.getName() + "] is invalid", e);
 			if (!quiet) {
-				StringBuilder b = new StringBuilder();
-				b.append("Journal '").append(journal.getName()).append("' loaded from file '").append(file.getName())
+				StringBuilder msg = new StringBuilder();
+				msg.append("Journal '").append(journal.getName()).append("' loaded from file '").append(file.getName())
 						.append("' is in an invalid state and cannot be opened.\n\n").append(e.toString());
-				MessageBox box = new MessageBox(shell, SWT.ICON_ERROR | SWT.OK);
-				box.setMessage(b.toString());
-				box.setText("Invalid journal");
-				box.open();
+				MessageDialog.openError(shell, "Invalid journal", msg.toString());
 			}
 			return false;
 		}
@@ -116,7 +154,7 @@ public class JournalUtils {
 	 *            journal to save
 	 * @return <tt>false</tt> if the operation was cancelled.
 	 */
-	public static boolean promptAndSaveJournal(Journal journal, Shell shell) {
+	private static boolean promptAndSaveJournal(Journal journal, Shell shell) {
 		MessageDialog box = new MessageDialog(shell, "Confirm save", null, "Save changes to [" + journal.getName()
 				+ "] before closing?", MessageDialog.QUESTION_WITH_CANCEL, new String[] { IDialogConstants.YES_LABEL,
 				IDialogConstants.NO_LABEL, IDialogConstants.CANCEL_LABEL }, 0);
@@ -145,12 +183,8 @@ public class JournalUtils {
 	public static boolean saveJournal(Journal journal, boolean silent, Shell shell) {
 		if (journal.getFile().exists() && journal.getLastModifiedWhenLoaded() != Journal.NEVER_SAVED_TIMESTAMP
 				&& journal.getFile().lastModified() > journal.getLastModifiedWhenLoaded()) {
-			MessageBox box = new MessageBox(shell, SWT.ICON_WARNING | SWT.NO | SWT.YES);
-			box.setText("Confirm overwrite");
-			box.setMessage("A newer version of file '" + journal.getFile().getName()
-					+ "' exists, do you want to overwrite?");
-			switch (box.open()) {
-			case SWT.NO:
+			if (!MessageDialog.openQuestion(shell, "Confirm overwrite", "A newer version of file '"
+					+ journal.getFile().getName() + "' exists, do you want to overwrite?")) {
 				return false;
 			}
 		}
@@ -160,19 +194,10 @@ public class JournalUtils {
 		} catch (Exception e) {
 			LOG.error("Failed to save journal [" + journal.getName() + "]", e);
 			if (!silent) {
-				MessageBox box = new MessageBox(shell, SWT.ICON_ERROR | SWT.OK);
-				box.setText("Error saving journal");
-				box.setMessage("Failed to save journal: " + e.toString());
-				box.open();
+				MessageDialog.openError(shell, "Error saving journal", "Failed to save journal: " + e.toString());
 			}
 			return false;
 		}
 		return true;
-	}
-
-	private static void showError(String message, Shell shell) {
-		MessageBox box = new MessageBox(shell, SWT.ICON_ERROR | SWT.OK);
-		box.setMessage(message);
-		box.open();
 	}
 }

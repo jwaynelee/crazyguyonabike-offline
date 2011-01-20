@@ -5,8 +5,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import org.eclipse.swt.SWT;
-import org.eclipse.swt.widgets.MessageBox;
+import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.swt.widgets.Shell;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -91,25 +90,21 @@ public class PhotosContentProvider implements ThumbnailViewerContentProvider, Th
 	public boolean itemFailedToLoad(Object image, Throwable exception) {
 		Photo photo = (Photo) image;
 		LOG.warn("Failed to load thumbnail for [" + photo.getFile().getAbsolutePath() + "]", exception);
-		// prompt the user to continue with an invalid image or remove...
 		if (photo.getState() == UploadState.UPLOADED) {
-			// ignore, it is already uploaded, nothing we can do
+			/* ignore, it is already uploaded, nothing we can do */
 			return true;
 		}
-		MessageBox error = new MessageBox(shell, SWT.ICON_ERROR | SWT.YES | SWT.NO);
-		error.setText("Failed to load image");
-		error.setMessage("Failed to load image " + photo.getFile() + " due to:\n\n" + exception.getMessage()
-				+ "\n\nDo you want to keep this photo?");
-		if (error.open() == SWT.YES) {
-			// remove
+		if (MessageDialog.openQuestion(shell, "Failed to load image", "Failed to load image " + photo.getFile()
+				+ " due to:\n\n" + exception.getMessage() + "\n\nDo you want to keep this photo?")) {
+			/* keep */
 			return true;
 		} else {
 			try {
 				currentPage.removePhotos(Arrays.asList(photo));
+				currentPage.getJournal().setDirty(true);
 			} catch (PageNotEditableException e) {
 				/* ignore */
 			}
-			currentPage.getJournal().setDirty(true);
 			return false;
 		}
 	}
@@ -136,28 +131,23 @@ public class PhotosContentProvider implements ThumbnailViewerContentProvider, Th
 
 	@Override
 	public void itemsRemoved(Object[] selection) {
-		MessageBox box = new MessageBox(shell, SWT.ICON_QUESTION | SWT.YES | SWT.NO);
-		box.setText("Confirm delete");
-		StringBuilder b = new StringBuilder("Are you sure you want to remove these ").append(selection.length).append(
-				" photo(s):\n\n");
+		StringBuilder msg = new StringBuilder("Are you sure you want to remove these ").append(selection.length)
+				.append(" photo(s):\n\n");
 		for (int i = 0; i < selection.length; ++i) {
 			if (i == 10) {
-				b.append("   ... ").append(selection.length - i).append(" more\n");
+				msg.append("   ... ").append(selection.length - i).append(" more\n");
 				break;
 			}
 			Photo p = (Photo) selection[i];
-			b.append("   '").append(p.getFile().getName()).append("'\n");
+			msg.append("   '").append(p.getFile().getName()).append("'\n");
 		}
 
-		box.setMessage(b.toString());
-		if (box.open() != SWT.YES) {
-			return;
-		}
-		try {
-			currentPage.removePhotos(toPhotoList(selection));
-			viewer.remove(selection);
-		} catch (PageNotEditableException e) {
-			return; /* ignore */
+		if (MessageDialog.openQuestion(shell, "Confirm delete", msg.toString())) {
+			try {
+				currentPage.removePhotos(toPhotoList(selection));
+			} catch (PageNotEditableException e) {
+				return; /* ignore */
+			}
 		}
 	}
 

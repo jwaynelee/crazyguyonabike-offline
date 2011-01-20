@@ -11,11 +11,9 @@ import org.eclipse.core.runtime.IStatus;
 import org.eclipse.jface.util.ILogger;
 import org.eclipse.jface.util.Policy;
 import org.eclipse.swt.SWT;
-import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Listener;
-import org.eclipse.swt.widgets.Shell;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,28 +23,28 @@ import com.cgoab.offline.client.web.FileCookieStore;
 import com.cgoab.offline.ui.MainWindow;
 import com.cgoab.offline.ui.Preferences;
 import com.cgoab.offline.ui.thumbnailviewer.CachingThumbnailProviderFactory;
-import com.cgoab.offline.ui.thumbnailviewer.FitWithinResizeStrategy;
 import com.cgoab.offline.ui.thumbnailviewer.ResizeStrategy;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailViewer;
 import com.cgoab.offline.ui.util.UIExecutor;
 import com.cgoab.offline.util.resizer.ImageMagickResizerServiceFactory;
 
+/**
+ * Creates and opens the application UI.
+ */
 public class Application implements Runnable {
 	private static final String COOKIES_FILE = "cookies";
 	public static final String CRAZYGUYONABIKE_HOST = "www.crazyguyonabike.com";
 	public static final int CRAZYGUYONABIKE_PORT = -1;
-	private static Logger LOG = LoggerFactory.getLogger(Application.class);
+	private static final Logger LOG = LoggerFactory.getLogger(Application.class);
 	private static final String LOG_FILE = "log.properties";
-	private static final String RESIZED_FOLDER = ".resized";
+	private static final String RESIZED_FOLDER_EXTENSION = ".resized";
 	public static final File SETTINGS_DIR = new File(System.getProperty("user.home") + File.separator + ".cgoaboffline"
 			+ File.separator);
-	public static final ResizeStrategy THUMBNAIL_RESIZER = new FitWithinResizeStrategy(new Point(
-			ThumbnailViewer.THUMBNAIL_WIDTH, ThumbnailViewer.THUMBNAIL_HEIGHT));
-	private static final String THUMNAILS_FOLDER = ".thumbnails";
+	public static final ResizeStrategy THUMBNAIL_RESIZER = ThumbnailViewer.RESIZE_STRATEGY;
+	private static final String THUMNAILS_FOLDER_EXTENSION = ".thumbnails";
+
 	/**
-	 * Constructs a new application with default settings.
-	 * 
-	 * @return
+	 * Assembles a new application with default settings.
 	 */
 	public static Application defaultApplication() {
 		Application app = new Application();
@@ -77,23 +75,30 @@ public class Application implements Runnable {
 		uploadFactory.setPort(Integer.getInteger("port", CRAZYGUYONABIKE_PORT));
 		uploadFactory.setCallbackExecutor(new UIExecutor(display));
 		app.setUploadFactory(uploadFactory);
-		app.setThumbnailFactory(new CachingThumbnailProviderFactory(display, THUMBNAIL_RESIZER, THUMNAILS_FOLDER));
-		app.setResizerFactory(new ImageMagickResizerServiceFactory(display, RESIZED_FOLDER));
+		app.setThumbnailFactory(new CachingThumbnailProviderFactory(display, THUMBNAIL_RESIZER,
+				THUMNAILS_FOLDER_EXTENSION));
+		app.setResizerFactory(new ImageMagickResizerServiceFactory(display, RESIZED_FOLDER_EXTENSION));
 
 		Preferences preferences = new Preferences(new File(SETTINGS_DIR + File.separator + "preferences"));
 		app.setPreferences(preferences);
 		return app;
 	}
+
 	public static void main(String[] args) {
 		try {
 			defaultApplication().run();
 		} catch (Throwable e) {
+			/* TODO open Swing MessageBox? else we fail silently */
 			e.printStackTrace();
 		}
 	}
+
 	private boolean configuredLogging;
+
 	private Display display;
+
 	private Preferences preferences;
+
 	private ImageMagickResizerServiceFactory resizerFactory;
 
 	private CachingThumbnailProviderFactory thumbnailFactory;
@@ -105,7 +110,7 @@ public class Application implements Runnable {
 			BasicConfigurator.configure();
 		}
 
-		// install JFace ILogger bridge
+		/* install JFace ILogger bridge */
 		Policy.setLog(new ILogger() {
 			@Override
 			public void log(IStatus status) {
@@ -132,15 +137,13 @@ public class Application implements Runnable {
 	@Override
 	public void run() {
 		initLogging();
-		Shell shell = null;
 		try {
-			shell = new Shell(display);
-			MainWindow editor = new MainWindow();
-			editor.setThumbnailProviderFactory(thumbnailFactory);
-			editor.setResizerServiceFactory(resizerFactory);
-			editor.setPreferences(preferences);
-			editor.setUploadFactory(uploadFactory);
-			editor.open();
+			MainWindow app = new MainWindow();
+			app.setThumbnailProviderFactory(thumbnailFactory);
+			app.setResizerServiceFactory(resizerFactory);
+			app.setPreferences(preferences);
+			app.setUploadFactory(uploadFactory);
+			app.open();
 		} catch (Throwable t) {
 			LOG.error("Unhandled exception, application will terminate", t);
 		} finally {
