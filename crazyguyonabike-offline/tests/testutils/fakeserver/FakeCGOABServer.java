@@ -7,6 +7,7 @@ import java.io.OutputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,32 +35,35 @@ import org.apache.http.message.BasicHeader;
 import org.apache.http.protocol.HttpContext;
 import org.apache.http.protocol.HttpRequestHandler;
 import org.apache.http.protocol.HttpRequestHandlerRegistry;
-import org.htmlcleaner.HtmlCleaner;
-import org.htmlcleaner.XPatherException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import testutils.fakeserver.ServerModel.ServerJournal;
-import testutils.fakeserver.ServerModel.ServerPage;
-import testutils.fakeserver.ServerModel.ServerPhoto;
+import testutils.fakeserver.FakeCGOABModel.ServerJournal;
+import testutils.fakeserver.FakeCGOABModel.ServerPage;
+import testutils.fakeserver.FakeCGOABModel.ServerPhoto;
 
-import com.cgoab.offline.client.DocumentDescription;
-import com.cgoab.offline.client.web.CGOABHtmlUtils;
+import com.cgoab.offline.client.PhotoUploadProgressListener;
 import com.cgoab.offline.util.Utils;
 
 /**
- * A fake CGOAB for testing
+ * A fake CGOAB for testing, backed by {@link FakeCGOABModel}.
  * 
- * <ul>
- * <li>Single user "Billy Bob", username "bob", password "secret"
- * <li>User has a three documents { "doc1" (1), "doc2" (2), "doc3" (3) }
- * </ul>
  */
 public class FakeCGOABServer {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(FakeCGOABServer.class);
 
 	private BasicHttpServer server;
+
+	private final List<PhotoUploadProgressListener> photoListeners = new ArrayList<PhotoUploadProgressListener>();
+
+	public void addPhotoUploadListener(PhotoUploadProgressListener listener) {
+		photoListeners.add(listener);
+	}
+
+	public void removePhotoUploadListener(PhotoUploadProgressListener listener) {
+		photoListeners.remove(listener);
+	}
 
 	public static void main(String[] args) throws Exception {
 		// runs CGOAB server with a UI
@@ -69,13 +73,13 @@ public class FakeCGOABServer {
 		server.shutdown();
 	}
 
-	ServerModel model;
+	FakeCGOABModel model;
 
-	public ServerModel getModel() {
+	public FakeCGOABModel getModel() {
 		return model;
 	}
 
-	public FakeCGOABServer(int port) throws IOException, XPatherException {
+	public FakeCGOABServer(int port) throws Exception {
 		server = new BasicHttpServer(port, createRegistry());
 		Thread thread = new Thread(new Runnable() {
 			@Override
@@ -84,13 +88,7 @@ public class FakeCGOABServer {
 			}
 		});
 		thread.start();
-		model = new ServerModel();
-		// populate journals from file
-		List<DocumentDescription> documents = CGOABHtmlUtils.extractDocuments(new HtmlCleaner().clean(getClass()
-				.getResourceAsStream("MyPage.htm")));
-		for (DocumentDescription doc : documents) {
-			model.addJournal(new ServerJournal(doc.getTitle(), doc.getDocumentId()));
-		}
+		model = new FakeCGOABModel();
 	}
 
 	public BasicHttpServer getHttpServer() {
@@ -163,10 +161,9 @@ public class FakeCGOABServer {
 								lastLoggedPercentage = percentage;
 								LOGGER.info("Read {} ({}%)", Utils.formatBytes(pBytesRead),
 										String.format("%3.1f", percentage));
-								/* fail the upload after 60% */
-								// if (((float) pBytesRead / pContentLength) >
-								// 0.6)
-								// throw new IllegalStateException("");
+							}
+							for (PhotoUploadProgressListener l : photoListeners) {
+								l.uploadPhotoProgress(null, pBytesRead, pContentLength);
 							}
 						}
 					});
@@ -248,8 +245,12 @@ public class FakeCGOABServer {
 					ServerPage page = new ServerPage(params);
 					ServerJournal journal = model.getJournal(Integer.parseInt(params.get("doc_id")));
 					int pageId = journal.addPage(page);
-					response.setStatusCode(HttpStatus.SC_MOVED_PERMANENTLY);
-					response.addHeader(new BasicHeader("Location", "/doc/edit/page/pic/?page_id=" + pageId));
+					if (pageId == -1) {
+						respondWithHtml(response, "ErrorPageOlderThanPrevious.htm");
+					} else {
+						response.setStatusCode(HttpStatus.SC_MOVED_PERMANENTLY);
+						response.addHeader(new BasicHeader("Location", "/doc/edit/page/pic/?page_id=" + pageId));
+					}
 				}
 			}
 		}
@@ -399,8 +400,8 @@ public class FakeCGOABServer {
 				Map<String, String> params = parse(request);
 				String username = params.get("username");
 				String password = params.get("password");
-				if (username.equals("bob") && password.equals("secret")) {
-					String id = model.loggedIn(username);
+				String id = model.logIn(username, password);
+				if (id != null) {
 					LOGGER.info("Logged in as {}; id={}", username, id);
 					response.addHeader("Set-Cookie", "id=" + id + "; path=/; domain=localhost");
 					response.setStatusCode(HttpStatus.SC_OK);
@@ -410,6 +411,5 @@ public class FakeCGOABServer {
 			}
 			respondWithHtml(response, "LoginPage.htm");
 		}
-
 	}
 }

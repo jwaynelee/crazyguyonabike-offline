@@ -36,17 +36,20 @@ import com.cgoab.offline.ui.actions.DeletePageAction;
 import com.cgoab.offline.ui.actions.NewJournalAction;
 import com.cgoab.offline.ui.actions.NewPageAction;
 import com.cgoab.offline.ui.actions.OpenJournalAction;
+import com.cgoab.offline.ui.actions.OpenLogFileAction;
 import com.cgoab.offline.ui.actions.OpenPageInBrowserAction;
+import com.cgoab.offline.ui.actions.OpenPreferencesAction;
 import com.cgoab.offline.ui.actions.PurgeResizedPhotosAction;
 import com.cgoab.offline.ui.actions.PurgeThumbnailCacheAction;
 import com.cgoab.offline.ui.actions.RedoAction;
 import com.cgoab.offline.ui.actions.SaveAction;
 import com.cgoab.offline.ui.actions.ToggleHideUploadedContent;
-import com.cgoab.offline.ui.actions.ToggleResizeImagesBeforeUpload;
+import com.cgoab.offline.ui.actions.ToggleResizeImagesBeforeUploadAction;
 import com.cgoab.offline.ui.actions.ToggleUseExifThumbnailAction;
 import com.cgoab.offline.ui.actions.UndoAction;
 import com.cgoab.offline.ui.actions.ViewResizedPhotosAction;
 import com.cgoab.offline.ui.thumbnailviewer.CachingThumbnailProviderFactory;
+import com.cgoab.offline.util.StringUtils;
 import com.cgoab.offline.util.Utils;
 import com.cgoab.offline.util.resizer.ImageMagickResizerServiceFactory;
 
@@ -55,8 +58,6 @@ public class MainWindow extends ApplicationWindow {
 	private static final Logger LOG = LoggerFactory.getLogger(MainWindow.class);
 
 	public static final IUndoContext APPLICATION_CONTEXT = new UndoContext();
-
-	static final String OPENJOURNALS_PREFERENCE_PATH = "/openjournals";
 
 	AddPhotosAction addPhotosAction;
 
@@ -82,18 +83,9 @@ public class MainWindow extends ApplicationWindow {
 
 	OpenPageInBrowserAction openPageInBrowserAction;
 
-	private IAction openPreferencesAction = new Action("Preferences") {
-		@Override
-		public void run() {
-			PreferencesDialog prefs = new PreferencesDialog(getShell());
-			prefs.setPreferences(preferences);
-			prefs.open();
-		}
-	};
+	private IAction openPreferencesAction;
 
 	PageEditor pageEditor;
-
-	private Preferences preferences;
 
 	PurgeResizedPhotosAction purgeResizedPhotos;
 
@@ -116,7 +108,7 @@ public class MainWindow extends ApplicationWindow {
 
 	ToggleHideUploadedContent toggleHideUploadedContent;
 
-	ToggleResizeImagesBeforeUpload toggleResizePhotos;
+	ToggleResizeImagesBeforeUploadAction toggleResizePhotos;
 
 	ToggleUseExifThumbnailAction toggleUseExifThumbnailAction;
 
@@ -125,6 +117,8 @@ public class MainWindow extends ApplicationWindow {
 	private UploadClientFactory uploadFactory;
 
 	ViewResizedPhotosAction viewResizedPhotosFolder;
+
+	private MenuManager aboutMenuMgr;
 
 	public MainWindow() {
 		super(null);
@@ -135,6 +129,12 @@ public class MainWindow extends ApplicationWindow {
 			}
 		});
 		JournalSelectionService.init();
+		JournalSelectionService.getInstance().addListener(new JournalSelectionAdapter() {
+			@Override
+			public void journalOpened(Journal journal) {
+				PreferenceUtils.getStore().setValue(PreferenceUtils.LAST_JOURNAL, journal.getFile().getAbsolutePath());
+			}
+		});
 		setBlockOnOpen(true);
 		addStatusLine();
 		addMenuBar();
@@ -182,14 +182,14 @@ public class MainWindow extends ApplicationWindow {
 		addPhotosAction = new AddPhotosAction(shell, thumbnailView);
 		openPageInBrowserAction = new OpenPageInBrowserAction(shell);
 		toggleHideUploadedContent = new ToggleHideUploadedContent();
-		toggleResizePhotos = new ToggleResizeImagesBeforeUpload(thumbnailView);
+		toggleResizePhotos = new ToggleResizeImagesBeforeUploadAction(thumbnailView);
 		viewResizedPhotosFolder = new ViewResizedPhotosAction();
 		purgeResizedPhotos = new PurgeResizedPhotosAction(shell);
 		toggleUseExifThumbnailAction = new ToggleUseExifThumbnailAction();
 		purgeThumbnailCache = new PurgeThumbnailCacheAction(shell);
+		openPreferencesAction = new OpenPreferencesAction();
 		UploadAction uploadAction = new UploadAction(shell, thumbnailView.getViewer(), journalView.getViewer());
 		uploadAction.setUploadFactory(uploadFactory);
-		uploadAction.setPreferences(preferences);
 		this.uploadAction = uploadAction;
 
 		/* populate main menu */
@@ -213,6 +213,8 @@ public class MainWindow extends ApplicationWindow {
 		editMenuMgr.add(new UndoAction(this));
 		editMenuMgr.add(new RedoAction(this));
 
+		aboutMenuMgr.add(new OpenLogFileAction(shell));
+
 		/* rebuilt menu(s) */
 		IContributionManager root = fileMenuMgr.getParent();
 		root.update(true);
@@ -224,11 +226,11 @@ public class MainWindow extends ApplicationWindow {
 		createActions();
 
 		/* TODO load on background thread? */
-		String journalToOpen = preferences.getValue(OPENJOURNALS_PREFERENCE_PATH);
-		if (journalToOpen != null && !JournalUtils.openJournal(journalToOpen, true, getShell())) {
+		String journalToOpen = PreferenceUtils.getStore().getString(PreferenceUtils.LAST_JOURNAL);
+		if (!StringUtils.isEmpty(journalToOpen) && !JournalUtils.openJournal(journalToOpen, true, getShell())) {
 			// update preferences if last journal failed to load
-			preferences.removeValue(OPENJOURNALS_PREFERENCE_PATH);
-			preferences.save();
+			PreferenceUtils.getStore().setValue(PreferenceUtils.LAST_JOURNAL, "");
+			PreferenceUtils.save();
 		}
 		return parent;
 	}
@@ -259,17 +261,15 @@ public class MainWindow extends ApplicationWindow {
 		MenuManager root = new MenuManager();
 		fileMenuMgr = new MenuManager("File");
 		editMenuMgr = new MenuManager("Edit");
+		aboutMenuMgr = new MenuManager("About");
 		root.add(fileMenuMgr);
 		root.add(editMenuMgr);
+		root.add(aboutMenuMgr);
 		return root;
 	}
 
 	public IUndoContext getCurrentOperationContext() {
 		return currentContext;
-	}
-
-	public Preferences getPreferences() {
-		return preferences;
 	}
 
 	@Override
@@ -281,8 +281,6 @@ public class MainWindow extends ApplicationWindow {
 	protected void handleShellCloseEvent() {
 		Journal journal = JournalSelectionService.getInstance().getCurrentJournal();
 		if (journal != null) {
-			preferences.setValue(OPENJOURNALS_PREFERENCE_PATH, journal.getFile().getAbsolutePath());
-			preferences.save();
 			if (!JournalUtils.closeJournal(journal, getShell())) {
 				return; /* abort close */
 			}
@@ -299,10 +297,6 @@ public class MainWindow extends ApplicationWindow {
 		for (ContextChangedListener listener : listeners) {
 			listener.contextChanged(currentContext);
 		}
-	}
-
-	public void setPreferences(Preferences preferences) {
-		this.preferences = preferences;
 	}
 
 	public void setResizerServiceFactory(ImageMagickResizerServiceFactory resizerServiceFactory) {

@@ -277,7 +277,7 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 		this.port = port;
 		this.cleaner = new HtmlCleaner();
 		this.client = new DefaultHttpClient();
-		client.setHttpRequestRetryHandler(new UnlimitedRetry());
+		client.setHttpRequestRetryHandler(new UnlimitedExponentialBackoffRetry());
 		client.getParams().setBooleanParameter("http.protocol.handle-redirects", Boolean.FALSE);
 		this.context = new BasicHttpContext();
 		/**
@@ -905,16 +905,37 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 		}
 	}
 
-	private class UnlimitedRetry extends DefaultHttpRequestRetryHandler {
+	private class UnlimitedExponentialBackoffRetry extends DefaultHttpRequestRetryHandler {
 
-		public UnlimitedRetry() {
+		public UnlimitedExponentialBackoffRetry() {
 			super(Integer.MAX_VALUE, false);
+		}
+
+		/* 50ms then 1, 2, 5 seconds */
+		private long computeSleep(int executionCount) {
+			switch (executionCount) {
+			case 0:
+			case 1:
+				return 50;
+			case 2:
+				return 1000;
+			case 3:
+				return 2000;
+			default:
+				return 5000;
+			}
 		}
 
 		@Override
 		public boolean retryRequest(IOException exception, int executionCount, HttpContext context) {
-			// notify current operation
 			fireOnRetry(exception, executionCount);
+			try {
+				long sleep = computeSleep(executionCount);
+				LOG.info("Sleeping for {}ms after failed execution", sleep);
+				Thread.sleep(sleep);
+			} catch (InterruptedException e) {
+				/* ignore */
+			}
 			return super.retryRequest(exception, executionCount, context);
 		}
 	}

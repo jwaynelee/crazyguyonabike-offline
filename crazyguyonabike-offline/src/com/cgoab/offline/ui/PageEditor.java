@@ -13,6 +13,8 @@ import org.eclipse.jface.text.ITextListener;
 import org.eclipse.jface.text.TextEvent;
 import org.eclipse.jface.text.TextViewer;
 import org.eclipse.jface.text.TextViewerUndoManager;
+import org.eclipse.jface.util.IPropertyChangeListener;
+import org.eclipse.jface.util.PropertyChangeEvent;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.StyledText;
 import org.eclipse.swt.events.FocusAdapter;
@@ -88,10 +90,9 @@ public class PageEditor {
 
 	private TextViewerUndoManager undoManager;
 
-	public PageEditor(MainWindow application) {
+	public PageEditor(final MainWindow application) {
 		this.application = application;
 		JournalSelectionService.getInstance().addListener(new JournalSelectionListener() {
-
 			private JournalListener releaseFromCacheOnDeleteListener = new JournalAdapter() {
 				@Override
 				public void pageDeleted(Page page) {
@@ -113,6 +114,17 @@ public class PageEditor {
 			@Override
 			public void selectionChanged(Object newSelection, Object oldSelection) {
 				displayPage(newSelection instanceof Page ? (Page) newSelection : null);
+			}
+		});
+
+		/* preferences */
+		PreferenceUtils.getStore().addPropertyChangeListener(new IPropertyChangeListener() {
+			@Override
+			public void propertyChange(PropertyChangeEvent event) {
+				if (PreferenceUtils.FONT.equals(event.getProperty())) {
+					FontData[] data = (FontData[]) event.getNewValue();
+					textInput.getTextWidget().setFont(new Font(application.getShell().getDisplay(), data[0]));
+				}
 			}
 		});
 	}
@@ -299,8 +311,6 @@ public class PageEditor {
 		// undoManager = new TextViewerUndoManager(50);
 		// undoManager.connect(textInput);
 
-		FontData fd = new FontData("Tahoma", 10, SWT.NONE);
-		textInput.getTextWidget().setFont(new Font(parent.getShell().getDisplay(), fd));
 		GridData data = new GridData(SWT.FILL, SWT.FILL, true, true, 4, 1);
 		// 6 lines of text
 		data.heightHint = textInput.getTextWidget().getLineHeight() * 6;
@@ -309,8 +319,12 @@ public class PageEditor {
 		tempGC.dispose();
 		data.widthHint = averageCharWidth * 120; // 120 characters
 		textInput.getTextWidget().setLayoutData(data);
-		// textInput.getTextWidget().addFocusListener(selectCurrentPageListener);
 		textInput.addTextListener(dirtyCurrentPageListener);
+		if (PreferenceUtils.getStore().contains(PreferenceUtils.FONT)) {
+			String fds = PreferenceUtils.getStore().getString(PreferenceUtils.FONT);
+			textInput.getControl().setFont(new Font(parent.getShell().getDisplay(), new FontData(fds)));
+		}
+
 		/*
 		 * Slurp up references to all the editor widgets so we can turn on/off
 		 * together

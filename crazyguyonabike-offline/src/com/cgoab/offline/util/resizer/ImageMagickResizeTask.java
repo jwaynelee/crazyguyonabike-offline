@@ -12,6 +12,7 @@ import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.cgoab.offline.util.Assert;
 import com.cgoab.offline.util.FutureCompletionListener;
 import com.cgoab.offline.util.ListenableCancellableTask;
 import com.cgoab.offline.util.OS;
@@ -23,14 +24,12 @@ import com.cgoab.offline.util.Which;
  */
 public class ImageMagickResizeTask extends ListenableCancellableTask<File> {
 
-	private static final int JPEG_QUALITY = 70;
-
 	private static final Logger LOG = LoggerFactory.getLogger(ImageMagickResizeTask.class);
 
-	public static final String MAGICK_COMMAND = "convert";
+	static final String MAGICK_COMMAND = "convert";
 
 	/* windows provides a "convert" command, mogrify is less common */
-	private static final String MAGICK_COMMAND_TO_CHECK_INSTALLATION = "mogrify";
+	static final String MAGICK_COMMAND_TO_CHECK_INSTALLATION = "mogrify";
 
 	/*
 	 * Version with "Fill Area Flag ('^' flag)"
@@ -53,7 +52,7 @@ public class ImageMagickResizeTask extends ListenableCancellableTask<File> {
 	 * Searches for ImageMagick on the path and asserts the version is at least
 	 * the required version.
 	 * 
-	 * @return path to valid install of ImageMagick
+	 * @return path to direcotry of ImageMagic install
 	 * @throws MagicNotAvailableException
 	 *             if the correct version of ImageMagic cannot be found
 	 */
@@ -130,15 +129,20 @@ public class ImageMagickResizeTask extends ListenableCancellableTask<File> {
 		return currentVersion;
 	}
 
-	private final String cmdPath;
+	private final String magickDirectory;
 	private final Object lock = new Object();
 	private Process process; /* guarded by lock */
 	private final File source, destination;
+	private final int quality, size;
 
-	public ImageMagickResizeTask(String cmd, File source, File destination, FutureCompletionListener<File> listener,
-			Object data) {
+	public ImageMagickResizeTask(String cmd, int size, int quality, File source, File destination,
+			FutureCompletionListener<File> listener, Object data) {
 		super(listener, data);
-		this.cmdPath = cmd;
+		Assert.isTrue(quality > 20 && quality < 100);
+		Assert.isTrue(size > 0);
+		this.size = size;
+		this.quality = quality;
+		this.magickDirectory = cmd;
 		this.source = source;
 		this.destination = destination;
 	}
@@ -157,13 +161,13 @@ public class ImageMagickResizeTask extends ListenableCancellableTask<File> {
 		}
 
 		List<String> args = new ArrayList<String>();
-		args.add(cmdPath);
+		args.add(magickDirectory + File.separator + MAGICK_COMMAND);
 		args.add(source.getAbsolutePath());
 		args.add("-resize");
 		/* shrink shortest side to 1000px but don't enlarge */
-		args.add("1000x1000^>");
+		args.add(size + "x" + size + "^>");
 		args.add("-quality");
-		args.add(String.valueOf(JPEG_QUALITY));
+		args.add(String.valueOf(quality));
 		args.add(destination.getAbsolutePath());
 		ProcessBuilder pb = new ProcessBuilder(args);
 		pb.redirectErrorStream(true);

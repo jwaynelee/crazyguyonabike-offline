@@ -10,11 +10,11 @@ import com.cgoab.offline.ui.JournalSelectionService;
 import com.cgoab.offline.ui.JournalSelectionService.JournalSelectionListener;
 import com.cgoab.offline.ui.ThumbnailView;
 
-public class ToggleResizeImagesBeforeUpload extends ActionWithCurrentJournal {
+public class ToggleResizeImagesBeforeUploadAction extends ActionWithCurrentJournal {
 
 	private final ThumbnailView thumbView;
 
-	public ToggleResizeImagesBeforeUpload(ThumbnailView thumbnailView) {
+	public ToggleResizeImagesBeforeUploadAction(ThumbnailView thumbnailView) {
 		super("Resize photos", IAction.AS_CHECK_BOX);
 		this.thumbView = thumbnailView;
 		JournalSelectionService.getInstance().addListener(new JournalSelectionListener() {

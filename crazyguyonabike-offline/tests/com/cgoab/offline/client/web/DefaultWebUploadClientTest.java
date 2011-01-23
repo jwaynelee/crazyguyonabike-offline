@@ -17,8 +17,8 @@ import org.junit.Test;
 
 import testutils.TestLogSetup;
 import testutils.fakeserver.FakeCGOABServer;
-import testutils.fakeserver.ServerModel.ServerJournal;
-import testutils.fakeserver.ServerModel.ServerPage;
+import testutils.fakeserver.FakeCGOABModel.ServerJournal;
+import testutils.fakeserver.FakeCGOABModel.ServerPage;
 import testutils.photos.TestPhotos;
 
 import com.cgoab.offline.client.DocumentDescription;
@@ -43,6 +43,7 @@ public class DefaultWebUploadClientTest {
 	@BeforeClass
 	public static void create() throws Exception {
 		server = new FakeCGOABServer(0);
+		server.getModel().createDefaultModel();
 	}
 
 	@AfterClass

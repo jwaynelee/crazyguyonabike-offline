@@ -9,6 +9,7 @@ import static org.junit.Assert.assertTrue;
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -26,7 +27,7 @@ import org.eclipse.swtbot.swt.finder.widgets.SWTBotShell;
 import org.eclipse.swtbot.swt.finder.widgets.SWTBotStyledText;
 import org.eclipse.swtbot.swt.finder.widgets.SWTBotText;
 import org.eclipse.swtbot.swt.finder.widgets.SWTBotTreeItem;
-import org.htmlcleaner.XPatherException;
+import org.joda.time.LocalDate;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Assert;
@@ -36,18 +37,20 @@ import org.junit.Test;
 
 import testutils.TestLogSetup;
 import testutils.TestUtils;
+import testutils.fakeserver.FakeCGOABModel.ServerJournal;
+import testutils.fakeserver.FakeCGOABModel.ServerPage;
+import testutils.fakeserver.FakeCGOABModel.ServerPhoto;
 import testutils.fakeserver.FakeCGOABServer;
-import testutils.fakeserver.ServerModel.ServerJournal;
-import testutils.fakeserver.ServerModel.ServerPage;
-import testutils.fakeserver.ServerModel.ServerPhoto;
 import testutils.photos.TestPhotos;
 
+import com.cgoab.offline.client.PhotoUploadProgressListener;
 import com.cgoab.offline.client.web.DefaultWebUploadClientFactory;
 import com.cgoab.offline.model.Journal;
 import com.cgoab.offline.model.JournalXmlLoader;
 import com.cgoab.offline.model.Page;
 import com.cgoab.offline.model.Page.PhotosOrder;
 import com.cgoab.offline.model.Photo;
+import com.cgoab.offline.model.UploadState;
 import com.cgoab.offline.ui.thumbnailviewer.CachingThumbnailProviderFactory;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailViewer;
 import com.cgoab.offline.ui.util.UIExecutor;
@@ -71,7 +74,7 @@ public class UITest {
 	}
 
 	@BeforeClass
-	public static void setupServer() throws IOException, XPatherException {
+	public static void setupServer() throws Exception {
 		server = new FakeCGOABServer(0);
 	}
 
@@ -85,13 +88,14 @@ public class UITest {
 	Thread uiThread;
 
 	@Before
-	public void setup() throws InterruptedException, TimeoutException {
+	public void setupTest() throws Exception {
+		server.getModel().createDefaultModel();
+		PreferenceUtils.init();
 		final CountDownLatch latch = new CountDownLatch(1);
 		uiThread = new Thread(new Runnable() {
 			public void run() {
 				display = new Display();
 				application = new MainWindow();
-				application.setPreferences(new Preferences());
 				thumbnailFactory = new CachingThumbnailProviderFactory(display, ThumbnailViewer.RESIZE_STRATEGY,
 						".thumbnails");
 				resizerFactory = new ImageMagickResizerServiceFactory(display, ".images");
@@ -120,6 +124,7 @@ public class UITest {
 
 	@After
 	public void destroyUI() throws InterruptedException {
+		PreferenceUtils.dispose();
 		if (thumbnailFactory != null) {
 			thumbnailFactory.dispose();
 		}
@@ -198,38 +203,125 @@ public class UITest {
 		bot.menu("File").menu("Save Journal").click();
 
 		/* 3) save journal, check file */
-		Journal journal = JournalXmlLoader.open(new File(journalLocation));
-		JournalXmlLoader.validateJournal(journal);
-		assertEquals(journalLocation, journal.getFile().getAbsolutePath());
-		assertEquals(journalName, journal.getName());
-		assertEquals(2, journal.getPages().size());
-
 		{
-			Page page1 = journal.getPages().get(0);
-			assertEquals("Day 1", page1.getTitle());
-			assertEquals("to Plymouth", page1.getHeadline());
-			assertEquals(100, page1.getDistance());
-			assertEquals(2, page1.getPhotos().size());
-			assertEquals(photo1, page1.getPhotos().get(0).getFile());
-			assertEquals(photo2, page1.getPhotos().get(1).getFile());
-			Page page2 = journal.getPages().get(1);
-			assertEquals("Day 2", page2.getTitle());
-			assertEquals("to Munich", page2.getHeadline());
-			assertEquals(50, page2.getDistance());
-			assertEquals(2, page2.getPhotos().size());
-			assertEquals(photo3, page2.getPhotos().get(0).getFile());
-			assertEquals(photo4, page2.getPhotos().get(1).getFile());
+			Journal journalFromFile = JournalXmlLoader.open(new File(journalLocation));
+			JournalXmlLoader.validateJournal(journalFromFile);
+			assertEquals(journalLocation, journalFromFile.getFile().getAbsolutePath());
+			assertEquals(journalName, journalFromFile.getName());
+			assertEquals(2, journalFromFile.getPages().size());
+
+			{
+				Page page1 = journalFromFile.getPages().get(0);
+				assertEquals("Day 1", page1.getTitle());
+				assertEquals("to Plymouth", page1.getHeadline());
+				assertEquals(100, page1.getDistance());
+				assertEquals(2, page1.getPhotos().size());
+				assertEquals(photo1, page1.getPhotos().get(0).getFile());
+				assertEquals(photo2, page1.getPhotos().get(1).getFile());
+				Page page2 = journalFromFile.getPages().get(1);
+				assertEquals("Day 2", page2.getTitle());
+				assertEquals("to Munich", page2.getHeadline());
+				assertEquals(50, page2.getDistance());
+				assertEquals(2, page2.getPhotos().size());
+				assertEquals(photo3, page2.getPhotos().get(0).getFile());
+				assertEquals(photo4, page2.getPhotos().get(1).getFile());
+			}
 		}
 
 		/* 4) Upload */
-		bot2.tree().contextMenu("Upload Journal").click();
+		runUpload(bot2);
+
+		bot.waitUntil(Conditions.shellIsActive("Upload completed"));
+		bot.activeShell().bot().button("OK").click();
+
+		/* 5) check tree is filtered */
+		SWTBotTreeItem journalNode = bot2.tree().getTreeItem(journalName);
+		assertEquals(0, journalNode.getItems().length);
+
+		/* 5a) show uploaded */
+		journalNode.contextMenu("Hide uploaded").click();
+		assertEquals(2, journalNode.getItems().length);
+
+		/* 5b) check uploaded pages are now read-only */
+		journalNode.getItems()[0].select();
+		final SWTBotText title = bot2.textWithLabel("Title:");
+		final SWTBotStyledText text = bot2.styledText(0);
+		assertEquals("Day 1", title.getText());
+		final AtomicBoolean titleEditable = new AtomicBoolean();
+		final AtomicBoolean textEditable = new AtomicBoolean();
+		display.syncExec(new Runnable() {
+			@Override
+			public void run() {
+				titleEditable.set(title.widget.getEditable());
+				textEditable.set(text.widget.getEditable());
+			}
+		});
+		assertFalse(titleEditable.get());
+		assertFalse(textEditable.get());
+
+		/* 5c) verify server model */
+		Journal uiJournal = JournalSelectionService.getInstance().getCurrentJournal();
+		ServerJournal serverJournal = server.getModel().getJournal(1);
+		assertEquals(uiJournal.getDocIdHint(), serverJournal.getDocId());
+		assertEquals(2, serverJournal.getPages().size());
+		ServerPage serverPage1 = serverJournal.getPages().get(0);
+		ServerPage serverPage2 = serverJournal.getPages().get(1);
+		assertFalse(serverPage1.isVisible());
+		assertFalse(serverPage2.isVisible());
+		Page page1 = uiJournal.getPages().get(0);
+		Page page2 = uiJournal.getPages().get(1);
+		assertPagesEqual(page1, serverPage1);
+		assertPagesEqual(page2, serverPage2);
+		assertEquals(UploadState.UPLOADED, page1.getState());
+		assertEquals(UploadState.UPLOADED, page2.getState());
+
+		assertEquals(2, serverPage1.getPhotos().size());
+		ServerPhoto serverPhoto1 = serverPage1.getPhotos().get(0);
+		assertEquals(photo1.getName(), serverPhoto1.getFilename());
+
+		/* verify the resized photo was sent */
+		assertThat(serverPhoto1.getSize(), lessThan(photo1.length()));
+		ResizerService service = (ResizerService) JournalSelectionService.getInstance().getCurrentJournal()
+				.getData(ResizerService.KEY);
+		assertEquals(service.getResizedPhotoFile(photo1).length(), serverPhoto1.getSize());
+		assertEquals(2, serverPage2.getPhotos().size());
+
+		/*
+		 * 6) quit, save first otherwise we'll break bot as shell closes on
+		 * mouse down
+		 */
+		bot.menu("File").menu("Save Journal").click();
+		bot.menu("File").menu("Exit").click();
+
+		/* 7) make sure journal saved */
+		String path = PreferenceUtils.getStore().getString(PreferenceUtils.LAST_JOURNAL);
+		assertEquals(uiJournal.getFile().getAbsolutePath(), path);
+		assertTrue(display.isDisposed());
+	}
+
+	private void assertPagesEqual(Page page, ServerPage serverpage) {
+		assertEquals(page.getTitle(), serverpage.getTitle());
+		assertEquals(page.getHeadline(), page.getHeadline());
+		assertEquals(page.isBold(), serverpage.isBold());
+		assertEquals(page.isItalic(), serverpage.isItalic());
+		assertEquals(page.getIndent(), serverpage.getIndent());
+		assertEquals(page.getHeadingStyle(), serverpage.getHeadingStyle());
+		assertEquals(page.getText(), serverpage.getText());
+		assertEquals(page.getDate().toString(), serverpage.getDate());
+		assertEquals(page.getDistance(), serverpage.getDistance());
+		assertEquals(page.getFormat(), serverpage.getFormat());
+		assertEquals(page.getServerId(), serverpage.getPageId());
+	}
+
+	private void runUpload(SWTBot bot) {
+		bot.tree().contextMenu("Upload Journal").click();
 
 		/*
 		 * image resizer might still be working so we'll get the progress dialog
 		 * so wait until upload opens.
 		 */
-		bot2.waitUntil(Conditions.shellIsActive("Make new pages visible?"));
-		bot2.activeShell().bot().button("No").click();
+		bot.waitUntil(Conditions.shellIsActive("Make new pages visible?"));
+		bot.activeShell().bot().button("No").click();
 
 		SWTBot uploadBot = bot.activeShell().bot();
 		assertTrue(uploadBot.activeShell().getText().startsWith("Upload"));
@@ -258,62 +350,86 @@ public class UITest {
 
 		uploadBot.table().click(0, 0);
 		uploadBot.button("Upload").click();
+	}
+
+	@Test
+	public void pageErrorUpload() throws Exception {
+		Journal journal = new Journal(getTestJournalFilePath(), "test");
+		Page page1 = journal.createNewPage();
+		page1.setTitle("Day 1");
+		page1.setDate(new LocalDate(2011, 01, 01));
+		Page page2 = journal.createNewPage();
+		page2.setTitle("Day 2");
+		page2.setDate(new LocalDate(2011, 01, 02));
+		setCurrentJournal(journal);
+
+		/* configure server with single day */
+		server.getModel().getJournal(1).addPage(new ServerPage(Collections.singletonMap("date", "2011-01-03")));
+
+		SWTBot bot = new SWTBot(application.getShell());
+		runUpload(bot);
+
+		bot.waitUntil(Conditions.shellIsActive("Error uploading"));
+
+		assertEquals(UploadState.ERROR, page1.getState());
+		assertEquals(UploadState.NEW, page2.getState());
+
+		/* return to main window */
+		bot.activeShell().bot().button("OK").click();
+		bot.activeShell().bot().button("Cancel").click();
+
+		/* check that only page 2 is selected in tree viewer */
+		assertEquals(2, bot.tree().getTreeItem(journal.getName()).rowCount());
+		assertEquals(page1.getTitle(), bot.textWithLabel("Title:").getText());
+		bot.menu("File").menu("Save Journal").click();
+		bot.menu("File").menu("Exit").click();
+	}
+
+	@Test
+	public void retryPhotoUpload() throws Exception {
+		Journal journal = new Journal(getTestJournalFilePath(), "test");
+		File photo = TestPhotos.extractSmallPhoto();
+		Page page = journal.createNewPage();
+		page.addPhotos(Arrays.asList(new Photo(photo)), 0);
+		setCurrentJournal(journal);
+
+		/* 2 invocations per error */
+		final CountDownLatch latch = new CountDownLatch(3 * 2);
+
+		/* before upload make sure photo uploads will fail first 3 times */
+		server.addPhotoUploadListener(new PhotoUploadProgressListener() {
+
+			@Override
+			public void uploadPhotoProgress(Photo photo, long bytes, long total) {
+				float done = (float) bytes / total;
+				if (latch.getCount() > 0 && done > 0.5) {
+					latch.countDown();
+					throw new RuntimeException("SimulateFailedUpload#" + latch.getCount());
+				}
+			}
+		});
+
+		/* upload */
+		SWTBot bot = new SWTBot(application.getShell());
+		runUpload(bot);
+
+		/* wait on latch (otherwise SWTBot might timeout) */
+		assertEquals(true, latch.await(15, TimeUnit.SECONDS));
+
+		/* expect complete */
 		bot.waitUntil(Conditions.shellIsActive("Upload completed"));
 		bot.activeShell().bot().button("OK").click();
+		bot.menu("File").menu("Exit").click();
+	}
 
-		/* 5) check tree is filtered */
-		SWTBotTreeItem journalNode = bot2.tree().getTreeItem(journal.getName());
-		assertEquals(0, journalNode.getItems().length);
-
-		/* 5a) show uploaded */
-		journalNode.contextMenu("Hide uploaded").click();
-		assertEquals(2, journalNode.getItems().length);
-
-		/* 5b) check uploaded is read-only */
-		journalNode.getItems()[0].select();
-		final SWTBotText title = bot2.textWithLabel("Title:");
-		final SWTBotStyledText text = bot2.styledText(0);
-		assertEquals("Day 1", title.getText());
-		final AtomicBoolean titleEditable = new AtomicBoolean();
-		final AtomicBoolean textEditable = new AtomicBoolean();
+	private void setCurrentJournal(final Journal journal) {
+		/* bind into UI */
 		display.syncExec(new Runnable() {
 			@Override
 			public void run() {
-				titleEditable.set(title.widget.getEditable());
-				textEditable.set(text.widget.getEditable());
+				JournalSelectionService.getInstance().setJournal(journal);
 			}
 		});
-		assertFalse(titleEditable.get());
-		assertFalse(textEditable.get());
-
-		ServerJournal serverJournal = server.getModel().getJournal(1);
-		assertEquals(2, serverJournal.getPages().size());
-		ServerPage serverPage1 = serverJournal.getPages().get(0);
-		assertFalse(serverPage1.isVisible());
-		ServerPage serverPage2 = serverJournal.getPages().get(1);
-		assertFalse(serverPage2.isVisible());
-		assertEquals(2, serverPage1.getPhotos().size());
-		ServerPhoto serverPhoto1 = serverPage1.getPhotos().get(0);
-		assertEquals(photo1.getName(), serverPhoto1.getFilename());
-
-		/* verify the resized photo was sent */
-		assertThat(serverPhoto1.getSize(), lessThan(photo1.length()));
-		ResizerService service = (ResizerService) JournalSelectionService.getInstance().getCurrentJournal()
-				.getData(ResizerService.KEY);
-		assertEquals(service.getResizedPhotoFile(photo1).length(), serverPhoto1.getSize());
-		assertEquals(2, serverPage2.getPhotos().size());
-
-		/*
-		 * 6) quit, save first otherwise we'll break bot as shell closes on
-		 * mouse down
-		 */
-		bot.menu("File").menu("Save Journal").click();
-		bot.menu("File").menu("Exit").click();
-
-		/* 7) make sure journal saved */
-		String path = application.getPreferences().getValue(MainWindow.OPENJOURNALS_PREFERENCE_PATH);
-		assertEquals(journal.getFile().getAbsolutePath(), path);
-		assertTrue(display.isDisposed());
 	}
 
 	@Test
@@ -332,13 +448,7 @@ public class UITest {
 		/* add out of order */
 		page.addPhotos(Arrays.asList(photo2, photo1, photo3), 0);
 
-		/* bind into UI */
-		display.syncExec(new Runnable() {
-			@Override
-			public void run() {
-				JournalSelectionService.getInstance().setJournal(testJournal);
-			}
-		});
+		setCurrentJournal(testJournal);
 
 		/* sanity check they are returned from journal in NAME order */
 		assertEquals(Arrays.asList(photo1, photo2, photo3), page.getPhotos());

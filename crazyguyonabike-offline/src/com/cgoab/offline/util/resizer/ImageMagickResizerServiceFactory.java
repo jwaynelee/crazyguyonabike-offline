@@ -7,7 +7,9 @@ import java.util.concurrent.TimeUnit;
 import org.eclipse.swt.widgets.Display;
 
 import com.cgoab.offline.model.Journal;
+import com.cgoab.offline.ui.PreferenceUtils;
 import com.cgoab.offline.util.ListenableThreadPoolExecutor;
+import com.cgoab.offline.util.StringUtils;
 import com.cgoab.offline.util.resizer.ImageMagickResizeTask.MagicNotAvailableException;
 
 /**
@@ -21,13 +23,15 @@ import com.cgoab.offline.util.resizer.ImageMagickResizeTask.MagicNotAvailableExc
  */
 public class ImageMagickResizerServiceFactory {
 
+	static final int DEFAULT_SIZE = 1000; /* 1000 x 1000 */
+
+	static final int DEFAULT_JPEG_QUALITY = 70;
+
 	private final Display display;
 
 	private final ExecutorService executor;
 
 	private final String folderExtension;
-
-	private String magickPath;
 
 	public ImageMagickResizerServiceFactory(Display display, String folderExtension) {
 		this.display = display;
@@ -35,12 +39,25 @@ public class ImageMagickResizerServiceFactory {
 		this.executor = ListenableThreadPoolExecutor
 				.newOptimalSizedExecutorService("ImageResizer", Thread.MIN_PRIORITY);
 		this.folderExtension = folderExtension;
+
+		/* configure default preferences */
+		PreferenceUtils.getStore().setDefault(PreferenceUtils.RESIZE_QUALITY, DEFAULT_JPEG_QUALITY);
+		PreferenceUtils.getStore().setDefault(PreferenceUtils.RESIZE_DIMENSIONS, DEFAULT_SIZE);
+		try {
+			PreferenceUtils.getStore().setDefault(PreferenceUtils.MAGICK_PATH,
+					new File(ImageMagickResizeTask.findMagickAndCheckVersionOrThrow()).getParent());
+		} catch (MagicNotAvailableException e) {
+			/* ignore */
+		}
+
 	}
 
 	public ResizerService createResizerFor(Journal source) throws MagicNotAvailableException {
 		String cmdPath = getOrInitializeMagickPath();
 		File photoFolder = getOrCreatePhotoFolder(source);
-		ResizerService tracker = new ImageMagikResizerService(photoFolder, executor, display, cmdPath);
+		int quality = PreferenceUtils.getStore().getInt(PreferenceUtils.RESIZE_QUALITY);
+		int size = PreferenceUtils.getStore().getInt(PreferenceUtils.RESIZE_DIMENSIONS);
+		ResizerService tracker = new ImageMagickResizerService(size, quality, photoFolder, executor, display, cmdPath);
 		source.setData(ResizerService.KEY, tracker);
 		return tracker;
 	}
@@ -64,23 +81,11 @@ public class ImageMagickResizerServiceFactory {
 		return folder;
 	}
 
-	// public static class UnableToCreateResizerException extends
-	// RuntimeException {
-	//
-	// private static final long serialVersionUID = 1L;
-	//
-	// public UnableToCreateResizerException(String message, Throwable cause) {
-	// super(message, cause);
-	// }
-	//
-	// public UnableToCreateResizerException(String message) {
-	// super(message);
-	// }
-	// }
-
 	private String getOrInitializeMagickPath() throws MagicNotAvailableException {
-		if (magickPath == null) {
+		String magickPath = PreferenceUtils.getStore().getString(PreferenceUtils.MAGICK_PATH);
+		if (StringUtils.isEmpty(magickPath)) {
 			magickPath = ImageMagickResizeTask.findMagickAndCheckVersionOrThrow();
+			PreferenceUtils.getStore().setValue(PreferenceUtils.MAGICK_PATH, magickPath);
 		}
 		return magickPath;
 	}

@@ -23,13 +23,16 @@ import com.cgoab.offline.ui.util.UIExecutor;
 import com.cgoab.offline.util.FutureCompletionListener;
 import com.cgoab.offline.util.JobListener;
 
-public class ImageMagikResizerService implements FutureCompletionListener<File>, ResizerService {
+public class ImageMagickResizerService implements FutureCompletionListener<File>, ResizerService {
 
-	private static final Logger LOG = LoggerFactory.getLogger(ImageMagikResizerService.class);
+	private static final Logger LOG = LoggerFactory.getLogger(ImageMagickResizerService.class);
 
 	private final List<JobListener> listeners = new ArrayList<JobListener>();
 
 	private final String magickPath;
+
+	private final int quality;
+	private final int size;
 
 	private final File photoFolder;
 
@@ -40,7 +43,10 @@ public class ImageMagikResizerService implements FutureCompletionListener<File>,
 
 	private final Executor uiExecutor;
 
-	public ImageMagikResizerService(File photoFolder, ExecutorService taskExecutor, Display display, String magickPath) {
+	public ImageMagickResizerService(int size, int quality, File photoFolder, ExecutorService taskExecutor,
+			Display display, String magickPath) {
+		this.size = size;
+		this.quality = quality;
 		this.photoFolder = photoFolder;
 		this.taskExecutor = taskExecutor;
 		this.uiExecutor = new UIExecutor(display);
@@ -177,8 +183,8 @@ public class ImageMagikResizerService implements FutureCompletionListener<File>,
 			}
 			File sourceFile = photo.getFile();
 			File targetFile = getFileInCache(sourceFile);
-			ImageMagickResizeTask task = new ImageMagickResizeTask(magickPath, sourceFile, targetFile,
-					ImageMagikResizerService.this, photo);
+			ImageMagickResizeTask task = new ImageMagickResizeTask(magickPath, size, quality, sourceFile, targetFile,
+					ImageMagickResizerService.this, photo);
 			tasks.put(photo, taskExecutor.submit(task));
 			fireUpdate();
 		}

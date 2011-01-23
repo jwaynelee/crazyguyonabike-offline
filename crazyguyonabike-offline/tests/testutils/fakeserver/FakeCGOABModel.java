@@ -7,16 +7,32 @@ import java.util.List;
 import java.util.Map;
 
 import org.eclipse.swt.graphics.Image;
+import org.htmlcleaner.HtmlCleaner;
+import org.joda.time.LocalDate;
+import org.joda.time.format.ISODateTimeFormat;
 
+import com.cgoab.offline.client.DocumentDescription;
+import com.cgoab.offline.client.web.CGOABHtmlUtils;
+import com.cgoab.offline.model.Page.EditFormat;
 import com.cgoab.offline.model.Page.HeadingStyle;
 import com.cgoab.offline.util.Assert;
 import com.cgoab.offline.util.Utils;
 
-public class ServerModel {
+/**
+ * Calling {@link #createDefaultModel()} will initialize with:
+ * <ul>
+ * <li>Single user "Billy Bob", username "bob", password "secret"
+ * <li>User has a three documents { "doc1" (1), "doc2" (2), "doc3" (3) }
+ * </ul>
+ * 
+ */
+public class FakeCGOABModel {
 	private final Map<Integer, ServerJournal> journals = new HashMap<Integer, ServerJournal>();
 	private final List<ModelListener> listeners = new ArrayList<ModelListener>();
-	private int nextUserId;
-	private final List<LoggedInUser> users = new ArrayList<LoggedInUser>();
+	private final List<UserSession> sessions = new ArrayList<UserSession>();
+
+	public FakeCGOABModel() throws Exception {
+	}
 
 	public void addJournal(ServerJournal journal) {
 		Assert.isTrue(journal.getDocId() > 0);
@@ -73,8 +89,8 @@ public class ServerModel {
 		return journals.values();
 	}
 
-	public Collection<LoggedInUser> getLoggedInUsers() {
-		return new ArrayList<ServerModel.LoggedInUser>(users);
+	public Collection<UserSession> getLoggedInUsers() {
+		return new ArrayList<FakeCGOABModel.UserSession>(sessions);
 	}
 
 	public ServerPage getPage(int pageId) {
@@ -89,7 +105,7 @@ public class ServerModel {
 	}
 
 	public boolean isValidUserId(String id) {
-		for (LoggedInUser user : users) {
+		for (UserSession user : sessions) {
 			if (user.id.equals(id)) {
 				return true;
 			}
@@ -97,22 +113,25 @@ public class ServerModel {
 		return false;
 	}
 
-	public String loggedIn(String user) {
-		String id = "" + (nextUserId++) + "-" + System.currentTimeMillis();
-		users.add(new LoggedInUser(user, id));
-		fireLoggedIn(user, id);
-		return id;
+	public String logIn(String user, String password) {
+		if ("bob".equals(user) && "secret".equals(password)) {
+			String id = "" + System.currentTimeMillis();
+			sessions.add(new UserSession(user, id));
+			fireLoggedIn(user, id);
+			return id;
+		}
+		return null;
 	}
 
 	public void loggedOut(String user) {
-		users.remove(user);
+		sessions.remove(user);
 		fireLoggedOut(user);
 	}
 
-	static class LoggedInUser {
+	static class UserSession {
 		String user, id;
 
-		public LoggedInUser(String user, String id) {
+		public UserSession(String user, String id) {
 			this.user = user;
 			this.id = id;
 		}
@@ -139,7 +158,7 @@ public class ServerModel {
 
 	public static class ServerJournal {
 		private int docId;
-		ServerModel model;
+		FakeCGOABModel model;
 		private String name;
 		private List<ServerPage> pages = new ArrayList<ServerPage>();
 
@@ -149,6 +168,15 @@ public class ServerModel {
 		}
 
 		public int addPage(ServerPage page) {
+			if (pages.size() > 0 && page.getDate() != null) {
+				ServerPage lastPage = pages.get(pages.size() - 1);
+				LocalDate lastDate = new LocalDate(ISODateTimeFormat.date().parseDateTime(lastPage.getDate()));
+				LocalDate newDate = new LocalDate(ISODateTimeFormat.date().parseDateTime(page.getDate()));
+				if (newDate.isBefore(lastDate)) {
+					return -1;
+				}
+			}
+
 			page.journal = this;
 			pages.add(page);
 			page.pageId = pages.size();
@@ -251,6 +279,10 @@ public class ServerModel {
 		public boolean isVisible() {
 			return "on".equals(params.get("visible"));
 		}
+
+		public EditFormat getFormat() {
+			return EditFormat.valueOf(params.get("format").toUpperCase());
+		}
 	}
 
 	public static class ServerPhoto {
@@ -285,4 +317,13 @@ public class ServerModel {
 		}
 	}
 
+	public void createDefaultModel() throws Exception {
+		journals.clear();
+		sessions.clear();
+		List<DocumentDescription> documents = CGOABHtmlUtils.extractDocuments(new HtmlCleaner().clean(getClass()
+				.getResourceAsStream("MyPage.htm")));
+		for (DocumentDescription doc : documents) {
+			addJournal(new ServerJournal(doc.getTitle(), doc.getDocumentId()));
+		}
+	}
 }

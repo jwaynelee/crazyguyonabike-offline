@@ -24,6 +24,9 @@ Implement EXIF features
 Refactor code; extract EditorView etc...
 Bug in undo, not applied for caption text box
 Thumbnail viewer - items removed, update scroll bar
+before upload check dates increase and photos exist?
+Add undo to delete Page operation
+Cancel upload screen during login crashes due to WidgetDisposed
 ------------------------------------------------------
 
 Add photos to journal and auto-assign to days -- NOT DONE
@@ -55,8 +58,3 @@ Persist location of shells between execution
 Add launch scripts (for mac at least)
 
 --- bugs
-
-Cancel upload screen during login crashes due to WidgetDisposed
-Add undo to delete Page operation
-
-before upload check dates increase and photos exist?
