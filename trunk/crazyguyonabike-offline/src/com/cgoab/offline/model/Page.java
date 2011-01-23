@@ -40,6 +40,8 @@ public class Page {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(Page.class);
 
+	public static final String STATE = "state";
+
 	public static final String PHOTOS_ORDER = "photosOrder";
 
 	public static final String TITLE = "title";
@@ -408,8 +410,8 @@ public class Page {
 		this.serverId = id;
 	}
 
-	public void setState(UploadState uploadState) {
-		this.uploadState = uploadState;
+	public void setState(UploadState newState) {
+		support.firePropertyChange(STATE, this.uploadState, this.uploadState = newState);
 	}
 
 	public void setText(String text) {

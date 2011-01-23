@@ -43,7 +43,8 @@ public class ImageMagickResizeTaskTest {
 		// manually resolve the executable
 		String cmd = Which.find(ImageMagickResizeTask.MAGICK_COMMAND);
 		Assert.assertNotNull(cmd);
-		new ImageMagickResizeTask(cmd, source, target, null, null).call();
+		new ImageMagickResizeTask(new File(cmd).getParent(), ImageMagickResizerServiceFactory.DEFAULT_SIZE,
+				ImageMagickResizerServiceFactory.DEFAULT_JPEG_QUALITY, source, target, null, null).call();
 	}
 
 	@Test

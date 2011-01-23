@@ -13,10 +13,10 @@ import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Shell;
 
-import testutils.fakeserver.ServerModel.ModelListener;
-import testutils.fakeserver.ServerModel.ServerJournal;
-import testutils.fakeserver.ServerModel.ServerPage;
-import testutils.fakeserver.ServerModel.ServerPhoto;
+import testutils.fakeserver.FakeCGOABModel.ModelListener;
+import testutils.fakeserver.FakeCGOABModel.ServerJournal;
+import testutils.fakeserver.FakeCGOABModel.ServerPage;
+import testutils.fakeserver.FakeCGOABModel.ServerPhoto;
 
 import com.cgoab.offline.ui.util.UICallbackMarshaller;
 
@@ -62,7 +62,7 @@ public class FakeServerUI {
 	}
 
 	public static class ServerModelProvider implements ITreeContentProvider, ModelListener {
-		ServerModel model;
+		FakeCGOABModel model;
 		Viewer viewer;
 
 		@Override
@@ -95,7 +95,7 @@ public class FakeServerUI {
 		@Override
 		public void inputChanged(Viewer viewer, Object oldInput, Object newInput) {
 			this.viewer = viewer;
-			this.model = (ServerModel) newInput;
+			this.model = (FakeCGOABModel) newInput;
 			if (model != null) {
 				model.addListener(UICallbackMarshaller.wrap(this, viewer.getControl().getShell().getDisplay()));
 			}
@@ -131,9 +131,9 @@ public class FakeServerUI {
 
 		@Override
 		public Object[] getChildren(Object element) {
-			if (element instanceof ServerModel) {
+			if (element instanceof FakeCGOABModel) {
 				List<Object> i = new ArrayList<Object>();
-				ServerModel m = (ServerModel) element;
+				FakeCGOABModel m = (FakeCGOABModel) element;
 				i.addAll(m.getJournals());
 				i.addAll(m.getLoggedInUsers());
 				return i.toArray();

@@ -5,7 +5,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.eclipse.jface.action.Action;
+import org.eclipse.jface.dialogs.IDialogConstants;
 import org.eclipse.jface.dialogs.MessageDialog;
+import org.eclipse.jface.dialogs.MessageDialogWithToggle;
 import org.eclipse.jface.viewers.StructuredSelection;
 import org.eclipse.jface.viewers.TreeViewer;
 import org.eclipse.swt.widgets.Shell;
@@ -28,7 +30,6 @@ import com.cgoab.offline.util.resizer.ResizerService;
 public class UploadAction extends Action {
 
 	private UploadClientFactory factory;
-	private Preferences preferences;
 	private Shell shell;
 	private ThumbnailViewer thumbnails;
 	private TreeViewer tree;
@@ -60,7 +61,7 @@ public class UploadAction extends Action {
 	}
 
 	private UploadClient createClient(Journal journal) {
-		if (Boolean.valueOf(preferences.getValue(Preferences.USE_MOCK_IMPL_PATH))) {
+		if (PreferenceUtils.getStore().getBoolean(PreferenceUtils.USE_MOCK_CLIENT)) {
 			return new MockClient();
 		} else {
 			return factory.newClient();
@@ -160,8 +161,14 @@ public class UploadAction extends Action {
 
 		/* 4) ask if pages should be made visible */
 		// TODO use MessageDialogWithToggle when preferences in place
-		boolean visible = MessageDialog.openQuestion(shell, "Make new pages visible?",
-				"Do you want these uploaded pages to be visible?");
+		boolean visible;
+		if (!PreferenceUtils.getStore().contains(PreferenceUtils.NEW_PAGES_VISIBLE)) {
+			visible = MessageDialogWithToggle.openYesNoQuestion(shell, "Make new pages visible?",
+					"Do you want these uploaded pages to be visible?", "always do this?", false,
+					PreferenceUtils.getStore(), PreferenceUtils.NEW_PAGES_VISIBLE).getReturnCode() == IDialogConstants.YES_ID;
+		} else {
+			visible = PreferenceUtils.getStore().getString(PreferenceUtils.NEW_PAGES_VISIBLE) == MessageDialogWithToggle.ALWAYS;
+		}
 
 		// HACK - no option in UI to set visible, so set now
 		for (Page page : newPages) {
@@ -201,10 +208,6 @@ public class UploadAction extends Action {
 		} else {
 			afterUpload(result.getLastPage(), result.getLastPhoto());
 		}
-	}
-
-	public void setPreferences(Preferences preferences) {
-		this.preferences = preferences;
 	}
 
 	public void setUploadFactory(UploadClientFactory factory) {

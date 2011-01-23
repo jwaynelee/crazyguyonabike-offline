@@ -21,6 +21,7 @@ import org.eclipse.jface.text.ITextListener;
 import org.eclipse.jface.text.TextEvent;
 import org.eclipse.jface.text.TextViewer;
 import org.eclipse.jface.text.TextViewerUndoManager;
+import org.eclipse.jface.util.IPropertyChangeListener;
 import org.eclipse.jface.viewers.StructuredSelection;
 import org.eclipse.jface.viewers.Viewer;
 import org.eclipse.jface.viewers.ViewerFilter;
@@ -74,8 +75,11 @@ import com.drew.metadata.jpeg.JpegDirectory;
 
 public class ThumbnailView {
 	private static final Collection<String> extensions;
+
 	private static final Logger LOG = LoggerFactory.getLogger(ThumbnailView.class);
+
 	private static final String RESIZE_LISTENER_KEY = "resize_listener_key";
+
 	static {
 		extensions = new HashSet<String>();
 		extensions.add(".jpg");
@@ -204,6 +208,17 @@ public class ThumbnailView {
 			@Override
 			public void selectionChanged(Object newSelection, Object oldSelection) {
 				displayPage((Page) (newSelection instanceof Page ? newSelection : null));
+			}
+		});
+
+		/* preferences */
+		PreferenceUtils.getStore().addPropertyChangeListener(new IPropertyChangeListener() {
+			@Override
+			public void propertyChange(org.eclipse.jface.util.PropertyChangeEvent event) {
+				if (PreferenceUtils.FONT.equals(event.getProperty())) {
+					FontData[] data = (FontData[]) event.getNewValue();
+					captionText.getTextWidget().setFont(new Font(application.getShell().getDisplay(), data[0]));
+				}
 			}
 		});
 	}
@@ -405,8 +420,10 @@ public class ThumbnailView {
 		// captionText.setSize(SWT.DEFAULT, 50);
 		undoManager.connect(captionText);
 		captionText.getControl().setEnabled(false);
-		FontData fd = new FontData("Tahoma", 10, SWT.NONE);
-		captionText.getControl().setFont(new Font(parent.getDisplay(), fd));
+		if (PreferenceUtils.getStore().contains(PreferenceUtils.FONT)) {
+			String fds = PreferenceUtils.getStore().getString(PreferenceUtils.FONT);
+			captionText.getControl().setFont(new Font(shell.getDisplay(), new FontData(fds)));
+		}
 		GridData gridData = new GridData(SWT.FILL, SWT.FILL, true, true);
 		gridData.minimumHeight = captionText.getTextWidget().getLineHeight();
 		captionText.getControl().setLayoutData(gridData);

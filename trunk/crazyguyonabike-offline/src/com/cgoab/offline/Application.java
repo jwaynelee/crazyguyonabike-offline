@@ -21,7 +21,7 @@ import com.cgoab.offline.client.UploadClientFactory;
 import com.cgoab.offline.client.web.DefaultWebUploadClientFactory;
 import com.cgoab.offline.client.web.FileCookieStore;
 import com.cgoab.offline.ui.MainWindow;
-import com.cgoab.offline.ui.Preferences;
+import com.cgoab.offline.ui.PreferenceUtils;
 import com.cgoab.offline.ui.thumbnailviewer.CachingThumbnailProviderFactory;
 import com.cgoab.offline.ui.thumbnailviewer.ResizeStrategy;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailViewer;
@@ -48,6 +48,8 @@ public class Application implements Runnable {
 	 */
 	public static Application defaultApplication() {
 		Application app = new Application();
+
+		/* logging */
 		InputStream logConfigStream = Application.class.getResourceAsStream(LOG_FILE);
 		if (logConfigStream != null) {
 			try {
@@ -59,8 +61,18 @@ public class Application implements Runnable {
 				e.printStackTrace();
 			}
 		}
+
 		Display display = new Display();
 		app.setDisplay(display);
+
+		PreferenceUtils.init(SETTINGS_DIR + File.separator + "preferences");
+		display.addListener(SWT.Dispose, new Listener() {
+			@Override
+			public void handleEvent(Event event) {
+				/* save preferences on exit */
+				PreferenceUtils.save();
+			}
+		});
 		final FileCookieStore cookieStore = new FileCookieStore(SETTINGS_DIR + File.separator + COOKIES_FILE);
 		display.addListener(SWT.Dispose, new Listener() {
 			@Override
@@ -79,8 +91,6 @@ public class Application implements Runnable {
 				THUMNAILS_FOLDER_EXTENSION));
 		app.setResizerFactory(new ImageMagickResizerServiceFactory(display, RESIZED_FOLDER_EXTENSION));
 
-		Preferences preferences = new Preferences(new File(SETTINGS_DIR + File.separator + "preferences"));
-		app.setPreferences(preferences);
 		return app;
 	}
 
@@ -96,8 +106,6 @@ public class Application implements Runnable {
 	private boolean configuredLogging;
 
 	private Display display;
-
-	private Preferences preferences;
 
 	private ImageMagickResizerServiceFactory resizerFactory;
 
@@ -141,7 +149,6 @@ public class Application implements Runnable {
 			MainWindow app = new MainWindow();
 			app.setThumbnailProviderFactory(thumbnailFactory);
 			app.setResizerServiceFactory(resizerFactory);
-			app.setPreferences(preferences);
 			app.setUploadFactory(uploadFactory);
 			app.open();
 		} catch (Throwable t) {
@@ -155,7 +162,6 @@ public class Application implements Runnable {
 				LOG.info("Disposing thumbnail factory");
 				thumbnailFactory.dispose();
 			}
-			preferences.save();
 			display.dispose();
 		}
 	}
@@ -171,10 +177,6 @@ public class Application implements Runnable {
 		}
 		PropertyConfigurator.configure(logConfiguration);
 		configuredLogging = true;
-	}
-
-	public void setPreferences(Preferences preferences) {
-		this.preferences = preferences;
 	}
 
 	public void setResizerFactory(ImageMagickResizerServiceFactory resizerFactory) {
