@@ -17,7 +17,7 @@ import org.apache.log4j.spi.ErrorCode;
  */
 public class NewFileAppender extends RollingFileAppender {
 
-	public static final String FILE = NewFileAppender.class.getName() + "#FILE";
+	public static final String FILE_PROPERTY = NewFileAppender.class.getName() + "#FILE";
 
 	private int logFilesToSave = 5;
 
@@ -28,7 +28,7 @@ public class NewFileAppender extends RollingFileAppender {
 			String instanceFileName = defaulFile + "_" + System.currentTimeMillis();
 			try {
 				setFile(instanceFileName, fileAppend, bufferedIO, bufferSize);
-				System.setProperty(FILE, instanceFileName);
+				System.setProperty(FILE_PROPERTY, instanceFileName);
 				deleteOldFiles(defaulFile);
 			} catch (java.io.IOException e) {
 				errorHandler.error("setFile(" + instanceFileName + "," + fileAppend + ") call failed.", e,
