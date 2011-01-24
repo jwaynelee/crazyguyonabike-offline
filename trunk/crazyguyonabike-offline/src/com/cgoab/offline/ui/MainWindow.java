@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory;
 
 import com.cgoab.offline.client.UploadClientFactory;
 import com.cgoab.offline.model.Journal;
+import com.cgoab.offline.ui.actions.AboutAction;
 import com.cgoab.offline.ui.actions.AddPhotosAction;
 import com.cgoab.offline.ui.actions.CloseJournalAction;
 import com.cgoab.offline.ui.actions.DeletePageAction;
@@ -213,6 +214,7 @@ public class MainWindow extends ApplicationWindow {
 		editMenuMgr.add(new UndoAction(this));
 		editMenuMgr.add(new RedoAction(this));
 
+		aboutMenuMgr.add(new AboutAction(shell));
 		aboutMenuMgr.add(new OpenLogFileAction(shell));
 
 		/* rebuilt menu(s) */

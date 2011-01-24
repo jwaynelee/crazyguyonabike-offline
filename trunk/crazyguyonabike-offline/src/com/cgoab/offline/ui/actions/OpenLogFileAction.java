@@ -33,7 +33,7 @@ public class OpenLogFileAction extends Action {
 	@Override
 	public void run() {
 		/* log file is stashed in system properties */
-		String logFile = System.getProperty(NewFileAppender.FILE);
+		String logFile = System.getProperty(NewFileAppender.FILE_PROPERTY);
 		// MessageDialog.openInformation(null, "Log file", logFile);
 		LogViewer viewer = new LogViewer(shell);
 		viewer.setLogFile(logFile);
@@ -58,6 +58,7 @@ public class OpenLogFileAction extends Action {
 
 		@Override
 		protected Control createContents(Composite parent) {
+			getShell().setText("Log file: " + file);
 			Composite window = new Composite(parent, SWT.NONE);
 			window.setLayout(new GridLayout());
 			text = new StyledText(window, SWT.V_SCROLL | SWT.H_SCROLL | SWT.READ_ONLY);
@@ -78,6 +79,8 @@ public class OpenLogFileAction extends Action {
 			return parent;
 		}
 
+		/* TODO save file offset and append on refresh */
+		/* TODO automatic refresh? */
 		private void refresh() {
 			text.setText("");
 			FileReader r = null;
@@ -89,6 +92,8 @@ public class OpenLogFileAction extends Action {
 					text.append(line);
 					text.append(Text.DELIMITER);
 				}
+				text.setCaretOffset(text.getOffsetAtLine(text.getLineCount() - 1));
+				text.showSelection();
 			} catch (IOException e) {
 				throw new RuntimeException(e);
 			} finally {
