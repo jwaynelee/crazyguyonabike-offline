@@ -4,7 +4,7 @@
 	<taskdef name="launch4j" classname="net.sf.launch4j.ant.Launch4jTask" classpath="${launch4j.dir}/launch4j.jar
 	        :${launch4j.dir}/lib/xstream.jar" />
 
-	<property name="version" value="0.1.0" />
+	<property name="version" value="0.1.1" />
 	<property name="main.jar.name" value="${ant.project.name}.${version}.jar" />
 	<property name="main.class" value="com.cgoab.offline.Application" />
 	<property name="test.jar.name" value="${ant.project.name}.${version}.tests.jar" />
