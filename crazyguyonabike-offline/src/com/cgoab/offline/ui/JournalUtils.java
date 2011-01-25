@@ -7,7 +7,9 @@ import nu.xom.ParsingException;
 
 import org.eclipse.jface.dialogs.IDialogConstants;
 import org.eclipse.jface.dialogs.MessageDialog;
+import org.eclipse.jface.dialogs.MessageDialogWithToggle;
 import org.eclipse.jface.dialogs.ProgressMonitorDialog;
+import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.Shell;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -165,7 +167,9 @@ public class JournalUtils {
 		case 1: /* no */
 			// changes will be lost
 			break;
-		case 2: /* cancel */
+		case 2: /* cancel button */
+			/* fall through */
+		case SWT.DEFAULT: /* esc or window close */
 			return false;
 		}
 		return true;

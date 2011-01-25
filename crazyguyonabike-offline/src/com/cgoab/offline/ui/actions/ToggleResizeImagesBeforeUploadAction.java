@@ -25,7 +25,7 @@ public class ToggleResizeImagesBeforeUploadAction extends ActionWithCurrentJourn
 					if (Journal.RESIZE_IMAGES_BEFORE_UPLOAD.equals(evt.getPropertyName())) {
 						Boolean resize = (Boolean) evt.getNewValue();
 						setChecked(resize == Boolean.TRUE);
-						// setEnabled(resize != null);
+						setEnabled(resize != null);
 					}
 				}
 			};

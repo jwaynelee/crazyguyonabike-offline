@@ -32,7 +32,6 @@ import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Listener;
-import org.eclipse.swt.widgets.MessageBox;
 import org.eclipse.swt.widgets.ProgressBar;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Text;
@@ -64,7 +63,7 @@ public class UploadDialog {
 
 	public static void main(String[] args) {
 		Display display = new Display();
-		Shell shell = new Shell(display, SWT.DIALOG_TRIM | SWT.APPLICATION_MODAL);
+		Shell shell = new Shell(display, SWT.TITLE | SWT.BORDER | SWT.APPLICATION_MODAL);
 		MockClient client = new MockClient();
 		UploadDialog uploadDialog = new UploadDialog(shell);
 		uploadDialog.setUploadClient(client);
@@ -125,10 +124,8 @@ public class UploadDialog {
 
 	private Text uploadLog;
 
-	private boolean visible;
-
 	public UploadDialog(Shell parent) {
-		shell = new Shell(parent, SWT.APPLICATION_MODAL | SWT.DIALOG_TRIM);
+		shell = new Shell(parent, SWT.APPLICATION_MODAL | SWT.TITLE | SWT.BORDER);
 
 		/* stop shell closing on 'esc' */
 		shell.addListener(SWT.Traverse, new Listener() {

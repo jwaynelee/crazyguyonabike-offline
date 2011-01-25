@@ -116,8 +116,6 @@ public class DeletePageAction extends Action {
 				pi.index = index;
 				page.getJournal().removePage(page);
 			}
-			int a = 0;
-			int b = 1 / a;
 			// viewer.setSelection(new
 			// StructuredSelection(previousPageOfFirstDeletedPage));
 			return Status.OK_STATUS;
