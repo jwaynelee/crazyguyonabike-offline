@@ -70,8 +70,8 @@ public class AboutAction extends Action {
 			getShell().setText("About");
 			Composite grid = new Composite(parent, SWT.NONE);
 			grid.setLayout(new GridLayout(2, false));
-			add(grid, "Name: ", Utils.getNameString(AboutAction.class));
-			add(grid, "Version: ", Utils.getVersionString(AboutAction.class));
+			add(grid, "Name: ", Utils.getImplementationTitleString(AboutAction.class));
+			add(grid, "Version: ", Utils.getImplementationVersion(AboutAction.class));
 			add(grid, "Java version",
 					System.getProperty("java.runtime.name") + " (" + System.getProperty("java.version") + ")");
 			add(grid, "Java home: ", System.getProperty("java.home"));

@@ -26,6 +26,8 @@ import org.eclipse.jface.viewers.StructuredSelection;
 import org.eclipse.jface.viewers.Viewer;
 import org.eclipse.jface.viewers.ViewerFilter;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.events.DisposeEvent;
+import org.eclipse.swt.events.DisposeListener;
 import org.eclipse.swt.events.FocusAdapter;
 import org.eclipse.swt.events.FocusEvent;
 import org.eclipse.swt.events.FocusListener;
@@ -103,6 +105,7 @@ public class ThumbnailView {
 	private Listener btnSortSelectionListener;
 	private TextViewer captionText;
 	private Page currentPage;
+	private Font fontToDispose;
 
 	Map<PhotosOrder, Button> orderByButtonMap = new HashMap<Page.PhotosOrder, Button>();
 
@@ -139,6 +142,14 @@ public class ThumbnailView {
 		this.resizerServiceFactory = resizerServiceFactory;
 		this.thumbnailFactory = thumbnailProvider;
 		this.application = application;
+		this.application.getShell().addDisposeListener(new DisposeListener() {
+			@Override
+			public void widgetDisposed(DisposeEvent e) {
+				if (fontToDispose != null) {
+					fontToDispose.dispose();
+				}
+			}
+		});
 		JournalSelectionService.getInstance().addListener(new JournalSelectionListener() {
 
 			JournalListener addPhotosListener = new JournalAdapter() {
@@ -422,7 +433,9 @@ public class ThumbnailView {
 		captionText.getControl().setEnabled(false);
 		if (PreferenceUtils.getStore().contains(PreferenceUtils.FONT)) {
 			String fds = PreferenceUtils.getStore().getString(PreferenceUtils.FONT);
-			captionText.getControl().setFont(new Font(shell.getDisplay(), new FontData(fds)));
+			Font font = new Font(shell.getDisplay(), new FontData(fds));
+			captionText.getControl().setFont(font);
+			fontToDispose = font;
 		}
 		GridData gridData = new GridData(SWT.FILL, SWT.FILL, true, true);
 		gridData.minimumHeight = captionText.getTextWidget().getLineHeight();
@@ -514,6 +527,10 @@ public class ThumbnailView {
 
 		/* use existing resizer if set */
 		final ResizerService resizer = createResizer(journal, quiet);
+
+		if (resizer == null) {
+			return false;
+		}
 
 		// 2) resize all photos already in the journal
 		for (Page page : journal.getPages()) {

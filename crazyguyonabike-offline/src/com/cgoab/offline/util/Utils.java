@@ -17,6 +17,8 @@ import java.util.jar.Manifest;
 
 public class Utils {
 
+	private static final int COPY_BUFFER_SIZE = 1024 * 4; /* copy 4kb chunks */
+
 	private static final int ORDER = 1024;
 
 	public static void close(InputStream stream) {
@@ -24,6 +26,7 @@ public class Utils {
 			try {
 				stream.close();
 			} catch (IOException e) {
+				/* ignore */
 			}
 		}
 	}
@@ -33,12 +36,20 @@ public class Utils {
 			try {
 				stream.close();
 			} catch (IOException e) {
+				/* ignore */
 			}
 		}
 	}
 
+	/**
+	 * Copies from from one stream to another, does NOT close the streams.
+	 * 
+	 * @param in
+	 * @param out
+	 * @throws IOException
+	 */
 	public static void copy(InputStream in, OutputStream out) throws IOException {
-		byte[] buff = new byte[1024 * 4];
+		byte[] buff = new byte[COPY_BUFFER_SIZE];
 		int bytes;
 		while ((bytes = in.read(buff)) > 0) {
 			out.write(buff, 0, bytes);
@@ -58,7 +69,8 @@ public class Utils {
 	}
 
 	/**
-	 * Searches for a method by name, ignores arguments.
+	 * Searches for the first (declared) method with the given name, ignores
+	 * arguments.
 	 * 
 	 * @param name
 	 * @param klass
@@ -74,7 +86,14 @@ public class Utils {
 		return null;
 	}
 
-	public static String getNameString(Class<?> klass) {
+	/**
+	 * Returns implementation titiel from MANIFEST, something like
+	 * "cgoab-offline".
+	 * 
+	 * @param klass
+	 * @return
+	 */
+	public static String getImplementationTitleString(Class<?> klass) {
 		URL jarUrl = klass.getProtectionDomain().getCodeSource().getLocation();
 		try {
 			Manifest manifest = new JarFile(jarUrl.getFile()).getManifest();
@@ -86,11 +105,37 @@ public class Utils {
 		}
 	}
 
-	public static String getVersionString(Class<?> klass) {
+	/**
+	 * Returns the implementation version from the MANIFEST for the given class,
+	 * something like "0.1.0 2011-01-01".
+	 * 
+	 * @param klass
+	 * @return
+	 */
+	public static String getImplementationVersion(Class<?> klass) {
 		URL jarUrl = klass.getProtectionDomain().getCodeSource().getLocation();
 		try {
 			Manifest manifest = new JarFile(jarUrl.getFile()).getManifest();
 			return (String) manifest.getMainAttributes().get(Name.IMPLEMENTATION_VERSION);
+		} catch (MalformedURLException e) {
+			return null;
+		} catch (IOException e) {
+			return null;
+		}
+	}
+
+	/**
+	 * Returns the specification version from the MANIFEST for the given class,
+	 * something like "0.1.0".
+	 * 
+	 * @param klass
+	 * @return
+	 */
+	public static String getSpecificationVersion(Class<?> klass) {
+		URL jarUrl = klass.getProtectionDomain().getCodeSource().getLocation();
+		try {
+			Manifest manifest = new JarFile(jarUrl.getFile()).getManifest();
+			return (String) manifest.getMainAttributes().get(Name.SPECIFICATION_VERSION);
 		} catch (MalformedURLException e) {
 			return null;
 		} catch (IOException e) {
@@ -104,32 +149,27 @@ public class Utils {
 		}
 	}
 
+	/**
+	 * Copies the contents of one file to another.
+	 * 
+	 * @param fromFile
+	 * @param toFile
+	 * @throws IOException
+	 */
 	public static void copyFile(File fromFile, File toFile) throws IOException {
 		FileInputStream in = null;
 		FileOutputStream out = null;
 		try {
 			in = new FileInputStream(fromFile);
 			out = new FileOutputStream(toFile);
-			byte[] buff = new byte[8 * 1024]; // 4kb chunks
+			byte[] buff = new byte[COPY_BUFFER_SIZE];
 			int read;
 			while ((read = in.read(buff)) > 0) {
 				out.write(buff, 0, read);
 			}
 		} finally {
-			if (in != null) {
-				try {
-					in.close();
-				} catch (IOException e) {
-					/* ignore */
-				}
-			}
-			if (out != null) {
-				try {
-					out.close();
-				} catch (IOException e) {
-					/* ignore */
-				}
-			}
+			close(in);
+			close(out);
 		}
 	}
 

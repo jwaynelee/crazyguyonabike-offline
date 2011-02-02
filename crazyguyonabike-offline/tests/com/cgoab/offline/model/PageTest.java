@@ -12,6 +12,7 @@ import java.util.List;
 import org.jmock.Expectations;
 import org.jmock.Mockery;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
 
 import com.cgoab.offline.model.Page.PhotosOrder;
@@ -19,7 +20,12 @@ import com.cgoab.offline.model.Page.PhotosOrder;
 public class PageTest {
 
 	private Journal journal = new Journal(new File("does-not-exist.xml"), "foo");
-	private Page page = new Page(journal);
+	private Page page = new Page();
+
+	@Before
+	public void setup() throws DuplicatePhotoException {
+		journal.addPage(page, 0);
+	}
 
 	@Test
 	public void addPhotos_firesPhotosAddedListener() throws Exception {

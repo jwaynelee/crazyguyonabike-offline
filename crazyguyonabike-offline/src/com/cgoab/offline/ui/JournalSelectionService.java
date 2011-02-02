@@ -15,6 +15,10 @@ import com.cgoab.offline.model.Page;
 import com.cgoab.offline.ui.JournalContentProvider.JournalHolder;
 import com.cgoab.offline.util.Assert;
 
+/**
+ * Simple selection service allowing clients to listen for open/close of
+ * journals and track changes in page selection.
+ */
 public class JournalSelectionService {
 
 	private static JournalSelectionService instance;
@@ -28,6 +32,11 @@ public class JournalSelectionService {
 		instance = null;
 	}
 
+	/**
+	 * Returns current service, {@link #init()} must have been called before.
+	 * 
+	 * @return
+	 */
 	public static JournalSelectionService getInstance() {
 		Assert.notNull(instance, "service not initialized");
 		return instance;
@@ -110,6 +119,7 @@ public class JournalSelectionService {
 	}
 
 	public interface JournalSelectionListener {
+
 		public void journalClosed(Journal journal);
 
 		public void journalOpened(Journal journal);

@@ -122,10 +122,7 @@ public class JournalUtils {
 			journal = JournalXmlLoader.open(file);
 			LOG.debug("Loaded journal [{} with {} pages] from [{}]", new Object[] { journal.getName(),
 					journal.getPages().size(), path });
-		} catch (ParsingException e) {
-			errorParsingFile(shell, e, file, quiet);
-			return false;
-		} catch (IOException e) {
+		} catch (Exception e) {
 			errorParsingFile(shell, e, file, quiet);
 			return false;
 		}

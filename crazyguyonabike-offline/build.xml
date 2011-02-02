@@ -4,11 +4,16 @@
 	<taskdef name="launch4j" classname="net.sf.launch4j.ant.Launch4jTask" classpath="${launch4j.dir}/launch4j.jar
 	        :${launch4j.dir}/lib/xstream.jar" />
 
+	<!-- versions & build number (date) -->
 	<property name="version" value="0.1.1" />
+	<tstamp>
+		<format pattern="yyyy-MM-dd" property="TODAY" />
+	</tstamp>
+	<property name="build.date" value="${TODAY}" />
+
 	<property name="main.jar.name" value="${ant.project.name}.${version}.jar" />
 	<property name="main.class" value="com.cgoab.offline.Application" />
 	<property name="test.jar.name" value="${ant.project.name}.${version}.tests.jar" />
-
 
 	<property name="src.dir" value="src" />
 	<property name="tests.dir" value="tests" />
@@ -26,12 +31,12 @@
 	<property name="swt.version" value="3.6.1" />
 
 	<condition property="swtjar" value="swt-${swt.version}-win32.jar">
-		<equals arg1="${sun.arch.data.model}" arg2="32"/>
+		<equals arg1="${sun.arch.data.model}" arg2="32" />
 	</condition>
 	<condition property="swtjar" value="swt-${swt.version}-win32_64.jar">
-		<equals arg1="${sun.arch.data.model}" arg2="64"/>
+		<equals arg1="${sun.arch.data.model}" arg2="64" />
 	</condition>
-	
+
 	<path id="classpath">
 		<fileset dir="${lib.dir}" includes="*.jar" />
 		<!-- for compiling it doesn't matter which SWT jar we use -->
@@ -55,16 +60,13 @@
 
 	<target name="jar-main" depends="compile-main">
 		<mkdir dir="${jar.dir}" />
-		<tstamp>
-			<format pattern="yyyy-MM-dd" property="TODAY" />
-		</tstamp>
 		<jar destfile="${jar.dir}/${main.jar.name}" basedir="${main.classes.dir}">
 			<manifest>
 				<attribute name="Built-By" value="${user.name}" />
 				<attribute name="Specification-Title" value="${ant.project.name}" />
 				<attribute name="Specification-Version" value="${version}" />
 				<attribute name="Implementation-Title" value="${ant.project.name}" />
-				<attribute name="Implementation-Version" value="${version} (build ${TODAY})" />
+				<attribute name="Implementation-Version" value="${version} (build ${build.date})" />
 			</manifest>
 			<fileset dir="${src.dir}" excludes="*.java" />
 			<!-- .log, .properties etc -->
@@ -99,28 +101,9 @@
 		</junit>
 	</target>
 
-	<!--<target name="jar-boot" depends="compile-boot,jar-main">
-		<mkdir dir="${jar.dir}" />
-		<jar destfile="${jar.dir}/${boot.jar.name}" basedir="${boot.classes.dir}">
-			<manifest>
-				<attribute name="Built-By" value="${user.name}" />
-				<attribute name="Specification-Title" value="${name}" />
-				<attribute name="Specification-Version" value="${version}" />
-				<attribute name="Implementation-Title" value="${name}" />
-				<attribute name="Implementation-Version" value="${version} ${TODAY}" />
-				<attribute name="Main-Class" value="${main-class}" />
-			</manifest>
-			<fileset dir=".">
-				<include name="${lib.dir}/*.jar" />
-				<include name="${swt.dir}/*.jar" />
-			</fileset>
-			<zipfileset dir="${jar.dir}" includes="${main.jar.name}" fullpath="libs/${main.jar.name}" />
-		</jar>
-	</target>-->
-
-
 	<property name="release.zip.name.win" value="${ant.project.name}.${version}-win.zip" />
 	<property name="release.zip.name.linux" value="${ant.project.name}.${version}-linux.zip" />
+	<property name="release.zip.name.osx" value="${ant.project.name}.${version}-osx.zip" />
 
 	<target name="package-windows" depends="run-tests">
 		<launch4j>
@@ -179,14 +162,37 @@
 		</zip>
 	</target>
 
-	<taskdef classname="net.bluecow.googlecode.ant.GoogleCodeUploadTask" classpath="C:\libs\ant-googlecode\ant-googlecode-0.0.2.jar" name="gcupload" />
+	<taskdef name="jarbundler" classname="net.sourceforge.jarbundler.JarBundler" classpath="C:\libs\jarbundler\jarbundler-2.2.0.jar" />
 
-	<target name="upload" depends="package-windows,package-linux">
-		<gcupload username="${googlecode.user}" password="${googlecode.password}" projectname="crazyguyonabike-offline" filename="${release.dir}/${release.zip.name.linux}" targetfilename="${release.zip.name.linux}" summary="Version ${version} of ${ant.project.name}" labels="Featured, Type-Package, OpSys-Linux" />
-		<gcupload username="${googlecode.user}" password="${googlecode.password}" projectname="crazyguyonabike-offline" filename="${release.dir}/${release.zip.name.win}" targetfilename="${release.zip.name.win}" summary="Version ${version} of ${ant.project.name}" labels="Featured, Type-Package, OpSys-Windows" />
+	<target name="package-osx" depends="run-tests">
+		<jarbundler dir="${temp.dir}" jvmversion="1.6+" shortname="${ant.project.name}" build="${version} (${build.date})" version="${version}" infostring="${ant.project.name} ${version}" name="${ant.project.name}" mainclass="${main.class}" stubfile="C:\libs\jarbundler\JavaApplicationStub" startonmainthread="true">
+			<jarfileset dir="${jar.dir}">
+				<include name="${main.jar.name}" />
+			</jarfileset>
+			<jarfileset dir="${lib.dir}">
+				<include name="*.jar" />
+			</jarfileset>
+			<jarfileset dir="${swt.dir}">
+				<include name="swt-3.6.1-osx.jar" />
+			</jarfileset>
+		</jarbundler>
+		<zip destfile="${release.dir}/${release.zip.name.osx}">
+			<zipfileset dir="${temp.dir}" includes="${ant.project.name}.app/**" filemode="755" />
+		</zip>
 	</target>
 
 
-	<target name="main" depends="clean,package-windows, package-linux" />
+	<taskdef classname="net.bluecow.googlecode.ant.GoogleCodeUploadTask" classpath="C:\libs\ant-googlecode\ant-googlecode-0.0.2.jar" name="gcupload" />
+
+	<target name="package-all" depends="package-windows,package-linux,package-osx" />
+
+	<target name="upload" depends="package-all">
+		<gcupload username="${googlecode.user}" password="${googlecode.password}" projectname="crazyguyonabike-offline" filename="${release.dir}/${release.zip.name.linux}" targetfilename="${release.zip.name.linux}" summary="Version ${version} of ${ant.project.name}" labels="Featured, Type-Package, OpSys-Linux" />
+		<gcupload username="${googlecode.user}" password="${googlecode.password}" projectname="crazyguyonabike-offline" filename="${release.dir}/${release.zip.name.win}" targetfilename="${release.zip.name.win}" summary="Version ${version} of ${ant.project.name}" labels="Featured, Type-Package, OpSys-Windows" />
+		<gcupload username="${googlecode.user}" password="${googlecode.password}" projectname="crazyguyonabike-offline" filename="${release.dir}/${release.zip.name.osx}" targetfilename="${release.zip.name.osx}" summary="Version ${version} of ${ant.project.name}" labels="Featured, Type-Package, OpSys-OSX" />
+	</target>
+
+
+	<target name="main" depends="clean, package-all" />
 
 </project>

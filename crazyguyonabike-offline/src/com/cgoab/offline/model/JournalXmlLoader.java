@@ -71,7 +71,8 @@ public class JournalXmlLoader {
 		return attr == null ? defaultValue : Integer.parseInt(attr.getValue());
 	}
 
-	public static Journal open(File file) throws ValidityException, ParsingException, IOException {
+	public static Journal open(File file) throws ValidityException, ParsingException, IOException,
+			DuplicatePhotoException {
 		Document xml = new Builder(false).build(file);
 		String version = xml.getRootElement().getAttributeValue(VERSION_ATTR);
 		Assert.isTrue(FileVersion.parse(version) == CURRENT_VERSION);
@@ -103,7 +104,7 @@ public class JournalXmlLoader {
 		Elements pages = xml.getRootElement().getChildElements(PAGE_EL);
 		for (int i = 0; i < pages.size(); ++i) {
 			Element elPage = pages.get(i);
-			Page newPage = new Page(journal);
+			Page newPage = new Page();
 			newPage.setServerId(Integer.parseInt(elPage.getAttributeValue(SERVER_ID_ATTR)));
 			newPage.setState(UploadState.valueOf(elPage.getAttributeValue(UPLOAD_STATE_ATTR)));
 			newPage.setBold(Boolean.valueOf(elPage.getAttributeValue(BOLD_ATTR)));

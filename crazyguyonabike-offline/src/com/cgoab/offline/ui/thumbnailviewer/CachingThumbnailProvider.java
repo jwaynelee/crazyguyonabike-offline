@@ -33,6 +33,7 @@ import com.cgoab.offline.util.CompletedFuture;
 import com.cgoab.offline.util.FutureCompletionListener;
 import com.cgoab.offline.util.JobListener;
 import com.cgoab.offline.util.ListenableCancellableTask;
+import com.cgoab.offline.util.OS;
 import com.drew.imaging.jpeg.JpegMetadataReader;
 import com.drew.imaging.jpeg.JpegProcessingException;
 import com.drew.metadata.Metadata;
@@ -304,7 +305,13 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 			}
 		}
 
-		protected ImageData createThumbnail(int rotate) {
+		protected ImageData createThumbnail(Metadata meta) {
+			/**
+			 * BUG: new Image(d,"..") calls into native JPEG loading routine. On
+			 * OSX this routine already corrects the orientation of the photo.
+			 */
+			int rotate = OS.isMac() ? SWT.NONE : detectRotation(meta);
+
 			Image thumbnail;
 			LOG.debug("Loading image [{}]", source.getName());
 			Image image = new Image(display, source.getAbsolutePath());
@@ -396,10 +403,8 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 				}
 			}
 
-			int rotation = detectRotation(meta);
-
 			// 3) resize image to create thumbnail
-			ImageData data = createThumbnail(rotation);
+			ImageData data = createThumbnail(meta);
 			Thumbnail result = new Thumbnail(meta, data);
 
 			// 4) finally add a new task to write the thumbnail to disk

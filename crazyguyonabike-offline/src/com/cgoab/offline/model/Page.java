@@ -21,6 +21,10 @@ import com.cgoab.offline.util.Assert;
 
 /**
  * A page in a journal.
+ * <p>
+ * New pages are create unattached to a journal. Calling
+ * {@link Journal#addPage(Page, int)} will bind the page to the journal. Events
+ * on this page will then be broadcast to listeners on the journal.
  */
 public class Page {
 
@@ -97,8 +101,16 @@ public class Page {
 
 	private boolean visible = true;
 
-	public Page(Journal journal) {
+	public Page() {
+	}
+
+	void bind(Journal journal) {
+		Assert.isNull(this.journal);
 		this.journal = journal;
+	}
+
+	void unbind() {
+		this.journal = null;
 	}
 
 	/**
@@ -121,7 +133,8 @@ public class Page {
 
 		/* check for duplicates */
 		Map<Photo, Page> duplicates = new LinkedHashMap<Photo, Page>();
-		Map<String, Page> journalPhotos = journal.getPhotoMap();
+		Map<String, Page> journalPhotos = journal == null ? Collections.<String, Page> emptyMap() : journal
+				.getPhotoMap();
 		Set<Photo> nonDuplicatePhotos = new HashSet<Photo>();
 		for (Photo photo : photosToAdd) {
 			if (nonDuplicatePhotos.contains(photo)) {
@@ -149,8 +162,10 @@ public class Page {
 
 		sortPhotos();
 
-		journal.setDirty(true);
-		journal.photosAdded(photosToAdd, this);
+		if (journal != null) {
+			journal.setDirty(true);
+			journal.photosAdded(photosToAdd, this);
+		}
 	}
 
 	private void sortPhotos() {
@@ -332,7 +347,9 @@ public class Page {
 
 		// manually transition to manual order
 		setPhotosOrder(PhotosOrder.MANUAL);
-		journal.setDirty(true);
+		if (journal != null) {
+			journal.setDirty(true);
+		}
 	}
 
 	public void removePhotos(List<Photo> toRemove) throws PageNotEditableException {
@@ -347,8 +364,11 @@ public class Page {
 		}
 
 		photos.removeAll(toRemove);
-		journal.setDirty(true);
-		journal.photosRemoved(toRemove, this);
+
+		if (journal != null) {
+			journal.setDirty(true);
+			journal.photosRemoved(toRemove, this);
+		}
 	}
 
 	public void removePropertyChangeListener(PropertyChangeListener listener) {
@@ -396,7 +416,9 @@ public class Page {
 
 	void setPhotos(List<Photo> p) {
 		photos.addAll(p);
-		journal.photosAdded(p, this);
+		if (journal != null) {
+			journal.photosAdded(p, this);
+		}
 	}
 
 	public void setPhotosOrder(PhotosOrder newOrder) {

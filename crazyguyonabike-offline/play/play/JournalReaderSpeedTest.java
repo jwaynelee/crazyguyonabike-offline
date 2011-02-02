@@ -6,10 +6,11 @@ import java.io.IOException;
 import nu.xom.ParsingException;
 import nu.xom.ValidityException;
 
+import com.cgoab.offline.model.DuplicatePhotoException;
 import com.cgoab.offline.model.JournalXmlLoader;
 
 public class JournalReaderSpeedTest {
-	public static void main(String[] args) throws ValidityException, ParsingException, IOException {
+	public static void main(String[] args) throws Exception {
 		long start = System.currentTimeMillis();
 		for (int i = 0; i < JournalWriterSpeedTest.NJOURNALS; ++i) {
 			File f = new File(JournalWriterSpeedTest.TEST_DIR + File.separator + "test" + i + ".xml");

@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import com.cgoab.offline.util.Assert;
 import com.cgoab.offline.util.FutureCompletionListener;
 import com.cgoab.offline.util.ListenableCancellableTask;
+import com.cgoab.offline.util.Version;
 import com.cgoab.offline.util.OS;
 import com.cgoab.offline.util.StringUtils;
 import com.cgoab.offline.util.Which;
@@ -36,7 +37,7 @@ public class ImageMagickResizeTask extends ListenableCancellableTask<File> {
 	 * 
 	 * http://www.imagemagick.org/Usage/resize/#fill
 	 */
-	public static final MagickVersion REQUIRED_VERSION = new MagickVersion(6, 3, 8, 3);
+	public static final Version REQUIRED_VERSION = new Version(6, 3, 8, 3);
 
 	/*
 	 * Example
@@ -73,21 +74,21 @@ public class ImageMagickResizeTask extends ListenableCancellableTask<File> {
 			}
 		}
 
-		MagickVersion currentVersion = getCurrentMagickVersion(magickPath);
+		Version currentVersion = getCurrentMagickVersion(magickPath);
 		if (currentVersion == null) {
 			throw new MagicNotAvailableException("Unable to get ImageMagick version\n\n" + magickPath);
 		}
-		if (!currentVersion.isAtLeast(REQUIRED_VERSION)) {
+		if (!currentVersion.isGreaterThanOrEqual(REQUIRED_VERSION)) {
 			throw new MagicNotAvailableException("Require ImageMagick version " + REQUIRED_VERSION
 					+ " or above (found version " + currentVersion + "). Upgrade and restart.");
 		}
 		return magickPath;
 	}
 
-	private static MagickVersion getCurrentMagickVersion(String magickPath) {
+	private static Version getCurrentMagickVersion(String magickPath) {
 		ProcessBuilder builder = new ProcessBuilder(magickPath, "-version");
 		builder.redirectErrorStream(true);
-		MagickVersion currentVersion = null;
+		Version currentVersion = null;
 		BufferedReader reader = null;
 		try {
 			Process process = builder.start();
@@ -101,7 +102,7 @@ public class ImageMagickResizeTask extends ListenableCancellableTask<File> {
 						int minor = Integer.parseInt(match.group(2));
 						int rev = Integer.parseInt(match.group(3));
 						int patch = Integer.parseInt(match.group(4));
-						currentVersion = new MagickVersion(major, minor, rev, patch);
+						currentVersion = new Version(major, minor, rev, patch);
 						LOG.debug("Detected ImageMagick version {}", currentVersion);
 					}
 				}
@@ -250,48 +251,6 @@ public class ImageMagickResizeTask extends ListenableCancellableTask<File> {
 
 		public MagickException(String message) {
 			super(message);
-		}
-	}
-
-	public static class MagickVersion {
-		public final int major, minor, rev, patch;
-
-		public MagickVersion(int major, int minor, int rev, int patch) {
-			this.major = major;
-			this.minor = minor;
-			this.rev = rev;
-			this.patch = patch;
-		}
-
-		public boolean isAtLeast(MagickVersion other) {
-			if (major < other.major) {
-				return false;
-			} else if (major > other.major) {
-				return true;
-			}
-			if (minor < other.minor) {
-				return false;
-			} else if (minor > other.minor) {
-				return true;
-			}
-			if (rev < other.rev) {
-				return false;
-			} else if (rev > other.rev) {
-				return true;
-			}
-			if (patch < other.patch) {
-				return true;
-			} else if (patch > other.patch) {
-				return false;
-			}
-
-			// all equal
-			return true;
-		}
-
-		@Override
-		public String toString() {
-			return String.format("%d.%d.%d-%d", major, minor, rev, patch);
 		}
 	}
 

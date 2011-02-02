@@ -35,6 +35,7 @@ public class JournalTreeLabelProvider extends StyledCellLabelProvider {
 		}
 		return ImageDescriptor.createFromURL(resource);
 	}
+
 	private Font boldFont;
 	private Font boldItalicFont;
 	private Map<ImageDescriptor, Image> imageCache = new HashMap<ImageDescriptor, Image>();
@@ -63,6 +64,9 @@ public class JournalTreeLabelProvider extends StyledCellLabelProvider {
 			(i.next()).dispose();
 		}
 		imageCache.clear();
+		boldFont.dispose();
+		italicFont.dispose();
+		boldItalicFont.dispose();
 		super.dispose();
 	}
 

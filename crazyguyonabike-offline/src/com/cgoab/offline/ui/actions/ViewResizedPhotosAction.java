@@ -1,13 +1,10 @@
 package com.cgoab.offline.ui.actions;
 
-import java.awt.Desktop;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.io.File;
-import java.io.IOException;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.eclipse.swt.program.Program;
 
 import com.cgoab.offline.model.Journal;
 import com.cgoab.offline.ui.JournalSelectionService;
@@ -16,11 +13,8 @@ import com.cgoab.offline.util.resizer.ResizerService;
 
 public class ViewResizedPhotosAction extends ActionWithCurrentJournal {
 
-	private static Logger LOG = LoggerFactory.getLogger(ViewResizedPhotosAction.class);
-
 	public ViewResizedPhotosAction() {
 		super("View resized photos");
-		setEnabled(Desktop.isDesktopSupported());
 		JournalSelectionService.getInstance().addListener(new JournalSelectionListener() {
 
 			PropertyChangeListener propertyListener = new PropertyChangeListener() {
@@ -48,7 +42,7 @@ public class ViewResizedPhotosAction extends ActionWithCurrentJournal {
 			}
 
 			private void syncWithJournal(Boolean enabled) {
-				setEnabled(enabled == Boolean.TRUE && Desktop.isDesktopSupported());
+				setEnabled(enabled == Boolean.TRUE);
 			}
 		});
 	}
@@ -60,11 +54,6 @@ public class ViewResizedPhotosAction extends ActionWithCurrentJournal {
 			return;
 		}
 		File folder = resizer.getPhotoFolder();
-		try {
-			Desktop.getDesktop().open(folder);
-		} catch (IOException e) {
-			/* ignore */
-			LOG.debug("Failed to browse folder " + folder);
-		}
+		Program.launch(folder.getAbsolutePath());
 	}
 }

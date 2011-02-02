@@ -6,6 +6,7 @@ import java.net.URI;
 import org.eclipse.jface.action.Action;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.program.Program;
 import org.eclipse.swt.widgets.MessageBox;
 import org.eclipse.swt.widgets.Shell;
 import org.slf4j.Logger;
@@ -56,7 +57,7 @@ public class OpenPageInBrowserAction extends Action {
 	public void run() {
 		try {
 			Page page = JournalSelectionService.getInstance().getSelectedPage();
-			Desktop.getDesktop().browse(new URI(cgoabUrlForPage(page.getServerId())));
+			Program.launch(cgoabUrlForPage(page.getServerId()));
 		} catch (Exception e) {
 			LOG.warn("Failed to open browser", e);
 			MessageDialog.openWarning(shell, "Failed to open browser", "Failed to open browser : " + e.toString());

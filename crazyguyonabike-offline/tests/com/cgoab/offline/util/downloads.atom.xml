@@ -1,0 +1,60 @@
+<?xml version="1.0"?>
+ 
+<feed xmlns="http://www.w3.org/2005/Atom">
+ <updated>2011-01-24T17:11:32Z</updated>
+ <id>http://code.google.com/feeds/p/crazyguyonabike-offline/downloads/basic</id>
+ <title>Downloads for project crazyguyonabike-offline on Google Code</title>
+ <link rel="self" type="application/atom+xml;type=feed" href="http://code.google.com/feeds/p/crazyguyonabike-offline/downloads/basic"/>
+ <link rel="alternate" type="text/html" href="http://code.google.com/p/crazyguyonabike-offline/downloads/list"/>
+ 
+ <entry>
+ <updated>2011-01-24T17:11:32Z</updated>
+ <id>http://code.google.com/feeds/p/crazyguyonabike-offline/downloads/basic/cgoab-offline.0.1.0-win.zip</id>
+ <link rel="alternate" type="text/html" href="http://code.google.com/p/crazyguyonabike-offline/downloads/detail?name=cgoab-offline.0.1.0-win.zip" />
+ <title>
+ cgoab-offline.0.1.0-win.zip (8.9 MB)
+ </title>
+ <author>
+ <name>ben.rowlands</name>
+ </author>
+ <content type="html">
+&lt;pre&gt;
+Version 0.1.0 of cgoab-offline
+ 
+Labels: 
+ Featured
+ Type-Package
+ OpSys-Windows
+ 
+&lt;a href=&quot;http://crazyguyonabike-offline.googlecode.com/files/cgoab-offline.0.1.0-win.zip&quot;&gt;Download&lt;/a&gt;
+&lt;/pre&gt;
+ </content>
+</entry>
+ 
+ 
+ <entry>
+ <updated>2011-01-24T17:10:13Z</updated>
+ <id>http://code.google.com/feeds/p/crazyguyonabike-offline/downloads/basic/cgoab-offline.0.1.0-linux.zip</id>
+ <link rel="alternate" type="text/html" href="http://code.google.com/p/crazyguyonabike-offline/downloads/detail?name=cgoab-offline.0.1.0-linux.zip" />
+ <title>
+ cgoab-offline.0.1.0-linux.zip (8.6 MB)
+ </title>
+ <author>
+ <name>ben.rowlands</name>
+ </author>
+ <content type="html">
+&lt;pre&gt;
+Version 0.1.0 of cgoab-offline
+ 
+Labels: 
+ Featured
+ Type-Package
+ OpSys-Linux
+ 
+&lt;a href=&quot;http://crazyguyonabike-offline.googlecode.com/files/cgoab-offline.0.1.0-linux.zip&quot;&gt;Download&lt;/a&gt;
+&lt;/pre&gt;
+ </content>
+</entry>
+ 
+ 
+</feed>
