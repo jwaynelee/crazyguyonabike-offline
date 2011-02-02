@@ -18,6 +18,7 @@ import org.eclipse.jface.viewers.StructuredSelection;
 import org.eclipse.jface.viewers.TreeViewer;
 import org.eclipse.swt.widgets.Shell;
 
+import com.cgoab.offline.model.DuplicatePhotoException;
 import com.cgoab.offline.model.Journal;
 import com.cgoab.offline.model.Page;
 import com.cgoab.offline.ui.JournalSelectionService;
@@ -59,20 +60,23 @@ public class DeletePageAction extends Action {
 		if (!MessageDialog.openConfirm(shell, "Confirm delete", msg.toString())) {
 			return;
 		}
-		DeleteOperation operation = new DeleteOperation(pagesToDelete);
+		DeleteOperation operation = new DeleteOperation(pagesToDelete, JournalSelectionService.getInstance()
+				.getCurrentJournal());
 		operation.execute(null, null);
 		OperationHistoryFactory.getOperationHistory().add(operation);
 	}
 
 	private class DeleteOperation extends AbstractOperation {
 
-		private boolean closed;
+		private boolean invalid;
+
+		private Journal journal;
 
 		private JournalSelectionListener listener = new JournalSelectionListener() {
 
 			@Override
 			public void journalClosed(Journal journal) {
-				closed = true;
+				invalid = true;
 				JournalSelectionService.getInstance().removeListener(listener);
 			}
 
@@ -87,8 +91,9 @@ public class DeletePageAction extends Action {
 
 		private List<PageAndIndex> pagesToDelete;
 
-		public DeleteOperation(List<Page> toDelete) {
+		public DeleteOperation(List<Page> toDelete, Journal journal) {
 			super("delete page");
+			this.journal = journal;
 			addContext(MainWindow.APPLICATION_CONTEXT);
 			this.pagesToDelete = new ArrayList<DeletePageAction.PageAndIndex>(toDelete.size());
 			for (Page page : toDelete) {
@@ -99,12 +104,12 @@ public class DeletePageAction extends Action {
 
 		@Override
 		public boolean canRedo() {
-			return !closed;
+			return !invalid;
 		}
 
 		@Override
 		public boolean canUndo() {
-			return !closed;
+			return !invalid;
 		}
 
 		@Override
@@ -134,7 +139,16 @@ public class DeletePageAction extends Action {
 			ListIterator<PageAndIndex> ipi = pagesToDelete.listIterator(pagesToDelete.size());
 			while (ipi.hasPrevious()) {
 				PageAndIndex pi = ipi.previous();
-				pi.page.getJournal().addPage(pi.page, pi.index);
+				try {
+					journal.addPage(pi.page, pi.index);
+				} catch (DuplicatePhotoException e) {
+					/*
+					 * the page we just tried to re-add contains a photo that is
+					 * no re-added .. woops
+					 */
+					invalid = true;
+					throw new ExecutionException("Failed to re-add page; duplicate photo(s) detected", e);
+				}
 			}
 			Page[] selection = new Page[pagesToDelete.size()];
 			int i = 0;

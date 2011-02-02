@@ -9,18 +9,26 @@ import org.slf4j.LoggerFactory;
 import com.cgoab.offline.util.Assert;
 
 public abstract class AbstractUploadClient implements UploadClient {
+
 	private Executor callbackExecutor;
+
 	private Task<?> currentTask;
+
+	/* poisen pill */
 	private final Task<Object> DEATH = new Task<Object>(null) {
 		@Override
 		protected Object doRun() throws Exception {
 			throw new AssertionError("SHOULD NEVER RUN");
 		}
 	};
+
 	private final Object lock = new Object();
 
 	protected final Logger LOG = LoggerFactory.getLogger(getClass());
+
 	private String threadName = "UploadClient";
+
+	/* @guardedby lock */
 	private Thread worker;
 
 	public AbstractUploadClient(Executor executor) {
@@ -72,6 +80,10 @@ public abstract class AbstractUploadClient implements UploadClient {
 					}
 				} catch (InterruptedException e) {
 					/* quit */
+				} finally {
+					synchronized (lock) {
+						worker = null;
+					}
 				}
 			}
 		});

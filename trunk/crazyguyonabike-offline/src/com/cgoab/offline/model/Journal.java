@@ -58,18 +58,47 @@ public class Journal {
 		}
 	}
 
-	void addPage(Page newPage) {
+	/**
+	 * Adds a page to the end of this journal.
+	 * 
+	 * @param newPage
+	 * @throws DuplicatePhotoException
+	 */
+	public void addPage(Page newPage) throws DuplicatePhotoException {
 		addPage(newPage, pages.size());
 	}
 
-	public void addPage(Page newPage, int index) {
-		Assert.isTrue(newPage.getJournal() == this);
-		Assert.isTrue(index >= 0);
-		Assert.isTrue(index <= pages.size());
+	/**
+	 * Adds a page at the specific location in this journal.
+	 * 
+	 * @param newPage
+	 *            new page to add, must not already be in this journal.
+	 * @param index
+	 *            insertion point, >=0 and < size
+	 * @throws DuplicatePhotoException
+	 *             if the new page contains photos that already exist in the
+	 *             journal
+	 * @throws IllegalArgumentException
+	 *             if the page already exists
+	 */
+	public void addPage(Page newPage, int index) throws DuplicatePhotoException {
+		newPage.bind(this);
 		if (pages.contains(newPage)) {
 			throw new IllegalArgumentException("Page is already added to journal!");
 		}
+		/* enforce unique photo constraint */
+		Map<Photo, Page> duplicates = new HashMap<Photo, Page>();
+		for (Photo photo : newPage.getPhotos()) {
+			Page pageWithPhoto = loadedPhotos.get(photo.getFile().getName());
+			if (pageWithPhoto != null) {
+				duplicates.put(photo, pageWithPhoto);
+			}
+		}
+		if (!duplicates.isEmpty()) {
+			throw new DuplicatePhotoException(duplicates);
+		}
 		pages.add(index, newPage);
+		photosAdded(newPage.getPhotos(), newPage);
 		firePageAdded(newPage);
 		setDirty(true);
 	}
@@ -86,7 +115,7 @@ public class Journal {
 	 * @return
 	 */
 	public Page createNewPage() {
-		Page page = new Page(this);
+		Page page = new Page();
 		String title = "NEW PAGE";
 		if (pages.size() > 0) {
 			Page previousPage = pages.get(pages.size() - 1);
@@ -110,7 +139,13 @@ public class Journal {
 			}
 		}
 		page.setTitle(title);
-		addPage(page);
+
+		try {
+			addPage(page);
+		} catch (DuplicatePhotoException e) {
+			/* impossible as no photos in this new page */
+			throw new AssertionError(e);
+		}
 		return page;
 	}
 
@@ -187,7 +222,7 @@ public class Journal {
 		return Collections.unmodifiableList(pages);
 	}
 
-	public Map<String, Page> getPhotoMap() {
+	Map<String, Page> getPhotoMap() {
 		return loadedPhotos;
 	}
 
@@ -258,6 +293,7 @@ public class Journal {
 	public void removePage(Page page) {
 		Assert.isTrue(page.getJournal() == this);
 		pages.remove(page);
+		page.unbind();
 		photosRemoved(page.getPhotos(), page);
 		firePageRemoved(page);
 		setDirty(true);

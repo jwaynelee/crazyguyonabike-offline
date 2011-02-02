@@ -37,12 +37,12 @@ import com.cgoab.offline.ui.JournalSelectionService.JournalSelectionListener;
 
 public class JournalViewer {
 
-	private MainWindow editor;
+	private MainWindow window;
 
 	private TreeViewer treeViewer;
 
 	public JournalViewer(MainWindow editor) {
-		this.editor = editor;
+		this.window = editor;
 		JournalSelectionService.getInstance().addListener(new JournalSelectionListener() {
 
 			PropertyChangeListener hideUploadedChangeListener = new PropertyChangeListener() {
@@ -131,7 +131,7 @@ public class JournalViewer {
 			@Override
 			public void keyReleased(KeyEvent e) {
 				if (e.keyCode == SWT.DEL) {
-					editor.deletePageAction.run();
+					window.deletePageAction.run();
 				}
 			}
 		});
@@ -141,7 +141,7 @@ public class JournalViewer {
 
 			@Override
 			public void focusGained(FocusEvent e) {
-				editor.setCurrentUndoContext(MainWindow.APPLICATION_CONTEXT);
+				window.setCurrentUndoContext(MainWindow.APPLICATION_CONTEXT);
 			}
 
 			@Override
@@ -204,38 +204,38 @@ public class JournalViewer {
 					selectedMultiple = currentSelection.size() > 1;
 				}
 
-				manager.add(editor.newJournalAction);
+				manager.add(window.newJournalAction);
 
 				if (selectedPage || selectedJournal) {
-					manager.add(editor.newPageAction);
+					manager.add(window.newPageAction);
 				}
-				manager.add(editor.openJournalAction);
+				manager.add(window.openJournalAction);
 				if (selectedPage || selectedJournal) {
 					manager.add(new Separator());
-					manager.add(editor.closeJournalAction);
+					manager.add(window.closeJournalAction);
 					manager.add(new Separator());
-					manager.add(editor.saveAction);
+					manager.add(window.saveAction);
 					manager.add(new Separator());
-					manager.add(editor.uploadAction);
+					manager.add(window.uploadAction);
 					manager.add(new Separator());
 
 					if (selectedPage) {
-						manager.add(editor.deletePageAction);
+						manager.add(window.deletePageAction);
 						if (!selectedMultiple) {
-							manager.add(editor.addPhotosAction);
-							manager.add(editor.openPageInBrowserAction);
+							manager.add(window.addPhotosAction);
+							manager.add(window.openPageInBrowserAction);
 						}
 						manager.add(new Separator());
 					}
 
-					manager.add(editor.toggleHideUploadedContent);
+					manager.add(window.toggleHideUploadedContent);
 					manager.add(new Separator());
-					manager.add(editor.toggleResizePhotos);
-					manager.add(editor.viewResizedPhotosFolder);
-					manager.add(editor.purgeResizedPhotos);
+					manager.add(window.toggleResizePhotos);
+					manager.add(window.viewResizedPhotosFolder);
+					manager.add(window.purgeResizedPhotos);
 					manager.add(new Separator());
-					manager.add(editor.toggleUseExifThumbnailAction);
-					manager.add(editor.purgeThumbnailCache);
+					manager.add(window.toggleUseExifThumbnailAction);
+					manager.add(window.purgeThumbnailCache);
 				}
 			}
 		});

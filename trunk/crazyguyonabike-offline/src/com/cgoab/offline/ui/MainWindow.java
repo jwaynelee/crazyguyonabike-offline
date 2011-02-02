@@ -25,6 +25,7 @@ import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Shell;
+import org.omg.CORBA.portable.CustomValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,6 +52,7 @@ import com.cgoab.offline.ui.actions.UndoAction;
 import com.cgoab.offline.ui.actions.ViewResizedPhotosAction;
 import com.cgoab.offline.ui.thumbnailviewer.CachingThumbnailProviderFactory;
 import com.cgoab.offline.util.StringUtils;
+import com.cgoab.offline.util.UpdateChecker;
 import com.cgoab.offline.util.Utils;
 import com.cgoab.offline.util.resizer.ImageMagickResizerServiceFactory;
 
@@ -150,7 +152,7 @@ public class MainWindow extends ApplicationWindow {
 						.openError(
 								null,
 								"Unhandled exception in event loop",
-								"Unhandled exception in event loop. This usually indicates a bug.Please notify the application developer.",
+								"Unhandled exception in event loop. This usually indicates a bug. Please notify the application developer.",
 								new Status(IStatus.ERROR, "?", t.getMessage(), t));
 
 				LOG.warn("Unhandled exception in event loop", t);
@@ -165,8 +167,8 @@ public class MainWindow extends ApplicationWindow {
 	@Override
 	protected void configureShell(Shell shell) {
 		super.configureShell(shell);
-		String name = Utils.getNameString(getClass());
-		String version = Utils.getVersionString(getClass());
+		String name = Utils.getImplementationTitleString(getClass());
+		String version = Utils.getImplementationVersion(getClass());
 		name = name == null ? "?" : name;
 		version = version == null ? "?" : version;
 		shell.setText(name + " : " + version);
@@ -207,7 +209,7 @@ public class MainWindow extends ApplicationWindow {
 		fileMenuMgr.add(new Action("Exit") {
 			@Override
 			public void run() {
-				getShell().close();
+				close();
 			}
 		});
 
@@ -227,6 +229,8 @@ public class MainWindow extends ApplicationWindow {
 		createControls(parent);
 		createActions();
 
+		UpdateChecker.checkForLatestVersion(getShell().getDisplay());
+
 		/* TODO load on background thread? */
 		String journalToOpen = PreferenceUtils.getStore().getString(PreferenceUtils.LAST_JOURNAL);
 		if (!StringUtils.isEmpty(journalToOpen) && !JournalUtils.openJournal(journalToOpen, true, getShell())) {
@@ -238,14 +242,14 @@ public class MainWindow extends ApplicationWindow {
 	}
 
 	private void createControls(final Composite parent) {
+		journalView = new JournalViewer(this);
+		pageEditor = new PageEditor(this);
 		SashForm sashV = new SashForm(parent, SWT.VERTICAL);
 		sashV.setLayout(new GridLayout());
 		SashForm sashH = new SashForm(sashV, SWT.HORIZONTAL);
 		sashH.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
-		journalView = new JournalViewer(this);
 		journalView.createComponents(sashH);
 
-		pageEditor = new PageEditor(this);
 		pageEditor.createControls(sashH);
 		Composite thumbViewerGroup = new Composite(sashV, SWT.NONE);
 		GridData data = new GridData(SWT.FILL, SWT.FILL, true, true);
@@ -260,7 +264,7 @@ public class MainWindow extends ApplicationWindow {
 	@Override
 	protected MenuManager createMenuManager() {
 		/* actions not created yet so just make top level menus */
-		MenuManager root = new MenuManager();
+		final MenuManager root = new MenuManager();
 		fileMenuMgr = new MenuManager("File");
 		editMenuMgr = new MenuManager("Edit");
 		aboutMenuMgr = new MenuManager("About");

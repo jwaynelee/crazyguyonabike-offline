@@ -7,6 +7,8 @@ import java.util.Arrays;
 import java.util.List;
 
 import org.eclipse.core.commands.operations.IUndoContext;
+import org.eclipse.jface.resource.FontRegistry;
+import org.eclipse.jface.resource.JFaceResources;
 import org.eclipse.jface.text.Document;
 import org.eclipse.jface.text.IDocument;
 import org.eclipse.jface.text.ITextListener;
@@ -17,6 +19,8 @@ import org.eclipse.jface.util.IPropertyChangeListener;
 import org.eclipse.jface.util.PropertyChangeEvent;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.StyledText;
+import org.eclipse.swt.events.DisposeEvent;
+import org.eclipse.swt.events.DisposeListener;
 import org.eclipse.swt.events.FocusAdapter;
 import org.eclipse.swt.events.FocusEvent;
 import org.eclipse.swt.events.ModifyEvent;
@@ -86,12 +90,22 @@ public class PageEditor {
 
 	Text titleInput;
 
+	private Font fontToDispose;
+
 	private DocumentUndoCache undoCache = new DocumentUndoCache(3);
 
 	private TextViewerUndoManager undoManager;
 
 	public PageEditor(final MainWindow application) {
 		this.application = application;
+		application.getShell().addDisposeListener(new DisposeListener() {
+			@Override
+			public void widgetDisposed(DisposeEvent e) {
+				if (fontToDispose != null) {
+					fontToDispose.dispose();
+				}
+			}
+		});
 		JournalSelectionService.getInstance().addListener(new JournalSelectionListener() {
 			private JournalListener releaseFromCacheOnDeleteListener = new JournalAdapter() {
 				@Override
@@ -123,7 +137,13 @@ public class PageEditor {
 			public void propertyChange(PropertyChangeEvent event) {
 				if (PreferenceUtils.FONT.equals(event.getProperty())) {
 					FontData[] data = (FontData[]) event.getNewValue();
-					textInput.getTextWidget().setFont(new Font(application.getShell().getDisplay(), data[0]));
+					Font font = new Font(application.getShell().getDisplay(), data);
+					textInput.getTextWidget().setFont(font);
+					/* dispose last font */
+					if (fontToDispose != null) {
+						fontToDispose.dispose();
+					}
+					fontToDispose = font;
 				}
 			}
 		});
@@ -322,7 +342,9 @@ public class PageEditor {
 		textInput.addTextListener(dirtyCurrentPageListener);
 		if (PreferenceUtils.getStore().contains(PreferenceUtils.FONT)) {
 			String fds = PreferenceUtils.getStore().getString(PreferenceUtils.FONT);
-			textInput.getControl().setFont(new Font(parent.getShell().getDisplay(), new FontData(fds)));
+			Font font = new Font(parent.getShell().getDisplay(), new FontData(fds));
+			textInput.getControl().setFont(font);
+			fontToDispose = font; /* make sure we dispose this if we change it */
 		}
 
 		/*

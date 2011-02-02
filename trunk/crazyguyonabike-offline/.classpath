@@ -4,7 +4,6 @@
 	<classpathentry kind="src" path="tests"/>
 	<classpathentry kind="src" path="integration-tests"/>
 	<classpathentry kind="src" path="examples"/>
-	<classpathentry kind="src" path="boot"/>
 	<classpathentry kind="src" path="play"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.6"/>
 	<classpathentry kind="lib" path="libs/apache-mime4j-0.6.jar"/>

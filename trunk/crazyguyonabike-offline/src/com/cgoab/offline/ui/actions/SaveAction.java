@@ -25,14 +25,9 @@ public class SaveAction extends Action {
 
 	@Override
 	public void run() {
-		Journal journal = JournalSelectionService.getInstance().getSelectedJournal();
-		if (journal == null) {
-			Page page = JournalSelectionService.getInstance().getSelectedPage();
-			if (page == null) {
-				return;
-			}
-			journal = page.getJournal();
+		Journal journal = JournalSelectionService.getInstance().getCurrentJournal();
+		if (journal != null) {
+			JournalUtils.saveJournal(journal, false, shell);
 		}
-		JournalUtils.saveJournal(journal, false, shell);
 	}
 }

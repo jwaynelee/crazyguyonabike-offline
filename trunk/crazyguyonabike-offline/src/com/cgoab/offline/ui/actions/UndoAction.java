@@ -7,14 +7,22 @@ import org.eclipse.core.commands.operations.IUndoContext;
 import org.eclipse.core.commands.operations.OperationHistoryEvent;
 import org.eclipse.core.commands.operations.OperationHistoryFactory;
 import org.eclipse.jface.action.Action;
+import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.swt.SWT;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.cgoab.offline.ui.MainWindow;
 import com.cgoab.offline.ui.MainWindow.ContextChangedListener;
 
 public class UndoAction extends Action {
+
+	private static final Logger LOGGER = LoggerFactory.getLogger(UndoAction.class);
+
 	private static final String name = "Undo";
+
 	private final MainWindow application;
+
 	private final IOperationHistory history = OperationHistoryFactory.getOperationHistory();
 
 	private final Listener listener = new Listener();
@@ -34,8 +42,9 @@ public class UndoAction extends Action {
 	public void run() {
 		try {
 			history.undo(application.getCurrentOperationContext(), null, null);
-		} catch (ExecutionException e1) {
-			e1.printStackTrace();
+		} catch (ExecutionException e) {
+			LOGGER.error("Exception during Undo", e);
+			MessageDialog.openError(null, "Undo failed", "Undo failed: " + e);
 		}
 	}
 

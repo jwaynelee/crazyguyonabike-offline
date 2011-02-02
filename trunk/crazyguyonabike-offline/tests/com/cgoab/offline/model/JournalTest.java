@@ -1,8 +1,10 @@
 package com.cgoab.offline.model;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Arrays;
 
 import javax.sql.rowset.Joinable;
@@ -18,8 +20,8 @@ public class JournalTest {
 	Journal journal = new Journal(null, "test");
 
 	@Test
-	public void addPage() {
-		final Page page = new Page(journal);
+	public void addPage() throws DuplicatePhotoException {
+		final Page page = new Page();
 		Mockery context = new Mockery();
 		final JournalListener listener = context.mock(JournalListener.class);
 		context.checking(new Expectations() {
@@ -29,7 +31,6 @@ public class JournalTest {
 			}
 		});
 		journal.addJournalListener(listener);
-
 		journal.addPage(page);
 		Assert.assertEquals(page, journal.getPages().get(0));
 		context.assertIsSatisfied();
@@ -81,7 +82,7 @@ public class JournalTest {
 
 	@Test
 	public void removePage_deletesPhotos() throws Exception {
-		Page page = new Page(journal);
+		Page page = new Page();
 		journal.addPage(page);
 		page.addPhotos(Arrays.asList(new Photo(new File("a.jpg"))), -1);
 
@@ -93,5 +94,50 @@ public class JournalTest {
 
 		/* check photos removed */
 		Assert.assertFalse(journal.getPhotoMap().containsKey("a.jpg"));
+	}
+
+	/**
+	 * Simulates delete/undo bug: "Issue 2: Duplicate photos can be created
+	 * after undo"
+	 * 
+	 * @throws Exception
+	 */
+	@Test
+	public void removePage_addPhotos_readdPage() throws Exception {
+		/* create and add page */
+		Page page1 = new Page();
+		File photo = new File("a.jpg");
+		page1.addPhotos(Arrays.asList(new Photo(photo)), 0);
+		journal.addPage(page1, 0);
+
+		assertEquals(1, journal.getPhotoMap().size());
+		assertEquals(1, journal.getPages().size());
+
+		/* remove page */
+		journal.removePage(page1);
+
+		assertEquals(0, journal.getPhotoMap().size());
+		assertEquals(0, journal.getPages().size());
+
+		/* create and add a new page */
+		Page page2 = new Page();
+		page2.addPhotos(Arrays.asList(new Photo(photo)), 0);
+		journal.addPage(page2, 0);
+
+		assertEquals(1, journal.getPhotoMap().size());
+		assertEquals(1, journal.getPages().size());
+
+		/* now undo the "delete page" */
+		Exception ex = null;
+		try {
+			journal.addPage(page1, 0);
+		} catch (DuplicatePhotoException e) {
+			ex = e;
+		}
+		assertNotNull(ex);
+
+		assertEquals(1, journal.getPages().size());
+		assertEquals(1, journal.getPhotoMap().size());
+		assertEquals(page2, journal.getPages().get(0));
 	}
 }
