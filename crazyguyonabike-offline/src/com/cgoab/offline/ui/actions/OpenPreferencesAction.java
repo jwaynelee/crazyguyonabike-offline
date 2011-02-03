@@ -22,8 +22,10 @@ public class OpenPreferencesAction extends Action {
 	public void run() {
 		PreferenceManager mgr = new PreferenceManager();
 		mgr.addToRoot(new PreferenceNode("editor", new EditorPreferencesPage()));
-		mgr.addToRoot(new PreferenceNode("internal", new InternalPreferencePage()));
+		// mgr.addToRoot(new PreferenceNode("internal", new
+		// InternalPreferencePage()));
 		mgr.addToRoot(new PreferenceNode("magick", new MagickPreferencePage()));
+		mgr.addToRoot(new PreferenceNode("updates", new UpdatesPreferencePage()));
 		PreferenceDialog dialog = new PreferenceDialog(null, mgr);
 		dialog.setPreferenceStore(PreferenceUtils.getStore());
 		dialog.create();
@@ -66,6 +68,22 @@ public class OpenPreferencesAction extends Action {
 			addField(magickPath);
 			addField(sizePath);
 			addField(jpegQuality);
+		}
+	}
+
+	public static class UpdatesPreferencePage extends FieldEditorPreferencePage {
+
+		public UpdatesPreferencePage() {
+			super(GRID);
+			setMessage("Updates");
+			setTitle("Updates");
+		}
+
+		@Override
+		protected void createFieldEditors() {
+			BooleanFieldEditor checkForUpdates = new BooleanFieldEditor(PreferenceUtils.CHECK_FOR_UPDATES,
+					"Automatically check for updates?", getFieldEditorParent());
+			addField(checkForUpdates);
 		}
 	}
 

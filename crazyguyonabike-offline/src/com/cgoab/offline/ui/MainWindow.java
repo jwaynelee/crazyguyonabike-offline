@@ -25,7 +25,6 @@ import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Shell;
-import org.omg.CORBA.portable.CustomValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,6 +32,7 @@ import com.cgoab.offline.client.UploadClientFactory;
 import com.cgoab.offline.model.Journal;
 import com.cgoab.offline.ui.actions.AboutAction;
 import com.cgoab.offline.ui.actions.AddPhotosAction;
+import com.cgoab.offline.ui.actions.CheckForNewVersionAction;
 import com.cgoab.offline.ui.actions.CloseJournalAction;
 import com.cgoab.offline.ui.actions.DeletePageAction;
 import com.cgoab.offline.ui.actions.NewJournalAction;
@@ -52,7 +52,6 @@ import com.cgoab.offline.ui.actions.UndoAction;
 import com.cgoab.offline.ui.actions.ViewResizedPhotosAction;
 import com.cgoab.offline.ui.thumbnailviewer.CachingThumbnailProviderFactory;
 import com.cgoab.offline.util.StringUtils;
-import com.cgoab.offline.util.UpdateChecker;
 import com.cgoab.offline.util.Utils;
 import com.cgoab.offline.util.resizer.ImageMagickResizerServiceFactory;
 
@@ -123,8 +122,11 @@ public class MainWindow extends ApplicationWindow {
 
 	private MenuManager aboutMenuMgr;
 
-	public MainWindow() {
+	private String title;
+
+	public MainWindow(String title) {
 		super(null);
+		this.title = title;
 		Display.getCurrent().addListener(SWT.Dispose, new Listener() {
 			@Override
 			public void handleEvent(Event event) {
@@ -167,11 +169,7 @@ public class MainWindow extends ApplicationWindow {
 	@Override
 	protected void configureShell(Shell shell) {
 		super.configureShell(shell);
-		String name = Utils.getImplementationTitleString(getClass());
-		String version = Utils.getImplementationVersion(getClass());
-		name = name == null ? "?" : name;
-		version = version == null ? "?" : version;
-		shell.setText(name + " : " + version);
+		shell.setText(title);
 	}
 
 	private void createActions() {
@@ -217,6 +215,8 @@ public class MainWindow extends ApplicationWindow {
 		editMenuMgr.add(new RedoAction(this));
 
 		aboutMenuMgr.add(new AboutAction(shell));
+		aboutMenuMgr.add(new CheckForNewVersionAction());
+		aboutMenuMgr.add(new Separator());
 		aboutMenuMgr.add(new OpenLogFileAction(shell));
 
 		/* rebuilt menu(s) */
@@ -228,8 +228,6 @@ public class MainWindow extends ApplicationWindow {
 	protected Control createContents(Composite parent) {
 		createControls(parent);
 		createActions();
-
-		UpdateChecker.checkForLatestVersion(getShell().getDisplay());
 
 		/* TODO load on background thread? */
 		String journalToOpen = PreferenceUtils.getStore().getString(PreferenceUtils.LAST_JOURNAL);

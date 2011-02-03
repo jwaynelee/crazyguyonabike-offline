@@ -15,6 +15,9 @@ import java.util.jar.Attributes.Name;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class Utils {
 
 	private static final int COPY_BUFFER_SIZE = 1024 * 4; /* copy 4kb chunks */
