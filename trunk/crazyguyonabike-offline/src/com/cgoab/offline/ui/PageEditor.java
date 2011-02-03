@@ -7,8 +7,6 @@ import java.util.Arrays;
 import java.util.List;
 
 import org.eclipse.core.commands.operations.IUndoContext;
-import org.eclipse.jface.resource.FontRegistry;
-import org.eclipse.jface.resource.JFaceResources;
 import org.eclipse.jface.text.Document;
 import org.eclipse.jface.text.IDocument;
 import org.eclipse.jface.text.ITextListener;
@@ -190,7 +188,7 @@ public class PageEditor {
 		/* unset current page else "setText's" will dirty model */
 		currentPage = null;
 
-		LOG.debug("Binding UI to page [{}]", pageToShow);
+		LOG.debug("Binding UI to {}", pageToShow);
 
 		if (pageToShow == null) {
 			// clear controls and disable...

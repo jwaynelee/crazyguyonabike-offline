@@ -16,6 +16,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.http.impl.client.BasicCookieStore;
@@ -63,6 +64,7 @@ import com.cgoab.offline.util.resizer.ResizerService;
  */
 public class UITest {
 
+	private static final String MAIN_WINDOW_TITLE = "MAIN_WINDOW";
 	private Display display;
 	private MainWindow application;
 	private CachingThumbnailProviderFactory thumbnailFactory;
@@ -91,11 +93,17 @@ public class UITest {
 	public void setupTest() throws Exception {
 		server.getModel().createDefaultModel();
 		PreferenceUtils.init();
+		/*
+		 * turn off (turn on then off as default is off and we don't update if
+		 * we set to off!)
+		 */
+		PreferenceUtils.getStore().setValue(PreferenceUtils.CHECK_FOR_UPDATES, true);
+		PreferenceUtils.getStore().setValue(PreferenceUtils.CHECK_FOR_UPDATES, false);
 		final CountDownLatch latch = new CountDownLatch(1);
 		uiThread = new Thread(new Runnable() {
 			public void run() {
 				display = new Display();
-				application = new MainWindow();
+				application = new MainWindow(MAIN_WINDOW_TITLE);
 				thumbnailFactory = new CachingThumbnailProviderFactory(display, ThumbnailViewer.RESIZE_STRATEGY,
 						".thumbnails");
 				resizerFactory = new ImageMagickResizerServiceFactory(display, ".images");
@@ -143,6 +151,37 @@ public class UITest {
 			}
 			uiThread.join();
 		}
+	}
+
+	/* Test for BUG */
+	@Test
+	public void loadNewJournalWithMissingPhoto() throws Exception {
+		final Journal journal = new Journal(getTestJournalFilePath(), "Test");
+		Page page = journal.createNewPage();
+		page.addPhotos(Arrays.asList(new Photo(new File("bogus.jpg"))), 0);
+
+		/* inject journal in UI */
+		display.asyncExec(new Runnable() {
+			@Override
+			public void run() {
+				JournalSelectionService.getInstance().setJournal(journal);
+			}
+		});
+
+		/* when journal is loaded, UI should pop up with "File missing" */
+		final SWTBot bot = new SWTBot(application.getShell());
+		bot.waitUntil(Conditions.shellIsActive("Failed to load image"));
+		bot.activeShell().bot().button("No").click(); /* discard */
+
+		/* thumbnail view should be empty */
+		final AtomicInteger sizeHolder = new AtomicInteger();
+		display.syncExec(new Runnable() {
+			@Override
+			public void run() {
+				sizeHolder.set(application.thumbnailView.getViewer().getThumbnails().size());
+			}
+		});
+		assertEquals(0, sizeHolder.get());
 	}
 
 	/**

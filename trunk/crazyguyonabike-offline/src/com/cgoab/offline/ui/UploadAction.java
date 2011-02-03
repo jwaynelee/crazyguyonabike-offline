@@ -22,7 +22,7 @@ import com.cgoab.offline.ui.UploadDialog.UploadResult;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailProvider;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailViewer;
 import com.cgoab.offline.util.Assert;
-import com.cgoab.offline.util.UpdateChecker;
+import com.cgoab.offline.util.LatestVersionChecker;
 import com.cgoab.offline.util.resizer.ResizerService;
 
 /**
@@ -60,8 +60,8 @@ public class UploadAction extends Action {
 			}
 		}
 
-		/* check for a newer version (if we just uploaded then we are online) */
-		UpdateChecker.checkForLatestVersion(shell.getDisplay());
+		/* check now, should be online */
+		LatestVersionChecker.autoCheckForNewerVersion(shell.getDisplay());
 	}
 
 	private UploadClient createClient(Journal journal) {

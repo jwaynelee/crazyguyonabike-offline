@@ -32,6 +32,8 @@ public class PreferenceUtils {
 
 	public static final String FONT = PREFIX + "FONT";
 
+	public static final String CHECK_FOR_UPDATES = PREFIX + "CHECK_FOR_UPDATES";
+
 	public static final IPreferenceStore getStore() {
 		Assert.notNull(preferenceStore);
 		return preferenceStore;

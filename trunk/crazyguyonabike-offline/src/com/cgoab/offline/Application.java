@@ -26,6 +26,8 @@ import com.cgoab.offline.ui.thumbnailviewer.CachingThumbnailProviderFactory;
 import com.cgoab.offline.ui.thumbnailviewer.ResizeStrategy;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailViewer;
 import com.cgoab.offline.ui.util.UIExecutor;
+import com.cgoab.offline.util.LatestVersionChecker;
+import com.cgoab.offline.util.Utils;
 import com.cgoab.offline.util.resizer.ImageMagickResizerServiceFactory;
 
 /**
@@ -146,7 +148,15 @@ public class Application implements Runnable {
 	public void run() {
 		initLogging();
 		try {
-			MainWindow app = new MainWindow();
+			/* check for a new version first */
+			LatestVersionChecker.autoCheckForNewerVersion(display);
+
+			String name = Utils.getImplementationTitleString(Application.class);
+			String version = Utils.getImplementationVersion(Application.class);
+			name = name == null ? "?" : name;
+			version = version == null ? "?" : version;
+			MainWindow app = new MainWindow(name + ":" + version);
+			
 			app.setThumbnailProviderFactory(thumbnailFactory);
 			app.setResizerServiceFactory(resizerFactory);
 			app.setUploadFactory(uploadFactory);

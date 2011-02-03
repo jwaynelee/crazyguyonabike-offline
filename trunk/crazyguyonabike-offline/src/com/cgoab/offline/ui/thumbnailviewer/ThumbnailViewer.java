@@ -811,7 +811,7 @@ public class ThumbnailViewer extends Canvas {
 	 * @return
 	 */
 	private boolean onInvalidImage(Object image, Throwable exception) {
-		for (ThumbnailViewerEventListener l : eventListeners) {
+		for (ThumbnailViewerEventListener l : new ArrayList<ThumbnailViewerEventListener>(eventListeners)) {
 			if (!l.itemFailedToLoad(image, exception)) {
 				return false;
 			}
@@ -950,9 +950,15 @@ public class ThumbnailViewer extends Canvas {
 				thumbnails.add(th);
 				x += th.getWidth() + PADDING_INSIDE;
 				Future<Thumbnail> future = thumbnailProvider.get(th.getFile(), completionListener, th);
-				th.setFuture(future);
-				if (oldSelection.contains(o)) {
-					newSelection.add(th);
+
+				// HACK: get() might call listener inline, so holder could be
+				// disposed if the file failed to load. TODO cleanup (run
+				// everyting all UI executor?)
+				if (!th.isDisposed()) {
+					th.setFuture(future);
+					if (oldSelection.contains(o)) {
+						newSelection.add(th);
+					}
 				}
 			}
 		}

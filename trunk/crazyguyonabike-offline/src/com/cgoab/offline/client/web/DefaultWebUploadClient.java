@@ -52,6 +52,7 @@ import org.apache.http.impl.client.DefaultHttpRequestRetryHandler;
 import org.apache.http.impl.cookie.BrowserCompatSpec;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.params.HttpParams;
+import org.apache.http.params.HttpProtocolParams;
 import org.apache.http.protocol.BasicHttpContext;
 import org.apache.http.protocol.HttpContext;
 import org.apache.http.util.EntityUtils;
@@ -74,6 +75,7 @@ import com.cgoab.offline.util.Assert;
 import com.cgoab.offline.util.FormFinder;
 import com.cgoab.offline.util.FormFinder.HtmlForm;
 import com.cgoab.offline.util.StringUtils;
+import com.cgoab.offline.util.Utils;
 
 /**
  * {@link UploadClient} that uses the traditional web (HTML over HTTP) interface
@@ -279,6 +281,12 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 		this.client = new DefaultHttpClient();
 		client.setHttpRequestRetryHandler(new UnlimitedExponentialBackoffRetry());
 		client.getParams().setBooleanParameter("http.protocol.handle-redirects", Boolean.FALSE);
+
+		/* identify ourselves to CGOAB using ${name}/${version} */
+		String version = Utils.getSpecificationVersion(DefaultWebUploadClient.class);
+		String name = Utils.getImplementationTitleString(DefaultWebUploadClient.class);
+		HttpProtocolParams.setUserAgent(client.getParams(), name + "/" + version);
+
 		this.context = new BasicHttpContext();
 		/**
 		 * Add a custom cookie handler for "-1" expiry

@@ -450,7 +450,14 @@ public class Page {
 
 	@Override
 	public String toString() {
-		return String.format("Page [%s : %s] - %s", title, headline, uploadState);
+		StringBuilder b = new StringBuilder("Page ");
+		b.append("[").append(title);
+		if (headline != null) {
+			b.append(" : ").append(headline);
+		}
+		b.append("]");
+		b.append(" - ").append(uploadState);
+		return b.toString();
 	}
 
 	public static enum EditFormat {
