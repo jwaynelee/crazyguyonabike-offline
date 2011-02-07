@@ -99,6 +99,7 @@ public class PhotosContentProvider implements ThumbnailViewerContentProvider, Th
 			/* keep */
 			return true;
 		} else {
+			/* remove */
 			try {
 				currentPage.removePhotos(Arrays.asList(photo));
 				currentPage.getJournal().setDirty(true);

@@ -53,11 +53,11 @@ public class DeletePageAction extends Action {
 			return;
 		}
 
-		StringBuilder msg = new StringBuilder("Are you sure you want to delete the following page(s):\n");
+		StringBuilder msg = new StringBuilder("Are you sure you want to delete the following page(s):\n\n");
 		for (Page p : pagesToDelete) {
-			msg.append("   '").append(p.getTitle()).append(":").append(p.getHeadline()).append("'\n");
+			msg.append("   '").append(p.toShortString()).append("'\n");
 		}
-		if (!MessageDialog.openConfirm(shell, "Confirm delete", msg.toString())) {
+		if (!MessageDialog.openQuestion(shell, "Confirm delete", msg.toString())) {
 			return;
 		}
 		DeleteOperation operation = new DeleteOperation(pagesToDelete, JournalSelectionService.getInstance()

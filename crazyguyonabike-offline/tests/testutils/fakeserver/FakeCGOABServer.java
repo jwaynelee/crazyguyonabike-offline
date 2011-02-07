@@ -68,6 +68,7 @@ public class FakeCGOABServer {
 	public static void main(String[] args) throws Exception {
 		// runs CGOAB server with a UI
 		FakeCGOABServer server = new FakeCGOABServer(9000);
+		server.getModel().createDefaultModel();
 		FakeServerUI ui = new FakeServerUI();
 		ui.open(server);
 		server.shutdown();

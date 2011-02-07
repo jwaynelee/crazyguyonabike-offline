@@ -54,7 +54,6 @@ import org.eclipse.swt.widgets.MenuItem;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailProvider.Thumbnail;
 import com.cgoab.offline.ui.util.SWTUtils;
 import com.cgoab.offline.util.FutureCompletionListener;
-import com.drew.metadata.Metadata;
 
 public class ThumbnailViewer extends Canvas {
 
@@ -413,27 +412,28 @@ public class ThumbnailViewer extends Canvas {
 		return contentProvider;
 	}
 
-	/**
-	 * Exposes photo meta data which may or may not have been loaded
-	 * 
-	 * @param photo
-	 * @return
-	 */
-	public Metadata getMetaData(Object photo) {
-		for (ThumbnailHolder h : thumbnails) {
-			if (h.getData() == photo) {
-				try {
-					Future<Thumbnail> future = h.getFuture();
-					return future != null && future.isDone() ? h.getFuture().get().meta : null;
-				} catch (InterruptedException e) {
-					/* ignore */
-				} catch (ExecutionException e) {
-					/* ignore */
-				}
-			}
-		}
-		return null;
-	}
+	// /**
+	// * Exposes photo meta data which may or may not have been loaded
+	// *
+	// * @param photo
+	// * @return
+	// */
+	// public Metadata getMetaData(Object photo) {
+	// for (ThumbnailHolder h : thumbnails) {
+	// if (h.getData() == photo) {
+	// try {
+	// Future<Thumbnail> future = h.getFuture();
+	// return future != null && future.isDone() ? h.getFuture().get().meta :
+	// null;
+	// } catch (InterruptedException e) {
+	// /* ignore */
+	// } catch (ExecutionException e) {
+	// /* ignore */
+	// }
+	// }
+	// }
+	// return null;
+	// }
 
 	private Image getMissingImage() {
 		if (invalidImage == null) {
@@ -739,9 +739,11 @@ public class ThumbnailViewer extends Canvas {
 			holder.setImage(image);
 		} else if (exception != null) {
 			if (onInvalidImage(holder.getData(), exception)) {
+				/* keep */
 				holder.setFailedToLoad(true);
 			} else {
-				remove(new Object[] { holder.getData() });
+				/* remove */
+				// remove(new Object[] { holder.getData() });
 				return;
 			}
 		}
@@ -949,6 +951,13 @@ public class ThumbnailViewer extends Canvas {
 				th.setX(x);
 				thumbnails.add(th);
 				x += th.getWidth() + PADDING_INSIDE;
+				if (oldSelection.contains(o)) {
+					newSelection.add(th);
+				}
+			}
+
+			// now load once the thumb structure is created
+			for (ThumbnailHolder th : new ArrayList<ThumbnailHolder>(thumbnails)) {
 				Future<Thumbnail> future = thumbnailProvider.get(th.getFile(), completionListener, th);
 
 				// HACK: get() might call listener inline, so holder could be
@@ -956,9 +965,8 @@ public class ThumbnailViewer extends Canvas {
 				// everyting all UI executor?)
 				if (!th.isDisposed()) {
 					th.setFuture(future);
-					if (oldSelection.contains(o)) {
-						newSelection.add(th);
-					}
+				} else {
+					newSelection.remove(th);
 				}
 			}
 		}

@@ -50,16 +50,16 @@ public class JournalSelectionService {
 		public void selectionChanged(SelectionChangedEvent event) {
 			IStructuredSelection s = (IStructuredSelection) event.getSelection();
 
-			Object old = currentSelection;
+			Object oldSelection = currentSelection;
 
 			if (s.size() == 1) {
 				currentSelection = s.getFirstElement();
 			} else {
-				currentSelection = null;
+				currentSelection = s.toArray();
 			}
 
 			for (JournalSelectionListener l : new ArrayList<JournalSelectionListener>(listeners)) {
-				l.selectionChanged(currentSelection, old);
+				l.selectionChanged(currentSelection, oldSelection);
 			}
 		}
 	};
@@ -75,12 +75,32 @@ public class JournalSelectionService {
 		return input == null ? null : input.getJournal();
 	}
 
+	/**
+	 * Convenience to retun the currently selected journal (returns null if
+	 * pages are selected).
+	 * 
+	 * @return
+	 */
 	public Journal getSelectedJournal() {
 		return currentSelection instanceof Journal ? (Journal) currentSelection : null;
 	}
 
+	/**
+	 * Convenience to retun the currently selected single page (returns null if
+	 * journal or multiple pages are selected).
+	 * 
+	 * @return
+	 */
 	public Page getSelectedPage() {
 		return currentSelection instanceof Page ? (Page) currentSelection : null;
+	}
+
+	/**
+	 * Returns the raw current selection, maybe a {@link Journal}, {@link Page} or array of Pages.
+	 * @return
+	 */
+	public Object getSelection() {
+		return currentSelection;
 	}
 
 	public void register(TreeViewer viewer) {

@@ -27,11 +27,13 @@ import org.eclipse.swt.widgets.Display;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.cgoab.offline.model.Journal;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailProvider.Thumbnail;
 import com.cgoab.offline.ui.util.SWTUtils;
 import com.cgoab.offline.util.CompletedFuture;
 import com.cgoab.offline.util.FutureCompletionListener;
 import com.cgoab.offline.util.JobListener;
+import com.cgoab.offline.util.LRUCache;
 import com.cgoab.offline.util.ListenableCancellableTask;
 import com.cgoab.offline.util.OS;
 import com.drew.imaging.jpeg.JpegMetadataReader;
@@ -53,6 +55,19 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 
 	private final ThumbnailCache cache;
 
+	private static class CacheEntry {
+		final Metadata metadata;
+		final long timestamp;
+
+		public CacheEntry(Metadata meta, long timestamp) {
+			this.metadata = meta;
+			this.timestamp = timestamp;
+		}
+	}
+
+	/* TODO prune the items stored in the cache */
+	private final LRUCache<File, CacheEntry> metaCache = new LRUCache<File, CacheEntry>(100, null);
+
 	private final File cacheDirectory;
 
 	private final Display display;
@@ -66,6 +81,10 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 	private final Map<File, Future<Thumbnail>> tasks = new HashMap<File, Future<Thumbnail>>();
 
 	private boolean useExifThumbnail = true;
+
+	public static final CachingThumbnailProvider getProvider(Journal journal) {
+		return (CachingThumbnailProvider) journal.getData(KEY);
+	}
 
 	public CachingThumbnailProvider(ExecutorService executor, File cacheDirectory, Display display,
 			ResizeStrategy resizer) {
@@ -111,6 +130,35 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 		}
 	}
 
+	/**
+	 * Returns the meta data associated with the file in the cache or loads it
+	 * from file.
+	 * 
+	 * @param file
+	 * @return the photo metadata or <tt>null</tt> if the file no longer exits
+	 *         or the metadata cannot be loaded.
+	 */
+	public Metadata getOrLoadMetaData(File file) {
+		SWTUtils.assertOnUIThread();
+		if (!file.exists()) {
+			return null;
+		}
+		CacheEntry entry = metaCache.get(file);
+		if (entry != null) {
+			if (entry.timestamp == file.lastModified()) {
+				return entry.metadata;
+			} else {
+				metaCache.remove(file);
+			}
+		}
+		Metadata metadata = loadMeta(file);
+		if (metadata != null) {
+			metaCache.put(file, new CacheEntry(metadata, file.lastModified()));
+			return metadata;
+		}
+		return null;
+	}
+
 	@Override
 	public Future<Thumbnail> get(File source, FutureCompletionListener<Thumbnail> listener, Object data) {
 		SWTUtils.assertOnUIThread();
@@ -145,7 +193,8 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 
 		// 2) create a job to check file cache or create the thumbnail
 		File destination = getNameInCache(source);
-		GetThumbnailTask task = new GetThumbnailTask(source, destination, resizer, SWT.HIGH, display, this,
+		Metadata meta = getOrLoadMetaData(source);
+		GetThumbnailTask task = new GetThumbnailTask(source, destination, meta, resizer, SWT.HIGH, display, this,
 				new CallbackHolder(source, listener, data));
 		Future<Thumbnail> future = executor.submit(task);
 		tasks.put(source, future);
@@ -252,6 +301,15 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 		cache.clear();// AllFrom(source);
 	}
 
+	private Metadata loadMeta(File source) {
+		try {
+			return JpegMetadataReader.readMetadata(source);
+		} catch (JpegProcessingException e) {
+			LOG.warn("Failed to load meta-data for [" + source.getName() + "]", e);
+		}
+		return null;
+	}
+
 	// private void put(Object name, ImageData data) {
 	// ImageLoader saver = new ImageLoader();
 	// saver.data = new ImageData[] { data };
@@ -272,18 +330,20 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 	}
 
 	private class GetThumbnailTask extends ListenableCancellableTask<Thumbnail> {
-		private File destination;
-		private Display display;
-		private int interpolationLevel = SWT.HIGH;
-		private ResizeStrategy resizer;
-		private File source;
+		private final File destination;
+		private final Display display;
+		private int interpolationLevel;
+		private final ResizeStrategy resizer;
+		private final File source;
 		private long timeTaken;
+		private final Metadata meta;
 
-		public GetThumbnailTask(File source, File destination, ResizeStrategy resizer, int interpolationLevel,
-				Display display, FutureCompletionListener<Thumbnail> listener, Object data) {
+		public GetThumbnailTask(File source, File destination, Metadata meta, ResizeStrategy resizer,
+				int interpolationLevel, Display display, FutureCompletionListener<Thumbnail> listener, Object data) {
 			super(listener, data);
 			this.destination = destination;
 			this.source = source;
+			this.meta = meta;
 			this.resizer = resizer;
 			this.interpolationLevel = interpolationLevel;
 			this.display = display;
@@ -373,8 +433,6 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 		}
 
 		public Thumbnail doCall() {
-			Metadata meta = loadMeta();
-
 			// 1) check for embedded thumbnail
 			if (useExifThumbnail && meta != null) {
 				ImageData exifThumb = getThumbFromMeta(meta);
@@ -396,7 +454,7 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 					// TODO cache meta in cache directory?
 					// TODO check dimensions of file are suitable
 					ImageData data = new ImageData(destination.getAbsolutePath());
-					return new Thumbnail(loadMeta(), data);
+					return new Thumbnail(meta, data);
 				} catch (SWTException e) {
 					// failed to load, continue to (re)create the thumbnail
 					LOG.info("Failed to load thumbnail [" + destination.getName() + "]", e);
@@ -434,15 +492,6 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 				LOG.warn("Failed to create image from EXIF thumbnail from '" + source.getName() + "'", e);
 			} catch (MetadataException e) {
 				LOG.warn("Failed to extract EXIF thumbnail from '" + source.getName() + "'", e);
-			}
-			return null;
-		}
-
-		private Metadata loadMeta() {
-			try {
-				return JpegMetadataReader.readMetadata(source);
-			} catch (JpegProcessingException e) {
-				LOG.warn("Failed to load meta-data for [" + source.getName() + "]", e);
 			}
 			return null;
 		}

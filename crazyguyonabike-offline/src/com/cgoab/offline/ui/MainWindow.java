@@ -9,7 +9,6 @@ import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.jface.action.Action;
 import org.eclipse.jface.action.IAction;
-import org.eclipse.jface.action.IContributionManager;
 import org.eclipse.jface.action.MenuManager;
 import org.eclipse.jface.action.Separator;
 import org.eclipse.jface.action.StatusLineManager;
@@ -52,7 +51,6 @@ import com.cgoab.offline.ui.actions.UndoAction;
 import com.cgoab.offline.ui.actions.ViewResizedPhotosAction;
 import com.cgoab.offline.ui.thumbnailviewer.CachingThumbnailProviderFactory;
 import com.cgoab.offline.util.StringUtils;
-import com.cgoab.offline.util.Utils;
 import com.cgoab.offline.util.resizer.ImageMagickResizerServiceFactory;
 
 public class MainWindow extends ApplicationWindow {
@@ -219,9 +217,9 @@ public class MainWindow extends ApplicationWindow {
 		aboutMenuMgr.add(new Separator());
 		aboutMenuMgr.add(new OpenLogFileAction(shell));
 
-		/* rebuilt menu(s) */
-		IContributionManager root = fileMenuMgr.getParent();
-		root.update(true);
+		/* rebuilt menu(s), causes action key bindings to be installed */
+		MenuManager root = (MenuManager) fileMenuMgr.getParent();
+		root.updateAll(true);
 	}
 
 	@Override
