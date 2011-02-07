@@ -448,6 +448,10 @@ public class Page {
 		this.visible = visible;
 	}
 
+	public String toShortString() {
+		return title + (headline == null ? "" : (" : " + headline));
+	}
+
 	@Override
 	public String toString() {
 		StringBuilder b = new StringBuilder("Page ");

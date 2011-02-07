@@ -73,6 +73,7 @@ import com.cgoab.offline.util.resizer.ImageMagickResizerServiceFactory;
 import com.cgoab.offline.util.resizer.ResizerService;
 import com.drew.metadata.Metadata;
 import com.drew.metadata.exif.ExifDirectory;
+import com.drew.metadata.iptc.IptcDirectory;
 import com.drew.metadata.jpeg.JpegDirectory;
 
 public class ThumbnailView {
@@ -171,8 +172,7 @@ public class ThumbnailView {
 				public void propertyChange(PropertyChangeEvent evt) {
 					if (Journal.USE_EXIF_THUMBNAIL.equals(evt.getPropertyName())) {
 						Journal journal = (Journal) evt.getSource();
-						CachingThumbnailProvider provider = ((CachingThumbnailProvider) journal
-								.getData(ThumbnailProvider.KEY));
+						CachingThumbnailProvider provider = CachingThumbnailProvider.getProvider(journal);
 						provider.setUseExifThumbnail((Boolean) evt.getNewValue());
 						thumbViewer.refresh();
 					} else if (Journal.HIDE_UPLOADED_CONTENT.equals(evt.getPropertyName())) {
@@ -187,7 +187,7 @@ public class ThumbnailView {
 				undoCache.clear();
 
 				journal.removeListener(addPhotosListener);
-				CachingThumbnailProvider provider = (CachingThumbnailProvider) journal.getData(ThumbnailProvider.KEY);
+				CachingThumbnailProvider provider = CachingThumbnailProvider.getProvider(journal);
 				provider.removeJobListener(statusUpdater.thumnailListener);
 				provider.close();
 
@@ -243,9 +243,20 @@ public class ThumbnailView {
 	 */
 	public void addPhotosRetryIfDuplicates(File[] files, int insertionPoint) {
 		List<Photo> photos = new ArrayList<Photo>(files.length);
+		CachingThumbnailProvider provider = CachingThumbnailProvider.getProvider(currentPage.getJournal());
 		for (File f : files) {
 			if (isValidImage(f.getName())) {
-				photos.add(new Photo(f));
+				Photo photo = new Photo(f);
+				/* extract embedded caption */
+				Metadata meta = provider.getOrLoadMetaData(f);
+				if (meta != null && meta.containsDirectory(IptcDirectory.class)) {
+					IptcDirectory dir = (IptcDirectory) meta.getDirectory(IptcDirectory.class);
+					if (dir.containsTag(IptcDirectory.TAG_CAPTION)) {
+						// TODO prompt if this should be done?
+						photo.setCaption(dir.getString(IptcDirectory.TAG_CAPTION));
+					}
+				}
+				photos.add(photo);
 			} else {
 				/* ignore */
 			}
@@ -697,7 +708,9 @@ public class ThumbnailView {
 					if (selected.length == 1) {
 						Photo photo = (Photo) selected[0];
 						b.append(": ").append(photo.getFile().getAbsolutePath());
-						Metadata meta = thumbViewer.getMetaData(photo);
+						Journal journal = currentPage.getJournal();
+						CachingThumbnailProvider provider = CachingThumbnailProvider.getProvider(journal);
+						Metadata meta = provider.getOrLoadMetaData(photo.getFile());
 						if (meta != null) {
 							b.append(" : ").append(getDimensions(meta));
 						}

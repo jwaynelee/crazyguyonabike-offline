@@ -197,20 +197,15 @@ public class JournalViewer {
 			@Override
 			public void menuAboutToShow(IMenuManager manager) {
 				IStructuredSelection currentSelection = ((IStructuredSelection) treeViewer.getSelection());
-				boolean selectedPage = false, selectedJournal = false, selectedMultiple = false;
-				if (currentSelection.size() > 0) {
-					selectedPage = currentSelection.getFirstElement() instanceof Page;
-					selectedJournal = currentSelection.getFirstElement() instanceof Journal;
-					selectedMultiple = currentSelection.size() > 1;
-				}
+				boolean hasSelection = currentSelection.size() > 0;
 
 				manager.add(window.newJournalAction);
 
-				if (selectedPage || selectedJournal) {
+				if (hasSelection) {
 					manager.add(window.newPageAction);
 				}
 				manager.add(window.openJournalAction);
-				if (selectedPage || selectedJournal) {
+				if (hasSelection) {
 					manager.add(new Separator());
 					manager.add(window.closeJournalAction);
 					manager.add(new Separator());
@@ -218,16 +213,10 @@ public class JournalViewer {
 					manager.add(new Separator());
 					manager.add(window.uploadAction);
 					manager.add(new Separator());
-
-					if (selectedPage) {
-						manager.add(window.deletePageAction);
-						if (!selectedMultiple) {
-							manager.add(window.addPhotosAction);
-							manager.add(window.openPageInBrowserAction);
-						}
-						manager.add(new Separator());
-					}
-
+					manager.add(window.deletePageAction);
+					manager.add(window.addPhotosAction);
+					manager.add(window.openPageInBrowserAction);
+					manager.add(new Separator());
 					manager.add(window.toggleHideUploadedContent);
 					manager.add(new Separator());
 					manager.add(window.toggleResizePhotos);

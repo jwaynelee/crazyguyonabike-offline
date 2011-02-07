@@ -18,8 +18,9 @@ import com.cgoab.offline.client.mock.MockClient;
 import com.cgoab.offline.model.Journal;
 import com.cgoab.offline.model.Page;
 import com.cgoab.offline.model.Photo;
+import com.cgoab.offline.model.UploadState;
 import com.cgoab.offline.ui.UploadDialog.UploadResult;
-import com.cgoab.offline.ui.thumbnailviewer.ThumbnailProvider;
+import com.cgoab.offline.ui.thumbnailviewer.CachingThumbnailProvider;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailViewer;
 import com.cgoab.offline.util.Assert;
 import com.cgoab.offline.util.LatestVersionChecker;
@@ -40,6 +41,81 @@ public class UploadAction extends Action {
 		this.shell = shell;
 		this.thumbnails = thumbnails;
 		this.tree = tree;
+
+		/* track selection & update text/enabled as appropriate */
+		JournalSelectionService.getInstance().addListener(new JournalSelectionAdapter() {
+			@Override
+			public void selectionChanged(Object newSelection, Object oldSelection) {
+				if (newSelection instanceof Journal) {
+					setText("Upload Journal");
+					setEnabled(true);
+				} else if (newSelection instanceof Page) {
+					setText("Upload page");
+					Page page = (Page) newSelection;
+					boolean pageNotUploaded = page.getState() != UploadState.UPLOADED;
+					setEnabled(pageNotUploaded && isPreviousPageUploaded(page));
+				} else if (isNonEmptyPageArray(newSelection)) {
+					setText("Upload pages");
+					Object[] pages = (Object[]) newSelection;
+					Page firstPage = (Page) pages[0];
+					boolean firstIsNotUploaded = firstPage.getState() != UploadState.UPLOADED;
+					setEnabled(firstIsNotUploaded && isPreviousPageUploaded(firstPage) && isContiguous(pages));
+				} else {
+					setEnabled(false);
+				}
+			}
+		});
+	}
+
+	/**
+	 * Returns true if the selection is a non-empty array containing only
+	 * {@link Page} objects.
+	 * 
+	 * @param selection
+	 * @return
+	 */
+	static boolean isNonEmptyPageArray(Object selection) {
+		if (selection == null || !(selection instanceof Object[])) {
+			return false;
+		}
+		Object[] items = (Object[]) selection;
+		if (items.length == 0) {
+			return false;
+		}
+		for (Object o : items) {
+			if (!(o instanceof Page)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	static boolean isPreviousPageUploaded(Page page) {
+		Assert.notNull(page);
+		List<Page> pages = page.getJournal().getPages();
+		int id = pages.indexOf(page);
+		Assert.isTrue(id > -1);
+		return id == 0 ? true : pages.get(id - 1).getState() == UploadState.UPLOADED;
+	}
+
+	/**
+	 * Returns <tt>true</tt> if the array of pages are contiguous.
+	 * 
+	 * @param pages
+	 * @return
+	 */
+	static boolean isContiguous(Object[] pages) {
+		Assert.isTrue(pages != null && pages.length > 0);
+		Journal journal = ((Page) pages[0]).getJournal();
+		List<Page> allPages = journal.getPages();
+		int idOfFirst = allPages.indexOf(pages[0]);
+		Assert.isTrue(idOfFirst != -1);
+		for (int i = idOfFirst, j = 0; j < pages.length; ++i, ++j) {
+			if (allPages.get(i) != pages[j]) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	public void afterUpload(Page errorPage, Photo errorPhoto) {
@@ -72,37 +148,54 @@ public class UploadAction extends Action {
 		}
 	}
 
+	private static class FailureResult {
+		boolean foundPartialUpload;
+		boolean foundError;
+	}
+
+	private static void add(Page page, List<Page> pages, FailureResult result) {
+		if (page.getState() == UploadState.UPLOADED) {
+			return;
+		} else if (page.getState() == UploadState.ERROR) {
+			result.foundError = true;
+		} else if (page.getState() == UploadState.PARTIALLY_UPLOAD) {
+			result.foundPartialUpload = true;
+		}
+		pages.add(page);
+	}
+
 	@Override
 	public void run() {
 		Journal journal = JournalSelectionService.getInstance().getCurrentJournal();
 		JournalUtils.saveJournal(journal, false, shell);
 
+		Object selection = JournalSelectionService.getInstance().getSelection();
+		if (selection == null) {
+			return; /* error */
+		}
+
 		/* 1) filter pages to upload, prompt if failed upload found */
 		List<Page> newPages = new ArrayList<Page>();
-		boolean foundErrorPage = false;
-		boolean foundPartialPage = false;
-		for (Page page : journal.getPages()) {
-			switch (page.getState()) {
-			case UPLOADED:
-				continue;
-			case ERROR:
-				foundErrorPage = true;
-				break;
-			case PARTIALLY_UPLOAD:
-				foundPartialPage = true;
-				break;
-			case NEW:
+		FailureResult result = new FailureResult();
+		if (selection instanceof Journal) {
+			for (Page page : ((Journal) selection).getPages()) {
+				add(page, newPages, result);
 			}
-			newPages.add(page);
+		} else if (selection instanceof Page) {
+			add((Page) selection, newPages, result);
+		} else if (selection instanceof Object[]) {
+			for (Object o : (Object[]) selection) {
+				add((Page) o, newPages, result);
+			}
 		}
 
 		if (newPages.size() == 0) {
 			return;
 		}
 
-		if (foundErrorPage || foundPartialPage) {
+		if (result.foundError || result.foundPartialUpload) {
 			String msg;
-			if (foundErrorPage) {
+			if (result.foundError) {
 				msg = "You are attempting to upload a page that previously failed to upload, do you want to continue?";
 			} else {
 				msg = "You are attempting to upload a page with photo(s) that previously failed to upload, do you want to continue?";
@@ -180,23 +273,23 @@ public class UploadAction extends Action {
 		}
 
 		UploadDialog dialog = new UploadDialog(shell);
-		dialog.setThumbnailProvider((ThumbnailProvider) journal.getData(ThumbnailProvider.KEY));
+		dialog.setThumbnailProvider(CachingThumbnailProvider.getProvider(journal));
 		dialog.setPages(newPages);
 		dialog.setJournal(journal);
 
 		UploadClient client = null;
-		UploadResult result;
+		UploadResult uploadResult;
 		try {
 			client = createClient(journal);
 			dialog.setUploadClient(client);
-			result = dialog.open();
+			uploadResult = dialog.open();
 		} finally {
 			if (client != null) {
 				client.dispose();
 			}
 		}
 
-		if (result == null) {
+		if (uploadResult == null) {
 			return; // nothing uploaded
 		}
 
@@ -207,10 +300,10 @@ public class UploadAction extends Action {
 		JournalUtils.saveJournal(journal, false, shell);
 
 		// notify editor: uploaded pages are removed & error labels applied
-		if (result.isComplete()) {
+		if (uploadResult.isComplete()) {
 			afterUpload(null, null);
 		} else {
-			afterUpload(result.getLastPage(), result.getLastPhoto());
+			afterUpload(uploadResult.getLastPage(), uploadResult.getLastPhoto());
 		}
 	}
 

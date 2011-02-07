@@ -7,7 +7,6 @@ import com.cgoab.offline.model.Journal;
 import com.cgoab.offline.ui.JournalSelectionService;
 import com.cgoab.offline.ui.JournalSelectionService.JournalSelectionListener;
 import com.cgoab.offline.ui.thumbnailviewer.CachingThumbnailProvider;
-import com.cgoab.offline.ui.thumbnailviewer.ThumbnailProvider;
 import com.cgoab.offline.util.Utils;
 
 public class PurgeThumbnailCacheAction extends ActionWithCurrentJournal {
@@ -36,7 +35,7 @@ public class PurgeThumbnailCacheAction extends ActionWithCurrentJournal {
 
 	@Override
 	public void run(Journal journal) {
-		CachingThumbnailProvider provider = (CachingThumbnailProvider) journal.getData(ThumbnailProvider.KEY);
+		CachingThumbnailProvider provider = CachingThumbnailProvider.getProvider(journal);
 		if (provider == null) {
 			return;
 		}

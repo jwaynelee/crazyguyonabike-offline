@@ -4,7 +4,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class LRUCache<K, V> extends LinkedHashMap<K, V> {
-
 	private static final long serialVersionUID = 1L;
 	private int capacity;
 	private CacheListener<K, V> expiryListener;
@@ -18,7 +17,9 @@ public class LRUCache<K, V> extends LinkedHashMap<K, V> {
 	@Override
 	protected boolean removeEldestEntry(Map.Entry<K, V> eldest) {
 		if (size() > capacity) {
-			expiryListener.entryRemoved(eldest);
+			if (expiryListener != null) {
+				expiryListener.entryRemoved(eldest);
+			}
 			return true;
 		}
 		return false;
