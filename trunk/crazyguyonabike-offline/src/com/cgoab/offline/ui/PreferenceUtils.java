@@ -9,6 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.cgoab.offline.util.Assert;
+import com.cgoab.offline.util.Utils;
 
 public class PreferenceUtils {
 
@@ -48,16 +49,18 @@ public class PreferenceUtils {
 		preferenceStore = new PreferenceStore();
 	}
 
-	public static final void init(String path) {
+	public static final void init(String preferencesPath) {
 		Assert.isNull(preferenceStore);
-		Assert.notNull(path);
-		File f = new File(path);
-		if (!f.exists()) {
-			/* create parent folder */
-			f.getParentFile().mkdirs();
+		Assert.notNull(preferencesPath);
+		File preferencesFile = new File(preferencesPath);
+		/* create if needed */
+		try {
+			Utils.createFile(preferencesFile);
+		} catch (IOException e) {
+			LOG.warn("Failed to create preferences file: {}", e.getMessage());
 		}
-		preferenceStore = new PreferenceStore(path);
-		open();
+		preferenceStore = new PreferenceStore(preferencesPath);
+		load();
 	}
 
 	public static final void save() {
@@ -65,16 +68,16 @@ public class PreferenceUtils {
 		try {
 			preferenceStore.save();
 		} catch (IOException e) {
-			LOG.error("Failed to open preferences");
+			LOG.warn("Failed to save preferences");
 		}
 	}
 
-	public static final void open() {
+	public static final void load() {
 		Assert.notNull(preferenceStore);
 		try {
 			preferenceStore.load();
 		} catch (IOException e) {
-			LOG.error("Failed to open preferences", e);
+			LOG.warn("Failed to load preferences", e);
 		}
 	}
 }

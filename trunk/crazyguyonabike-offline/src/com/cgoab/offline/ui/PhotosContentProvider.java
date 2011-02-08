@@ -96,10 +96,10 @@ public class PhotosContentProvider implements ThumbnailViewerContentProvider, Th
 		}
 		if (MessageDialog.openQuestion(shell, "Failed to load image", "Failed to load image " + photo.getFile()
 				+ " due to:\n\n" + exception.getMessage() + "\n\nDo you want to keep this photo?")) {
-			/* keep */
+			/* YES = keep */
 			return true;
 		} else {
-			/* remove */
+			/* NO = remove */
 			try {
 				currentPage.removePhotos(Arrays.asList(photo));
 				currentPage.getJournal().setDirty(true);

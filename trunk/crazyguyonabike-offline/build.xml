@@ -166,7 +166,7 @@
 
 	<target name="package-osx" depends="run-tests">
 		<property name="osx.app.name" value="${ant.project.name}-${version}" />
-		<jarbundler dir="${temp.dir}" vmoptions="-d32" jvmversion="1.6+" shortname="${ant.project.name}" build="${version} (${build.date})" version="${version}" infostring="${ant.project.name} ${version}" name="${osx.app.name}" mainclass="${main.class}" stubfile="C:\libs\jarbundler\JavaApplicationStub" startonmainthread="true">
+		<jarbundler dir="${temp.dir}" jvmversion="1.6+" shortname="${ant.project.name}" build="${version} (${build.date})" version="${version}" infostring="${ant.project.name} ${version}" name="${osx.app.name}" mainclass="${main.class}" stubfile="JavaApplicationStub" startonmainthread="true">
 			<jarfileset dir="${jar.dir}">
 				<include name="${main.jar.name}" />
 			</jarfileset>

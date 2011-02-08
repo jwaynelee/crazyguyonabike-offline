@@ -7,12 +7,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.reflect.Method;
-import java.net.MalformedURLException;
 import java.net.URL;
+import java.security.CodeSource;
 import java.text.DecimalFormat;
 import java.util.List;
+import java.util.jar.Attributes;
 import java.util.jar.Attributes.Name;
-import java.util.jar.JarFile;
+import java.util.jar.JarInputStream;
 import java.util.jar.Manifest;
 
 import org.slf4j.Logger;
@@ -20,9 +21,31 @@ import org.slf4j.LoggerFactory;
 
 public class Utils {
 
+	private static final Logger LOG = LoggerFactory.getLogger(Utils.class);
+
 	private static final int COPY_BUFFER_SIZE = 1024 * 4; /* copy 4kb chunks */
 
 	private static final int ORDER = 1024;
+
+	/**
+	 * Creates the given file, creating all required parent directories.
+	 * 
+	 * @param file
+	 * @throws IOException
+	 */
+	public static void createFile(File file) throws IOException {
+		Assert.notNull(file);
+		if (file.exists()) {
+			return;
+		}
+		File parent = file.getParentFile();
+		if (parent != null && !parent.exists()) {
+			if (!parent.mkdirs()) {
+				throw new IOException("Failed to mkdirs '" + parent.getAbsolutePath() + "'");
+			}
+		}
+		file.createNewFile();
+	}
 
 	public static void close(InputStream stream) {
 		if (stream != null) {
@@ -72,8 +95,7 @@ public class Utils {
 	}
 
 	/**
-	 * Searches for the first (declared) method with the given name, ignores
-	 * arguments.
+	 * Searches for the first (declared) method with name ignoring arguments.
 	 * 
 	 * @param name
 	 * @param klass
@@ -89,6 +111,30 @@ public class Utils {
 		return null;
 	}
 
+	public static Attributes getManifestMainAttributes(Class<?> klass) {
+		CodeSource codeSource = klass.getProtectionDomain().getCodeSource();
+		if (codeSource == null) {
+			return null;
+		}
+		URL jarUrl = codeSource.getLocation();
+		InputStream is = null;
+		JarInputStream js = null;
+		try {
+			is = jarUrl.openStream();
+			js = new JarInputStream(is);
+			Manifest manifest = js.getManifest();
+			if (manifest != null) {
+				return manifest.getMainAttributes();
+			}
+		} catch (Exception e) {
+			LOG.warn("Failed to load manifest from '" + jarUrl + "'", e);
+		} finally {
+			Utils.close(is);
+			Utils.close(js);
+		}
+		return null;
+	}
+
 	/**
 	 * Returns implementation titiel from MANIFEST, something like
 	 * "cgoab-offline".
@@ -97,15 +143,7 @@ public class Utils {
 	 * @return
 	 */
 	public static String getImplementationTitleString(Class<?> klass) {
-		URL jarUrl = klass.getProtectionDomain().getCodeSource().getLocation();
-		try {
-			Manifest manifest = new JarFile(jarUrl.getFile()).getManifest();
-			return (String) manifest.getMainAttributes().get(Name.IMPLEMENTATION_TITLE);
-		} catch (MalformedURLException e) {
-			return null;
-		} catch (IOException e) {
-			return null;
-		}
+		return valueOrNull(getManifestMainAttributes(klass), Name.IMPLEMENTATION_TITLE);
 	}
 
 	/**
@@ -116,15 +154,7 @@ public class Utils {
 	 * @return
 	 */
 	public static String getImplementationVersion(Class<?> klass) {
-		URL jarUrl = klass.getProtectionDomain().getCodeSource().getLocation();
-		try {
-			Manifest manifest = new JarFile(jarUrl.getFile()).getManifest();
-			return (String) manifest.getMainAttributes().get(Name.IMPLEMENTATION_VERSION);
-		} catch (MalformedURLException e) {
-			return null;
-		} catch (IOException e) {
-			return null;
-		}
+		return valueOrNull(getManifestMainAttributes(klass), Name.IMPLEMENTATION_VERSION);
 	}
 
 	/**
@@ -135,15 +165,11 @@ public class Utils {
 	 * @return
 	 */
 	public static String getSpecificationVersion(Class<?> klass) {
-		URL jarUrl = klass.getProtectionDomain().getCodeSource().getLocation();
-		try {
-			Manifest manifest = new JarFile(jarUrl.getFile()).getManifest();
-			return (String) manifest.getMainAttributes().get(Name.SPECIFICATION_VERSION);
-		} catch (MalformedURLException e) {
-			return null;
-		} catch (IOException e) {
-			return null;
-		}
+		return valueOrNull(getManifestMainAttributes(klass), Name.SPECIFICATION_VERSION);
+	}
+
+	private static String valueOrNull(Attributes attributes, Name key) {
+		return (String) (attributes == null ? null : attributes.get(key));
 	}
 
 	public static void print(List<?> toPrint) {
@@ -175,5 +201,4 @@ public class Utils {
 			close(out);
 		}
 	}
-
 }

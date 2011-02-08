@@ -36,10 +36,6 @@ public class BasicHttpServer {
 
 	private static Logger LOGGER = LoggerFactory.getLogger(BasicHttpServer.class);
 
-	static {
-		BasicConfigurator.configure();
-	}
-
 	private final HttpService httpService;
 	private final HttpParams params;
 	private final ServerSocket serversocket;

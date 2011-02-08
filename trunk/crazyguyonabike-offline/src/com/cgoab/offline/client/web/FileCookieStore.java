@@ -29,27 +29,24 @@ public class FileCookieStore implements CookieStore {
 
 	private final CookieStore delegate = new BasicCookieStore();
 
-	private final File file;
+	private final File cookieFile;
 
-	public FileCookieStore(String cookieFile) {
-		file = new File(cookieFile);
-		if (!file.exists()) {
-			File parent = file.getParentFile();
-			if (parent != null && !parent.exists()) {
-				parent.mkdirs();
-			}
+	public FileCookieStore(String file) {
+		cookieFile = new File(file);
+		if (cookieFile.exists()) {
+			load();
+		} else {
 			try {
-				file.createNewFile();
+				Utils.createFile(cookieFile);
 			} catch (IOException e) {
-				LOGGER.warn("Failed to create cookie file store '" + file.getAbsolutePath() + "'", e);
+				LOGGER.warn("Failed to create cookie file store '" + cookieFile.getAbsolutePath() + "'", e);
 			}
 		}
-		load();
 	}
 
 	@Override
 	public void addCookie(Cookie cookie) {
-		LOGGER.info("Saving Cookie [{}]", cookie);
+		LOGGER.debug("Adding cookie: {}", cookie);
 		delegate.addCookie(cookie);
 	}
 
@@ -69,22 +66,24 @@ public class FileCookieStore implements CookieStore {
 	}
 
 	public void load() {
-		if (!file.exists()) {
+		if (!cookieFile.exists()) {
 			return;
 		}
 		FileInputStream fis = null;
 		Object o = null;
 		try {
-			fis = new FileInputStream(file);
+			fis = new FileInputStream(cookieFile);
 			ObjectInputStream ois = new ObjectInputStream(fis);
 			o = ois.readObject();
 			ois.close();
 		} catch (Exception e) {
 			/* delete file */
-			LOGGER.warn("Failed to read cookies file [" + file.getAbsolutePath()
-					+ "], deleting cookie file in case it is corrupt", e);
-			Utils.close(fis); // close stream first to release file
-			file.delete();
+			LOGGER.warn("Failed to read cookies file '" + cookieFile.getAbsolutePath()
+					+ "'; deleting file in case it is corrupt", e);
+			Utils.close(fis); // close stream & release fd before delete
+			if (!cookieFile.delete()) {
+				LOGGER.error("Failed to delete cookie file '" + cookieFile.getAbsolutePath() + "'");
+			}
 			return;
 		} finally {
 			Utils.close(fis);
@@ -103,13 +102,13 @@ public class FileCookieStore implements CookieStore {
 	public void persist() {
 		FileOutputStream fos = null;
 		try {
-			fos = new FileOutputStream(file);
+			fos = new FileOutputStream(cookieFile);
 			Serializable list = (Serializable) delegate.getCookies();
 			ObjectOutputStream oos = new ObjectOutputStream(fos);
 			oos.writeObject(list);
 			oos.close();
 		} catch (IOException e) {
-			LOGGER.warn("Failed to write to cookies file [" + file.getAbsolutePath() + "]", e);
+			LOGGER.warn("Failed to write to cookies file [" + cookieFile.getAbsolutePath() + "]", e);
 		} finally {
 			Utils.close(fos);
 		}
@@ -117,6 +116,6 @@ public class FileCookieStore implements CookieStore {
 
 	@Override
 	public String toString() {
-		return String.format("%s file=%s: %s", getClass().getSimpleName(), file.getAbsolutePath(), delegate);
+		return String.format("%s file=%s: %s", getClass().getSimpleName(), cookieFile.getAbsolutePath(), delegate);
 	}
 }
