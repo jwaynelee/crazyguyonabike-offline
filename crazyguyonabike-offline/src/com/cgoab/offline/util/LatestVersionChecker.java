@@ -40,7 +40,7 @@ public class LatestVersionChecker {
 
 	/**
 	 * Checks for a new version, blocking UI with progress bar then pops up a
-	 * dialog box if a newer version is found.
+	 * dialog box if a newer version is found.'#
 	 * 
 	 * @param display
 	 */
@@ -87,12 +87,14 @@ public class LatestVersionChecker {
 			return;
 		}
 
+		LOGGER.debug("Checking website for latest version");
 		final Version latest = blockForLatestVersion(display);
 		if (latest == null) {
 			return;
 		}
 
 		final Version currentVersion = currentVersion();
+		LOGGER.debug("Latest version is {} (using {})", latest, currentVersion);
 		if (currentVersion == null || currentVersion.isLessThan(latest)) {
 			MessageDialogWithToggle toggle = MessageDialogWithToggle.openInformation(null, "New version found",
 					"Version " + latest + " is available. You are using version " + currentVersion
@@ -116,11 +118,10 @@ public class LatestVersionChecker {
 			Matcher matcher = VERSION_PATTERN.matcher(id);
 			if (matcher.matches()) {
 				Version version = Version.parse(matcher.group(1));
-				LOGGER.debug("Latest version is {}", version);
 				return version;
 			} else {
 				/* error */
-				LOGGER.info("Failed to detect version in download ID []", id);
+				LOGGER.info("Failed to detect version in download ID '{}'", id);
 			}
 		}
 		LOGGER.debug("Failed to find latest version");
@@ -135,7 +136,6 @@ public class LatestVersionChecker {
 	private static Version doGetLatestVersion() {
 		InputStream stream = null;
 		try {
-			LOGGER.debug("Checking for latest version");
 			URLConnection connection = new URL(DOWNLOAD_FEED_URL).openConnection();
 			Builder builder = new Builder();
 			stream = connection.getInputStream();

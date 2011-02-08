@@ -19,7 +19,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-import org.apache.http.impl.client.BasicCookieStore;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swtbot.swt.finder.SWTBot;
 import org.eclipse.swtbot.swt.finder.waits.Conditions;
@@ -60,7 +59,7 @@ import com.cgoab.offline.util.resizer.ImageMagickResizerServiceFactory;
 import com.cgoab.offline.util.resizer.ResizerService;
 
 /**
- * High level UI integration tests.
+ * High level UI integration tests, automated using SWTBot.
  */
 public class UITest {
 
@@ -113,7 +112,8 @@ public class UITest {
 				factory.setHost("localhost");
 				factory.setPort(server.getHttpServer().getLocalPort());
 				factory.setCallbackExecutor(new UIExecutor(display));
-				factory.setCookies(new BasicCookieStore());
+				/* don't use cookie store, complicates upload login wait */
+				factory.setCookies(null);
 				application.setUploadFactory(factory);
 				latch.countDown();
 				try {
@@ -153,6 +153,49 @@ public class UITest {
 		}
 	}
 
+	/* Test for new feature */
+	@Test
+	public void uploadPagesOneAtATime() throws Exception {
+		final Journal journal = new Journal(getTestJournalFilePath(), "Test");
+		journal.createNewPage().setTitle("Page 1");
+		journal.createNewPage().setTitle("Page 2");
+		journal.createNewPage().setTitle("Page 3");
+		journal.createNewPage().setTitle("Page 4");
+		setCurrentJournal(journal);
+
+		final SWTBot bot = new SWTBot();
+		bot.menu("File").menu("Save Journal").click();
+
+		/* upload page 1 first, then 2 & 3 together */
+		SWTBotTreeItem[] pages = bot.tree().getAllItems()[0].getItems();
+		assertEquals(4, pages.length);
+
+		pages[0].select();
+		pages[0].contextMenu("Upload Page").click();
+		handleUploadStart(bot);
+		bot.waitUntil(Conditions.shellIsActive("Upload completed"));
+		bot.activeShell().bot().button("OK").click();
+		ServerJournal j1 = server.getModel().getJournal(1);
+		assertEquals(1, j1.getPages().size());
+		assertEquals("Page 1", j1.getPages().get(0).getTitle());
+
+		pages = bot.tree().getAllItems()[0].getItems();
+		assertEquals(3, pages.length);
+
+		bot.tree().select(pages[0], pages[1]).contextMenu("Upload Pages").click();
+		handleUploadStart(bot);
+		bot.waitUntil(Conditions.shellIsActive("Upload completed"));
+		bot.activeShell().bot().button("OK").click();
+
+		assertEquals(3, j1.getPages().size());
+		assertEquals("Page 2", j1.getPages().get(1).getTitle());
+		assertEquals("Page 3", j1.getPages().get(2).getTitle());
+
+		pages = bot.tree().getAllItems()[0].getItems();
+		assertEquals(1, pages.length);
+		assertEquals("Page 4", pages[0].getText());
+	}
+
 	/* Test for BUG */
 	@Test
 	public void loadNewJournalWithMissingPhoto() throws Exception {
@@ -161,15 +204,10 @@ public class UITest {
 		page.addPhotos(Arrays.asList(new Photo(new File("bogus.jpg"))), 0);
 
 		/* inject journal in UI */
-		display.asyncExec(new Runnable() {
-			@Override
-			public void run() {
-				JournalSelectionService.getInstance().setJournal(journal);
-			}
-		});
+		setCurrentJournal(journal);
 
 		/* when journal is loaded, UI should pop up with "File missing" */
-		final SWTBot bot = new SWTBot(application.getShell());
+		final SWTBot bot = new SWTBot();
 		bot.waitUntil(Conditions.shellIsActive("Failed to load image"));
 		bot.activeShell().bot().button("No").click(); /* discard */
 
@@ -191,7 +229,7 @@ public class UITest {
 	 */
 	@Test
 	public void createNewJournalAndUploadTest() throws Exception {
-		final SWTBot bot = new SWTBot(application.getShell());
+		final SWTBot bot = new SWTBot();
 
 		/* 1) create a new journal */
 		bot.menu("File").menu("New Journal").click();
@@ -208,36 +246,35 @@ public class UITest {
 
 		/* 2) create 2 new pages, each with 2 photos */
 		bot.menu("File").menu("&New Page").click();
-		SWTBot bot2 = bot.activeShell().bot();
 		// assertEquals(bot2.textWithLabel("Title:"), bot2.getFocusedWidget());
-		bot2.textWithLabel("Title:").setText("Day 1");
-		bot2.textWithLabel("Headline:").setText("to Plymouth");
-		bot2.textWithLabel("Distance:").setText("100");
-		bot2.dateTimeWithLabel("Date:").setDate(new Date(2011 - 1900, 0, 1));
-		bot2.styledText(0).setText("The first days text.");
+		bot.textWithLabel("Title:").setText("Day 1");
+		bot.textWithLabel("Headline:").setText("to Plymouth");
+		bot.textWithLabel("Distance:").setText("100");
+		bot.dateTimeWithLabel("Date:").setDate(new Date(2011 - 1900, 0, 1));
+		bot.styledText(0).setText("The first days text.");
 		File photo1 = TestPhotos.extractLargePhoto();
 		File photo2 = TestPhotos.extractLargePhoto();
-		addPhotosToCurrentPage(bot2, new File[] { photo1, photo2 });
+		addPhotosToCurrentPage(bot, new File[] { photo1, photo2 });
 
 		/* first time we've tried to add photos so answer questions */
-		assertEquals("Use embedded thumnails?", bot2.activeShell().getText());
-		bot2.activeShell().bot().button("No").click();
-		assertEquals("Resize photos?", bot2.activeShell().getText());
-		bot2.activeShell().bot().button("Yes").click();
+		assertEquals("Use embedded thumnails?", bot.activeShell().getText());
+		bot.activeShell().bot().button("No").click();
+		assertEquals("Resize photos?", bot.activeShell().getText());
+		bot.activeShell().bot().button("Yes").click();
 
 		/* assert context menu in sync */
-		assertTrue(bot2.tree().contextMenu("Resize photos").isChecked());
-		assertFalse(bot2.tree().contextMenu("Use EXIF thumbnail").isChecked());
+		assertTrue(bot.tree().contextMenu("Resize photos").isChecked());
+		assertFalse(bot.tree().contextMenu("Use EXIF thumbnail").isChecked());
 
 		bot.menu("File").menu("New Page").click();
-		assertEquals("Day 2", bot2.textWithLabel("Title:").getText());
-		bot2.textWithLabel("Headline:").setText("to Munich");
-		bot2.textWithLabel("Distance:").setText("50");
-		assertEquals(new Date(2011 - 1900, 0, 2), bot2.dateTimeWithLabel("Date:").getDate());
-		bot2.styledText(0).setText("The second days text.");
+		assertEquals("Day 2", bot.textWithLabel("Title:").getText());
+		bot.textWithLabel("Headline:").setText("to Munich");
+		bot.textWithLabel("Distance:").setText("50");
+		assertEquals(new Date(2011 - 1900, 0, 2), bot.dateTimeWithLabel("Date:").getDate());
+		bot.styledText(0).setText("The second days text.");
 		File photo3 = TestPhotos.extractLargePhoto();
 		File photo4 = TestPhotos.extractLargePhoto();
-		addPhotosToCurrentPage(bot2, new File[] { photo3, photo4 });
+		addPhotosToCurrentPage(bot, new File[] { photo3, photo4 });
 
 		bot.menu("File").menu("Save Journal").click();
 
@@ -268,13 +305,15 @@ public class UITest {
 		}
 
 		/* 4) Upload */
-		runUpload(bot2);
+		bot.tree().getAllItems()[0].select();
+		bot.tree().contextMenu("Upload Journal").click();
+		handleUploadStart(bot);
 
 		bot.waitUntil(Conditions.shellIsActive("Upload completed"));
 		bot.activeShell().bot().button("OK").click();
 
 		/* 5) check tree is filtered */
-		SWTBotTreeItem journalNode = bot2.tree().getTreeItem(journalName);
+		SWTBotTreeItem journalNode = bot.tree().getTreeItem(journalName);
 		assertEquals(0, journalNode.getItems().length);
 
 		/* 5a) show uploaded */
@@ -283,8 +322,8 @@ public class UITest {
 
 		/* 5b) check uploaded pages are now read-only */
 		journalNode.getItems()[0].select();
-		final SWTBotText title = bot2.textWithLabel("Title:");
-		final SWTBotStyledText text = bot2.styledText(0);
+		final SWTBotText title = bot.textWithLabel("Title:");
+		final SWTBotStyledText text = bot.styledText(0);
 		assertEquals("Day 1", title.getText());
 		final AtomicBoolean titleEditable = new AtomicBoolean();
 		final AtomicBoolean textEditable = new AtomicBoolean();
@@ -352,18 +391,16 @@ public class UITest {
 		assertEquals(page.getServerId(), serverpage.getPageId());
 	}
 
-	private void runUpload(SWTBot bot) {
-		bot.tree().contextMenu("Upload Journal").click();
-
+	private void handleUploadStart(SWTBot bot) {
 		/*
 		 * image resizer might still be working so we'll get the progress dialog
 		 * so wait until upload opens.
 		 */
 		bot.waitUntil(Conditions.shellIsActive("Make new pages visible?"));
 		bot.activeShell().bot().button("No").click();
-
+		bot.waitUntil(new ShellNameMatches("Upload.*"));
 		SWTBot uploadBot = bot.activeShell().bot();
-		assertTrue(uploadBot.activeShell().getText().startsWith("Upload"));
+
 		uploadBot.textWithLabel("Username:").setText("bob");
 		uploadBot.textWithLabel("Password:").setText("secret");
 		uploadBot.button("Login").click();
@@ -389,6 +426,8 @@ public class UITest {
 
 		uploadBot.table().click(0, 0);
 		uploadBot.button("Upload").click();
+
+		/* wait until the all done box pops up */
 	}
 
 	@Test
@@ -405,8 +444,10 @@ public class UITest {
 		/* configure server with single day */
 		server.getModel().getJournal(1).addPage(new ServerPage(Collections.singletonMap("date", "2011-01-03")));
 
-		SWTBot bot = new SWTBot(application.getShell());
-		runUpload(bot);
+		SWTBot bot = new SWTBot();
+		bot.tree().getAllItems()[0].select();
+		bot.tree().contextMenu("Upload Journal").click();
+		handleUploadStart(bot);
 
 		bot.waitUntil(Conditions.shellIsActive("Error uploading"));
 
@@ -449,8 +490,10 @@ public class UITest {
 		});
 
 		/* upload */
-		SWTBot bot = new SWTBot(application.getShell());
-		runUpload(bot);
+		SWTBot bot = new SWTBot();
+		bot.tree().getAllItems()[0].select();
+		bot.tree().contextMenu("Upload Journal").click();
+		handleUploadStart(bot);
 
 		/* wait on latch (otherwise SWTBot might timeout) */
 		assertEquals(true, latch.await(15, TimeUnit.SECONDS));
@@ -493,7 +536,7 @@ public class UITest {
 		assertEquals(Arrays.asList(photo1, photo2, photo3), page.getPhotos());
 		assertEquals(Arrays.asList(photo1, photo2, photo3), getThumbnailViewerObjects());
 
-		SWTBot bot = new SWTBot(application.getShell());
+		SWTBot bot = new SWTBot();
 		assertTrue(bot.radio("name").isSelected());
 		assertFalse(bot.radio("manual").isSelected());
 

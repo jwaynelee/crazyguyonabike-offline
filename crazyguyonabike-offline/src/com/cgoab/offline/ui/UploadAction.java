@@ -50,12 +50,12 @@ public class UploadAction extends Action {
 					setText("Upload Journal");
 					setEnabled(true);
 				} else if (newSelection instanceof Page) {
-					setText("Upload page");
+					setText("Upload Page");
 					Page page = (Page) newSelection;
 					boolean pageNotUploaded = page.getState() != UploadState.UPLOADED;
 					setEnabled(pageNotUploaded && isPreviousPageUploaded(page));
 				} else if (isNonEmptyPageArray(newSelection)) {
-					setText("Upload pages");
+					setText("Upload Pages");
 					Object[] pages = (Object[]) newSelection;
 					Page firstPage = (Page) pages[0];
 					boolean firstIsNotUploaded = firstPage.getState() != UploadState.UPLOADED;

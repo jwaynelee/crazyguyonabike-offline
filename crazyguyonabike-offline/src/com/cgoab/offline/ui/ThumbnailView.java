@@ -63,7 +63,6 @@ import com.cgoab.offline.model.UploadState;
 import com.cgoab.offline.ui.JournalSelectionService.JournalSelectionListener;
 import com.cgoab.offline.ui.thumbnailviewer.CachingThumbnailProvider;
 import com.cgoab.offline.ui.thumbnailviewer.CachingThumbnailProviderFactory;
-import com.cgoab.offline.ui.thumbnailviewer.ThumbnailProvider;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailViewer;
 import com.cgoab.offline.util.Assert;
 import com.cgoab.offline.util.JobListener;
@@ -366,9 +365,20 @@ public class ThumbnailView {
 		btnSortByName.addListener(SWT.Selection, btnSortSelectionListener);
 	}
 
-	public void bindModelToUI(Page pageToShow) {
+	/* used to run code that might dirty the page during set-up */
+	void runOutsideCurrentPageBinding(Runnable work) {
+		Page p = currentPage;
+		try {
+			currentPage = null;
+			work.run();
+		} finally {
+			currentPage = p;
+		}
+	}
+
+	public void bindModelToUI(final Page pageToShow) {
 		Page oldPage = currentPage;
-		currentPage = null;
+		currentPage = pageToShow;
 
 		if (oldPage != null) {
 			oldPage.removePropertyChangeListener(photoOrderListener);
@@ -379,16 +389,18 @@ public class ThumbnailView {
 			thumbViewer.setInput(null);
 			thumbViewer.setEnabled(false);
 		} else {
-			captionText.setDocument(new Document());
-			selectOrderByButton(orderByButtonMap.get(pageToShow.getPhotosOrder()));
+			runOutsideCurrentPageBinding(new Runnable() {
+				@Override
+				public void run() {
+					captionText.setDocument(new Document());
+					selectOrderByButton(orderByButtonMap.get(pageToShow.getPhotosOrder()));
+				}
+			});
 			pageToShow.addPropertyChangeListener(photoOrderListener);
 			thumbViewer.setInput(pageToShow);
 			thumbViewer.setEnabled(true);
 			thumbViewer.setEditable(pageToShow.getState() != UploadState.UPLOADED);
 		}
-
-		// update global after update to avoid init "dirtying" page
-		currentPage = pageToShow;
 
 		/* HACK: removes previous page photo count in status */
 		statusUpdater.updateStatusBar();

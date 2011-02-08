@@ -299,7 +299,6 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 		});
 
 		this.cookies = cookies;
-		// new FileCookieStore(cookiePath);
 		context.setAttribute(ClientContext.COOKIE_STORE, cookies);
 		CleanerProperties props = cleaner.getProperties();
 		props.setAllowHtmlInsideAttributes(true);
