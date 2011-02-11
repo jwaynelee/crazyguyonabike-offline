@@ -5,6 +5,7 @@ import java.beans.PropertyChangeListener;
 import java.io.File;
 import java.text.DateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
@@ -14,6 +15,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.eclipse.jface.action.MenuManager;
+import org.eclipse.jface.action.Separator;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.text.Document;
 import org.eclipse.jface.text.IDocument;
@@ -61,9 +64,12 @@ import com.cgoab.offline.model.PageNotEditableException;
 import com.cgoab.offline.model.Photo;
 import com.cgoab.offline.model.UploadState;
 import com.cgoab.offline.ui.JournalSelectionService.JournalSelectionListener;
+import com.cgoab.offline.ui.actions.DeletePhotoAction;
+import com.cgoab.offline.ui.actions.OpenPhotoInfoAction;
 import com.cgoab.offline.ui.thumbnailviewer.CachingThumbnailProvider;
 import com.cgoab.offline.ui.thumbnailviewer.CachingThumbnailProviderFactory;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailViewer;
+import com.cgoab.offline.ui.util.SWTUtils;
 import com.cgoab.offline.util.Assert;
 import com.cgoab.offline.util.JobListener;
 import com.cgoab.offline.util.Utils;
@@ -171,7 +177,7 @@ public class ThumbnailView {
 				public void propertyChange(PropertyChangeEvent evt) {
 					if (Journal.USE_EXIF_THUMBNAIL.equals(evt.getPropertyName())) {
 						Journal journal = (Journal) evt.getSource();
-						CachingThumbnailProvider provider = CachingThumbnailProvider.getProvider(journal);
+						CachingThumbnailProvider provider = CachingThumbnailProviderFactory.getProvider(journal);
 						provider.setUseExifThumbnail((Boolean) evt.getNewValue());
 						thumbViewer.refresh();
 					} else if (Journal.HIDE_UPLOADED_CONTENT.equals(evt.getPropertyName())) {
@@ -186,7 +192,7 @@ public class ThumbnailView {
 				undoCache.clear();
 
 				journal.removeListener(addPhotosListener);
-				CachingThumbnailProvider provider = CachingThumbnailProvider.getProvider(journal);
+				CachingThumbnailProvider provider = CachingThumbnailProviderFactory.getProvider(journal);
 				provider.removeJobListener(statusUpdater.thumnailListener);
 				provider.close();
 
@@ -226,8 +232,8 @@ public class ThumbnailView {
 			@Override
 			public void propertyChange(org.eclipse.jface.util.PropertyChangeEvent event) {
 				if (PreferenceUtils.FONT.equals(event.getProperty())) {
-					FontData[] data = (FontData[]) event.getNewValue();
-					captionText.getTextWidget().setFont(new Font(application.getShell().getDisplay(), data[0]));
+					FontData[] data = SWTUtils.getFontData(event.getNewValue());
+					captionText.getTextWidget().setFont(new Font(application.getShell().getDisplay(), data));
 				}
 			}
 		});
@@ -241,8 +247,9 @@ public class ThumbnailView {
 	 * @param insertionPoint
 	 */
 	public void addPhotosRetryIfDuplicates(File[] files, int insertionPoint) {
+		LOG.debug("Adding photos {} to page {}", Arrays.toString(files), currentPage);
 		List<Photo> photos = new ArrayList<Photo>(files.length);
-		CachingThumbnailProvider provider = CachingThumbnailProvider.getProvider(currentPage.getJournal());
+		CachingThumbnailProvider provider = CachingThumbnailProviderFactory.getProvider(currentPage.getJournal());
 		for (File f : files) {
 			if (isValidImage(f.getName())) {
 				Photo photo = new Photo(f);
@@ -388,6 +395,7 @@ public class ThumbnailView {
 			/* clear controls and disable... */
 			thumbViewer.setInput(null);
 			thumbViewer.setEnabled(false);
+			thumbViewer.setEditable(false);
 		} else {
 			runOutsideCurrentPageBinding(new Runnable() {
 				@Override
@@ -404,6 +412,16 @@ public class ThumbnailView {
 
 		/* HACK: removes previous page photo count in status */
 		statusUpdater.updateStatusBar();
+	}
+
+	public void addMenu() {
+		MenuManager mgr = new MenuManager();
+		mgr.add(application.addPhotosAction);
+		mgr.add(new Separator());
+		mgr.add(new OpenPhotoInfoAction(shell, thumbViewer));
+		mgr.add(new Separator());
+		mgr.add(new DeletePhotoAction(thumbViewer));
+		thumbViewer.setMenu(mgr.createContextMenu(thumbViewer));
 	}
 
 	public void createComponents(Composite parent) {
@@ -441,6 +459,7 @@ public class ThumbnailView {
 				}
 			}
 		});
+
 		// thumbnails.addErrorListener();
 
 		Composite captionComposite = new Composite(parent, SWT.NONE);
@@ -721,7 +740,7 @@ public class ThumbnailView {
 						Photo photo = (Photo) selected[0];
 						b.append(": ").append(photo.getFile().getAbsolutePath());
 						Journal journal = currentPage.getJournal();
-						CachingThumbnailProvider provider = CachingThumbnailProvider.getProvider(journal);
+						CachingThumbnailProvider provider = CachingThumbnailProviderFactory.getProvider(journal);
 						Metadata meta = provider.getOrLoadMetaData(photo.getFile());
 						if (meta != null) {
 							b.append(" : ").append(getDimensions(meta));

@@ -29,13 +29,10 @@ import org.eclipse.swt.events.FocusEvent;
 import org.eclipse.swt.events.FocusListener;
 import org.eclipse.swt.events.KeyAdapter;
 import org.eclipse.swt.events.KeyEvent;
-import org.eclipse.swt.events.MenuEvent;
-import org.eclipse.swt.events.MenuListener;
 import org.eclipse.swt.events.MouseEvent;
 import org.eclipse.swt.events.MouseListener;
 import org.eclipse.swt.events.PaintEvent;
 import org.eclipse.swt.events.PaintListener;
-import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.events.SelectionListener;
 import org.eclipse.swt.graphics.Color;
@@ -48,8 +45,6 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Listener;
-import org.eclipse.swt.widgets.Menu;
-import org.eclipse.swt.widgets.MenuItem;
 
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailProvider.Thumbnail;
 import com.cgoab.offline.ui.util.SWTUtils;
@@ -135,11 +130,11 @@ public class ThumbnailViewer extends Canvas {
 
 	private boolean updateSelectionOnMouseUp;
 
+	private final Color defaultBackgroundColor;
+
 	public ThumbnailViewer(Composite parent) {
 		super(parent, SWT.NO_REDRAW_RESIZE | SWT.H_SCROLL | SWT.NO_BACKGROUND | SWT.BORDER);
-
-		configureContextMenu();
-
+		defaultBackgroundColor = getBackground();
 		getHorizontalBar().setEnabled(false);
 		getHorizontalBar().setPageIncrement(THUMBNAIL_WIDTH + PADDING_BETWEEN_THUMNAIL);
 		getHorizontalBar().addListener(SWT.Selection, new Listener() {
@@ -296,66 +291,13 @@ public class ThumbnailViewer extends Canvas {
 				+ getHorizontalBar().getSize().y + 5);
 	}
 
-	private void configureContextMenu() {
-		Menu menu = new Menu(getShell(), SWT.POP_UP);
-
-		final MenuItem removeItem = new MenuItem(menu, SWT.PUSH);
-		removeItem.setText("Remove");
-		removeItem.addSelectionListener(new SelectionAdapter() {
-			@Override
-			public void widgetSelected(SelectionEvent e) {
-				deleteCurrentSelection();
-			}
-		});
-
-		final MenuItem getInfoItem = new MenuItem(menu, SWT.PUSH);
-		getInfoItem.setText("Image Info");
-		getInfoItem.addSelectionListener(new SelectionAdapter() {
-			@Override
-			public void widgetSelected(SelectionEvent e) {
-				if (selected.size() != 1) {
-					return;
-				}
-				ThumbnailHolder holder = selected.get(0);
-				try {
-					Thumbnail thumb = holder.getFuture().get();
-					new ExifViewer(getShell()).open(thumb.meta, holder.getFile());
-				} catch (InterruptedException e1) {
-					/* ignore */
-				} catch (ExecutionException e1) {
-					/* ignore */
-				}
-			}
-		});
-		menu.addMenuListener(new MenuListener() {
-			@Override
-			public void menuHidden(MenuEvent e) {
-
-			}
-
-			@Override
-			public void menuShown(MenuEvent e) {
-				getInfoItem.setEnabled(false);
-				removeItem.setEnabled(false);
-				if (selected.size() == 1) {
-					getInfoItem.setEnabled(true);
-				}
-				if (selected.size() > 0) {
-					removeItem.setEnabled(true);
-				}
-			}
-		});
-
-		setMenu(menu);
-	}
-
 	private void deleteCurrentSelection() {
 		if (selected.size() > 0 && editable) {
 			for (ThumbnailViewerEventListener l : eventListeners) {
 				l.itemsRemoved(getSelection());
 			}
 			// selected.clear();
-			fireSelectionListener();
+			// fireSelectionListener();
 		}
 	}
 
@@ -399,7 +341,7 @@ public class ThumbnailViewer extends Canvas {
 		return thumbnails.size();
 	}
 
-	private void fireSelectionListener() {
+	private void fireSelectionChangedListener() {
 		for (SelectionListener l : selectionListeners) {
 			Event e = new Event();
 			e.widget = this;
@@ -519,7 +461,7 @@ public class ThumbnailViewer extends Canvas {
 			}
 		}
 
-		fireSelectionListener();
+		fireSelectionChangedListener();
 		scrollToDisplay(newItem);
 		redraw();
 	}
@@ -557,7 +499,7 @@ public class ThumbnailViewer extends Canvas {
 			}
 		}
 
-		fireSelectionListener();
+		fireSelectionChangedListener();
 		scrollToDisplay(newItem);
 		redraw();
 	}
@@ -567,7 +509,7 @@ public class ThumbnailViewer extends Canvas {
 		if (thumbnails.size() > 0) {
 			selected.clear();
 			selected.addAll(thumbnails);
-			fireSelectionListener();
+			fireSelectionChangedListener();
 			redraw();
 		}
 		return;
@@ -584,7 +526,7 @@ public class ThumbnailViewer extends Canvas {
 			ThumbnailHolder newItem = thumbnails.get(newId);
 			selected.clear();
 			selected.add(newItem);
-			fireSelectionListener();
+			fireSelectionChangedListener();
 			scrollToDisplay(newItem);
 			redraw();
 		}
@@ -680,7 +622,7 @@ public class ThumbnailViewer extends Canvas {
 		}
 
 		if (changed) {
-			fireSelectionListener();
+			fireSelectionChangedListener();
 			redraw();
 		}
 	}
@@ -694,7 +636,7 @@ public class ThumbnailViewer extends Canvas {
 			if (newSelected != null) {
 				selected.add(newSelected);
 			}
-			fireSelectionListener();
+			fireSelectionChangedListener();
 			redraw();
 		}
 	}
@@ -984,7 +926,7 @@ public class ThumbnailViewer extends Canvas {
 		 * handler will be able to deal with that
 		 */
 		if (oldSelection.size() > 0) {
-			fireSelectionListener();
+			fireSelectionChangedListener();
 		}
 		updateScrollBars();
 		redraw();
@@ -993,10 +935,14 @@ public class ThumbnailViewer extends Canvas {
 	// TODO cleanup
 	public void remove(Object[] removes) {
 
+		boolean selectionChanged = true;
+
 		for (Object o : removes) {
 			ThumbnailHolder th = findThumbnailHolder(o);
 			thumbnails.remove(th);
-			selected.remove(th);
+			if (selected.remove(th) && !selectionChanged) {
+				selectionChanged = true;
+			}
 			thumbnailProvider.remove(th.getFile());
 			th.dispose();
 		}
@@ -1014,6 +960,10 @@ public class ThumbnailViewer extends Canvas {
 				origin.x = Math.min(0, newXOrigin);
 				getHorizontalBar().setSelection(rightEdgeOfLastThumb);
 			}
+		}
+
+		if (selectionChanged) {
+			fireSelectionChangedListener();
 		}
 
 		updateScrollBars();
@@ -1069,11 +1019,21 @@ public class ThumbnailViewer extends Canvas {
 			}
 			if (newEditableState) {
 				installDragAndDropTarget();
+				setBackground(getShell().getDisplay().getSystemColor(SWT.COLOR_WHITE));
 			} else {
 				new DropTarget(this, DND.DROP_NONE);
+				setBackground(defaultBackgroundColor);
 			}
 
 			this.editable = newEditableState;
+		}
+	}
+
+	@Override
+	public void setEnabled(boolean enabled) {
+		super.setEnabled(enabled);
+		if (!enabled) {
+			setBackground(defaultBackgroundColor);
 		}
 	}
 
@@ -1105,7 +1065,7 @@ public class ThumbnailViewer extends Canvas {
 		if (selected.size() > 0 && reveal) {
 			scrollToDisplay(selected.get(0));
 		}
-		fireSelectionListener();
+		fireSelectionChangedListener();
 		redraw();
 	}
 

@@ -57,4 +57,14 @@ public class CachingThumbnailProviderFactory {
 		}
 		return file;
 	}
+
+	/**
+	 * Returns the thumbnail provider assigned to the journal.
+	 * 
+	 * @param journal
+	 * @return
+	 */
+	public static final CachingThumbnailProvider getProvider(Journal journal) {
+		return (CachingThumbnailProvider) journal.getData(ThumbnailProvider.KEY);
+	}
 }

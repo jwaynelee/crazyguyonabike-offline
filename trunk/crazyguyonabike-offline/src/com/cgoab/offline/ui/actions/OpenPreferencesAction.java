@@ -2,6 +2,7 @@ package com.cgoab.offline.ui.actions;
 
 import org.eclipse.jface.action.Action;
 import org.eclipse.jface.preference.BooleanFieldEditor;
+import org.eclipse.jface.preference.DirectoryFieldEditor;
 import org.eclipse.jface.preference.FieldEditorPreferencePage;
 import org.eclipse.jface.preference.FontFieldEditor;
 import org.eclipse.jface.preference.IntegerFieldEditor;
@@ -57,7 +58,7 @@ public class OpenPreferencesAction extends Action {
 
 		@Override
 		protected void createFieldEditors() {
-			StringFieldEditor magickPath = new StringFieldEditor(PreferenceUtils.MAGICK_PATH, "ImageMagick path",
+			StringFieldEditor magickPath = new DirectoryFieldEditor(PreferenceUtils.MAGICK_PATH, "ImageMagick directory",
 					getFieldEditorParent());
 			IntegerFieldEditor sizePath = new IntegerFieldEditor(PreferenceUtils.RESIZE_DIMENSIONS,
 					"Resized photo size", getFieldEditorParent(), 4);

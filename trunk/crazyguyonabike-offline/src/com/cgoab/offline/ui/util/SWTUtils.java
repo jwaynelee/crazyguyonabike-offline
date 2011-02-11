@@ -1,5 +1,8 @@
 package com.cgoab.offline.ui.util;
 
+import static com.cgoab.offline.util.Utils.getClassName;
+
+import org.eclipse.jface.preference.PreferenceConverter;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.KeyEvent;
 import org.eclipse.swt.graphics.FontData;
@@ -21,6 +24,15 @@ public class SWTUtils {
 			styleData[i] = new FontData(base.getName(), base.getHeight(), base.getStyle() | additionalStyle);
 		}
 		return styleData;
+	}
+
+	public static FontData[] getFontData(Object o) {
+		if (o instanceof String) {
+			return PreferenceConverter.basicGetFontData((String) o);
+		} else if (o instanceof FontData[]) {
+			return (FontData[]) o;
+		}
+		throw new IllegalArgumentException("Unexpected type: " + getClassName(o));
 	}
 
 	public static int getAccelerator(KeyEvent event) {

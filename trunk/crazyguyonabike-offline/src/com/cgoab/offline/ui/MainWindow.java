@@ -48,6 +48,7 @@ import com.cgoab.offline.ui.actions.ToggleHideUploadedContent;
 import com.cgoab.offline.ui.actions.ToggleResizeImagesBeforeUploadAction;
 import com.cgoab.offline.ui.actions.ToggleUseExifThumbnailAction;
 import com.cgoab.offline.ui.actions.UndoAction;
+import com.cgoab.offline.ui.actions.UploadAction;
 import com.cgoab.offline.ui.actions.ViewResizedPhotosAction;
 import com.cgoab.offline.ui.thumbnailviewer.CachingThumbnailProviderFactory;
 import com.cgoab.offline.util.StringUtils;
@@ -132,12 +133,6 @@ public class MainWindow extends ApplicationWindow {
 			}
 		});
 		JournalSelectionService.init();
-		JournalSelectionService.getInstance().addListener(new JournalSelectionAdapter() {
-			@Override
-			public void journalOpened(Journal journal) {
-				PreferenceUtils.getStore().setValue(PreferenceUtils.LAST_JOURNAL, journal.getFile().getAbsolutePath());
-			}
-		});
 		setBlockOnOpen(true);
 		addStatusLine();
 		addMenuBar();
@@ -200,12 +195,17 @@ public class MainWindow extends ApplicationWindow {
 		fileMenuMgr.add(new Separator());
 		fileMenuMgr.add(saveAction);
 		fileMenuMgr.add(new Separator());
+		fileMenuMgr.add(uploadAction);
+		fileMenuMgr.add(new Separator());
+		fileMenuMgr.add(addPhotosAction);
+		fileMenuMgr.add(openPageInBrowserAction);
+		fileMenuMgr.add(new Separator());
 		fileMenuMgr.add(openPreferencesAction);
 		fileMenuMgr.add(new Separator());
 		fileMenuMgr.add(new Action("Exit") {
 			@Override
 			public void run() {
-				close();
+				handleShellCloseEvent();
 			}
 		});
 
@@ -226,6 +226,7 @@ public class MainWindow extends ApplicationWindow {
 	protected Control createContents(Composite parent) {
 		createControls(parent);
 		createActions();
+		thumbnailView.addMenu();
 
 		/* TODO load on background thread? */
 		String journalToOpen = PreferenceUtils.getStore().getString(PreferenceUtils.LAST_JOURNAL);
@@ -250,7 +251,9 @@ public class MainWindow extends ApplicationWindow {
 		Composite thumbViewerGroup = new Composite(sashV, SWT.NONE);
 		GridData data = new GridData(SWT.FILL, SWT.FILL, true, true);
 		thumbViewerGroup.setLayoutData(data);
-		thumbViewerGroup.setLayout(new GridLayout());
+		GridLayout layout = new GridLayout();
+		layout.marginHeight = 2;
+		thumbViewerGroup.setLayout(layout);
 		thumbnailView = new ThumbnailView(this, resizerServiceFactory, thumbnailProviderFactory);
 		thumbnailView.createComponents(thumbViewerGroup);
 		sashV.setWeights(new int[] { 10, 9 });
@@ -287,6 +290,9 @@ public class MainWindow extends ApplicationWindow {
 				return; /* abort close */
 			}
 		}
+		/* save current journal */
+		PreferenceUtils.getStore().setValue(PreferenceUtils.LAST_JOURNAL,
+				journal == null ? "" : journal.getFile().getAbsolutePath());
 		super.handleShellCloseEvent();
 	}
 
