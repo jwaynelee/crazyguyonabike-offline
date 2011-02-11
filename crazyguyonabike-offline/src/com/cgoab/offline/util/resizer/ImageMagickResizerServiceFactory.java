@@ -49,7 +49,6 @@ public class ImageMagickResizerServiceFactory {
 		} catch (MagicNotAvailableException e) {
 			/* ignore */
 		}
-
 	}
 
 	public ResizerService createResizerFor(Journal source) throws MagicNotAvailableException {

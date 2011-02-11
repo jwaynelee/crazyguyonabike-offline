@@ -27,7 +27,6 @@ import org.eclipse.swt.widgets.Display;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.cgoab.offline.model.Journal;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailProvider.Thumbnail;
 import com.cgoab.offline.ui.util.SWTUtils;
 import com.cgoab.offline.util.CompletedFuture;
@@ -82,19 +81,17 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 
 	private boolean useExifThumbnail = true;
 
-	public static final CachingThumbnailProvider getProvider(Journal journal) {
-		return (CachingThumbnailProvider) journal.getData(KEY);
-	}
-
 	public CachingThumbnailProvider(ExecutorService executor, File cacheDirectory, Display display,
 			ResizeStrategy resizer) {
 		this.cacheDirectory = cacheDirectory;
-		if (!cacheDirectory.exists()) {
-			if (!cacheDirectory.mkdir()) {
-				throw new IllegalStateException("Could not create thumbnail directory [" + cacheDirectory + "]");
+		if (cacheDirectory != null) {
+			if (!cacheDirectory.exists()) {
+				if (!cacheDirectory.mkdir()) {
+					throw new IllegalStateException("Could not create thumbnail directory [" + cacheDirectory + "]");
+				}
+			} else if (!cacheDirectory.isDirectory()) {
+				throw new IllegalArgumentException("[" + cacheDirectory + "] is not a directory");
 			}
-		} else if (!cacheDirectory.isDirectory()) {
-			throw new IllegalArgumentException("[" + cacheDirectory + "] is not a directory");
 		}
 		this.executor = executor;
 		this.display = display;
@@ -169,7 +166,7 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 			LOG.debug("Source image does not exist, removing from cache(s)");
 			cache.remove(source);
 			File f = getNameInCache(source);
-			if (f.exists()) {
+			if (f != null && f.exists()) {
 				f.delete();
 			}
 			CompletedFuture<Thumbnail> result = new CompletedFuture<Thumbnail>(null, new FileNotFoundException(
@@ -203,6 +200,9 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 	}
 
 	File getNameInCache(File source) {
+		if (cacheDirectory == null) {
+			return null;
+		}
 		String name = source.getName();
 		int id = name.lastIndexOf(".");
 		if (id > 0) {
@@ -257,6 +257,9 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 
 	public long purge() {
 		SWTUtils.assertOnUIThread();
+		if (cacheDirectory == null) {
+			return -1;
+		}
 		long bytesDeleted = 0;
 		for (File f : cacheDirectory.listFiles()) {
 			if (f.getName().endsWith(THUMBNAIL_EXTENSION)) {
@@ -447,7 +450,7 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 			}
 
 			// 2) check file cache, if file can be loaded we are done
-			if (destination.exists() && destination.lastModified() >= source.lastModified()) {
+			if (destination != null && destination.exists() && destination.lastModified() >= source.lastModified()) {
 				// load from file
 				LOG.debug("Thumbnail exists in file cache [{}]", destination.getName());
 				try {
@@ -470,10 +473,15 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 			// A race is created. If the "callback" does not run
 			// before another request is made to load the same thumbnail we'll
 			// recreate it all over (as it won't be in the cache).
-			try {
-				executor.submit(new SaveThumbnailTask(data, destination));
-			} catch (RejectedExecutionException e) {
-				/* thrown if thumbnails still loading during shutdown, ignore */
+			if (destination != null) {
+				try {
+					executor.submit(new SaveThumbnailTask(data, destination));
+				} catch (RejectedExecutionException e) {
+					/*
+					 * thrown if thumbnails still loading during shutdown,
+					 * ignore
+					 */
+				}
 			}
 			return result;
 		}
@@ -483,8 +491,15 @@ public class CachingThumbnailProvider implements ThumbnailProvider, FutureComple
 				return null;
 			}
 			ExifDirectory exif = (ExifDirectory) meta.getDirectory(ExifDirectory.class);
+			if (!exif.containsTag(ExifDirectory.TAG_THUMBNAIL_DATA)) {
+				return null;
+			}
 			try {
-				ImageData data = new ImageData(new ByteArrayInputStream(exif.getThumbnailData()));
+				byte[] thumbBytes = exif.getThumbnailData();
+				if (thumbBytes == null) {
+					return null;
+				}
+				ImageData data = new ImageData(new ByteArrayInputStream(thumbBytes));
 				LOG.debug("Found EXIF thumbnail with dimensions {}x{} in '{}'", new Object[] { data.width, data.height,
 						source.getName() });
 				return data;

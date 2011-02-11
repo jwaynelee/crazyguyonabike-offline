@@ -5,7 +5,7 @@
 	        :${launch4j.dir}/lib/xstream.jar" />
 
 	<!-- versions & build number (date) -->
-	<property name="version" value="0.1.1" />
+	<property name="version" value="0.1.2" />
 	<tstamp>
 		<format pattern="yyyy-MM-dd" property="TODAY" />
 	</tstamp>

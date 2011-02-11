@@ -1,5 +1,7 @@
 package com.cgoab.offline.ui.actions;
 
+import static com.cgoab.offline.ui.actions.ActionUtils.isNonEmptyPageArray;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.ListIterator;
@@ -21,6 +23,7 @@ import org.eclipse.swt.widgets.Shell;
 import com.cgoab.offline.model.DuplicatePhotoException;
 import com.cgoab.offline.model.Journal;
 import com.cgoab.offline.model.Page;
+import com.cgoab.offline.ui.JournalSelectionAdapter;
 import com.cgoab.offline.ui.JournalSelectionService;
 import com.cgoab.offline.ui.JournalSelectionService.JournalSelectionListener;
 import com.cgoab.offline.ui.MainWindow;
@@ -35,6 +38,20 @@ public class DeletePageAction extends Action {
 		super("Delete Page");
 		this.shell = shell;
 		this.viewer = viewer;
+		JournalSelectionService.getInstance().addListener(new JournalSelectionAdapter() {
+			@Override
+			public void selectionChanged(Object newSelection, Object oldSelection) {
+				if (newSelection instanceof Page) {
+					setEnabled(true);
+					setText("Delete Page");
+				} else if (isNonEmptyPageArray(newSelection)) {
+					setEnabled(true);
+					setText("Delete Pages");
+				} else {
+					setEnabled(false);
+				}
+			}
+		});
 	}
 
 	@Override

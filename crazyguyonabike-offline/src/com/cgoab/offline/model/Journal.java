@@ -16,10 +16,10 @@ import com.cgoab.offline.util.Assert;
 /**
  * A Journal holds the pages to to be uploaded to the server.
  * 
- * The name of this journal has no correlation to the journal (document) to
- * which pages are added too. The actual document is resolved at upload time.
- * Once an upload occurs id of the document (doc_id) to which the pages were
- * added is available from {@link #getDocIdHint()}.
+ * The name of this journal has no correlation to the server journal (document)
+ * to which pages are added too. The actual document is resolved at upload time.
+ * Once an upload occurs, the id of the server document (doc_id) to which the
+ * pages were added is available from {@link #getDocIdHint()}.
  */
 public class Journal {
 
@@ -189,6 +189,15 @@ public class Journal {
 		return data.get(key);
 	}
 
+	/**
+	 * Returns the doc_id of the server journal pages were previously uploaded
+	 * to.
+	 * <p>
+	 * This is used to auto-select the document for sucessive uploads.
+	 * 
+	 * @return previously used server doc_id, or {@link #UNSET_DOC_ID} if no
+	 *         uploads have occured yet.
+	 */
 	public int getDocIdHint() {
 		return docIdHint;
 	}

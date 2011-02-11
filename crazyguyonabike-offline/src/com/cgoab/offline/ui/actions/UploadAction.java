@@ -1,4 +1,6 @@
-package com.cgoab.offline.ui;
+package com.cgoab.offline.ui.actions;
+
+import static com.cgoab.offline.ui.actions.ActionUtils.isNonEmptyPageArray;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -19,8 +21,13 @@ import com.cgoab.offline.model.Journal;
 import com.cgoab.offline.model.Page;
 import com.cgoab.offline.model.Photo;
 import com.cgoab.offline.model.UploadState;
+import com.cgoab.offline.ui.JournalSelectionAdapter;
+import com.cgoab.offline.ui.JournalSelectionService;
+import com.cgoab.offline.ui.JournalUtils;
+import com.cgoab.offline.ui.PreferenceUtils;
+import com.cgoab.offline.ui.UploadDialog;
 import com.cgoab.offline.ui.UploadDialog.UploadResult;
-import com.cgoab.offline.ui.thumbnailviewer.CachingThumbnailProvider;
+import com.cgoab.offline.ui.thumbnailviewer.CachingThumbnailProviderFactory;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailViewer;
 import com.cgoab.offline.util.Assert;
 import com.cgoab.offline.util.LatestVersionChecker;
@@ -31,6 +38,7 @@ import com.cgoab.offline.util.resizer.ResizerService;
  */
 public class UploadAction extends Action {
 
+	public static final String SET_PAGES_VISIBLE_TITLE = "Set pages visible?";
 	private UploadClientFactory factory;
 	private Shell shell;
 	private ThumbnailViewer thumbnails;
@@ -65,29 +73,6 @@ public class UploadAction extends Action {
 				}
 			}
 		});
-	}
-
-	/**
-	 * Returns true if the selection is a non-empty array containing only
-	 * {@link Page} objects.
-	 * 
-	 * @param selection
-	 * @return
-	 */
-	static boolean isNonEmptyPageArray(Object selection) {
-		if (selection == null || !(selection instanceof Object[])) {
-			return false;
-		}
-		Object[] items = (Object[]) selection;
-		if (items.length == 0) {
-			return false;
-		}
-		for (Object o : items) {
-			if (!(o instanceof Page)) {
-				return false;
-			}
-		}
-		return true;
 	}
 
 	static boolean isPreviousPageUploaded(Page page) {
@@ -257,23 +242,27 @@ public class UploadAction extends Action {
 		}
 
 		/* 4) ask if pages should be made visible */
-		// TODO use MessageDialogWithToggle when preferences in place
 		boolean visible;
 		if (!PreferenceUtils.getStore().contains(PreferenceUtils.NEW_PAGES_VISIBLE)) {
-			visible = MessageDialogWithToggle.openYesNoQuestion(shell, "Make new pages visible?",
-					"Do you want these uploaded pages to be visible?", "always do this?", false,
-					PreferenceUtils.getStore(), PreferenceUtils.NEW_PAGES_VISIBLE).getReturnCode() == IDialogConstants.YES_ID;
+			visible = MessageDialogWithToggle
+					.openYesNoQuestion(
+							shell,
+							SET_PAGES_VISIBLE_TITLE,
+							"Make uploaded Page(s) visible?\n\nIf not you'll need to set them visible before they are shown in your journal.",
+							"always do this?", false, PreferenceUtils.getStore(), PreferenceUtils.NEW_PAGES_VISIBLE)
+					.getReturnCode() == IDialogConstants.YES_ID;
+			/* if toggle select then ALWAYS | NEVER is stored in preference */
 		} else {
 			visible = PreferenceUtils.getStore().getString(PreferenceUtils.NEW_PAGES_VISIBLE) == MessageDialogWithToggle.ALWAYS;
 		}
 
-		// HACK - no option in UI to set visible, so set now
+		/* HACK - no option in UI to set visible, so set now */
 		for (Page page : newPages) {
 			page.setVisible(visible);
 		}
 
 		UploadDialog dialog = new UploadDialog(shell);
-		dialog.setThumbnailProvider(CachingThumbnailProvider.getProvider(journal));
+		dialog.setThumbnailProvider(CachingThumbnailProviderFactory.getProvider(journal));
 		dialog.setPages(newPages);
 		dialog.setJournal(journal);
 

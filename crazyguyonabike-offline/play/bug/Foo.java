@@ -1,3 +1,4 @@
+package bug;
 
 public class Foo extends Thread {
 	static String str = "Hello";

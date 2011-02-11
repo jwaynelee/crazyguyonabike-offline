@@ -7,6 +7,8 @@ import java.util.Arrays;
 import java.util.List;
 
 import org.eclipse.core.commands.operations.IUndoContext;
+import org.eclipse.jface.preference.IPreferenceStore;
+import org.eclipse.jface.preference.PreferenceConverter;
 import org.eclipse.jface.text.Document;
 import org.eclipse.jface.text.IDocument;
 import org.eclipse.jface.text.ITextListener;
@@ -23,6 +25,7 @@ import org.eclipse.swt.events.FocusAdapter;
 import org.eclipse.swt.events.FocusEvent;
 import org.eclipse.swt.events.ModifyEvent;
 import org.eclipse.swt.events.ModifyListener;
+import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.events.SelectionListener;
 import org.eclipse.swt.events.VerifyEvent;
@@ -53,6 +56,7 @@ import com.cgoab.offline.model.Page.HeadingStyle;
 import com.cgoab.offline.model.UploadState;
 import com.cgoab.offline.ui.JournalSelectionService.JournalSelectionListener;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailViewer;
+import com.cgoab.offline.ui.util.SWTUtils;
 import com.cgoab.offline.util.StringUtils;
 import com.cgoab.offline.util.Utils;
 
@@ -134,8 +138,7 @@ public class PageEditor {
 			@Override
 			public void propertyChange(PropertyChangeEvent event) {
 				if (PreferenceUtils.FONT.equals(event.getProperty())) {
-					FontData[] data = (FontData[]) event.getNewValue();
-					Font font = new Font(application.getShell().getDisplay(), data);
+					Font font = new Font(application.getShell().getDisplay(), SWTUtils.getFontData(event.getNewValue()));
 					textInput.getTextWidget().setFont(font);
 					/* dispose last font */
 					if (fontToDispose != null) {
@@ -338,12 +341,17 @@ public class PageEditor {
 		data.widthHint = averageCharWidth * 120; // 120 characters
 		textInput.getTextWidget().setLayoutData(data);
 		textInput.addTextListener(dirtyCurrentPageListener);
+
+		/* configure default font */
+		IPreferenceStore pstore = PreferenceUtils.getStore();
+		FontData[] defaultFont = textInput.getControl().getFont().getFontData();
 		if (PreferenceUtils.getStore().contains(PreferenceUtils.FONT)) {
-			String fds = PreferenceUtils.getStore().getString(PreferenceUtils.FONT);
-			Font font = new Font(parent.getShell().getDisplay(), new FontData(fds));
+			FontData[] fd = PreferenceConverter.getFontDataArray(pstore, PreferenceUtils.FONT);
+			Font font = new Font(parent.getShell().getDisplay(), fd);
 			textInput.getControl().setFont(font);
 			fontToDispose = font; /* make sure we dispose this if we change it */
 		}
+		PreferenceConverter.setDefault(pstore, PreferenceUtils.FONT, defaultFont);
 
 		/*
 		 * Slurp up references to all the editor widgets so we can turn on/off

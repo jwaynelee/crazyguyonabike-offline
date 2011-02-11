@@ -3,6 +3,7 @@ package com.cgoab.offline.ui.actions;
 import java.io.File;
 
 import org.eclipse.jface.action.Action;
+import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.FileDialog;
 import org.eclipse.swt.widgets.Shell;
 
@@ -52,7 +53,7 @@ public class AddPhotosAction extends Action {
 			return;
 		}
 
-		FileDialog dialog = new FileDialog(shell);
+		FileDialog dialog = new FileDialog(shell, SWT.MULTI);
 		dialog.setText("Select photos to add to page");
 		dialog.setFileName("");
 		dialog.open();

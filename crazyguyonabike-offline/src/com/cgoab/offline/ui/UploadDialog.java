@@ -302,14 +302,36 @@ public class UploadDialog {
 	}
 
 	private void doUpload() {
-		// disable UI
+		/* disable UI */
 		setEnabledTo(false, btnUpload, btnLogout, documentTable.getTable());
-		final DocumentDescription selectedDocument = (DocumentDescription) ((IStructuredSelection) documentTable
+		final DocumentDescription targetDoc = (DocumentDescription) ((IStructuredSelection) documentTable
 				.getSelection()).getFirstElement();
-		selectedDocument.getDocumentId();
+
+		// warn if different journal to last time
+		int newDocId = targetDoc.getDocumentId();
+		int oldDocId = journal.getDocIdHint();
+		if (oldDocId != Journal.UNSET_DOC_ID && newDocId != oldDocId) {
+			/* woops */
+			List<DocumentDescription> docs = (List<DocumentDescription>) documentTable.getInput();
+			String oldName = "?";
+			for (DocumentDescription doc : docs) {
+				if (doc.getDocumentId() == oldDocId) {
+					oldName = doc.getTitle();
+					break;
+				}
+			}
+
+			if (!MessageDialog.openQuestion(shell, "New document selected!", "The last upload of this journal was into:\n\n  '" + oldName
+					+ "' (doc_id=" + oldDocId + ")\n\nYou are now attempting to upload into:\n\n  '"
+					+ targetDoc.getTitle() + "' (doc_id=" + newDocId + ")\n\nAre you sure you want to continue?")) {
+				/* NO */
+				setEnabledTo(true, btnUpload, documentTable.getTable());
+				return;
+			}
+		}
 
 		// save doc id hint in journal for future use
-		journal.setDocIdHint(selectedDocument.getDocumentId());
+		journal.setDocIdHint(newDocId);
 
 		// compute how much work we have to do...
 		int work = 0;
@@ -331,9 +353,9 @@ public class UploadDialog {
 		uploader.setListener(new UploadListener());
 
 		/* first initialise the client */
-		log("Checking for server changes using document-id " + selectedDocument.getDocumentId());
+		log("Checking for server changes using document-id " + targetDoc.getDocumentId());
 		startOperation();
-		client.initialize(selectedDocument.getDocumentId(), new CompletionCallback<Void>() {
+		client.initialize(targetDoc.getDocumentId(), new CompletionCallback<Void>() {
 			@Override
 			public void onCompletion(Void result) {
 				finishOperation();
@@ -361,8 +383,8 @@ public class UploadDialog {
 
 			private void startUpload() {
 				startOperation();
-				log("Starting upload of " + pages.size() + " pages to " + selectedDocument.getDocumentId() + " ("
-						+ selectedDocument.getTitle() + ")");
+				log("Starting upload of " + pages.size() + " pages to " + targetDoc.getDocumentId() + " ("
+						+ targetDoc.getTitle() + ")");
 				uploader.start();
 			}
 		});

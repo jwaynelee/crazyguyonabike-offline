@@ -27,6 +27,10 @@ public class Utils {
 
 	private static final int ORDER = 1024;
 
+	public static String getClassName(Object o) {
+		return o == null ? "null" : o.getClass().getName();
+	}
+
 	/**
 	 * Creates the given file, creating all required parent directories.
 	 * 

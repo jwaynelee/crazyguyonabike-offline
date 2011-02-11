@@ -1,4 +1,4 @@
-package com.cgoab.offline.ui;
+package com.cgoab.offline.ui.actions;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -7,6 +7,7 @@ import org.junit.Test;
 
 import com.cgoab.offline.model.Journal;
 import com.cgoab.offline.model.Page;
+import com.cgoab.offline.ui.actions.UploadAction;
 
 public class UploadActionTest {
 	@Test

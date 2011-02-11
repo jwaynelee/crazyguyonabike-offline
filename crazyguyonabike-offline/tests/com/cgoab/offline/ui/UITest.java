@@ -51,6 +51,7 @@ import com.cgoab.offline.model.Page;
 import com.cgoab.offline.model.Page.PhotosOrder;
 import com.cgoab.offline.model.Photo;
 import com.cgoab.offline.model.UploadState;
+import com.cgoab.offline.ui.actions.UploadAction;
 import com.cgoab.offline.ui.thumbnailviewer.CachingThumbnailProviderFactory;
 import com.cgoab.offline.ui.thumbnailviewer.ThumbnailViewer;
 import com.cgoab.offline.ui.util.UIExecutor;
@@ -396,7 +397,7 @@ public class UITest {
 		 * image resizer might still be working so we'll get the progress dialog
 		 * so wait until upload opens.
 		 */
-		bot.waitUntil(Conditions.shellIsActive("Make new pages visible?"));
+		bot.waitUntil(Conditions.shellIsActive(UploadAction.SET_PAGES_VISIBLE_TITLE));
 		bot.activeShell().bot().button("No").click();
 		bot.waitUntil(new ShellNameMatches("Upload.*"));
 		SWTBot uploadBot = bot.activeShell().bot();
