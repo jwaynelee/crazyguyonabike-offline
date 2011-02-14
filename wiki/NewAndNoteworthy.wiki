@@ -15,7 +15,7 @@
 
 [http://crazyguyonabike-offline.googlecode.com/svn/trunk/crazyguyonabike-offline/screenshots/0.1.2/uploadSinglePage.gif]
 
-[http://crazyguyonabike-offline.googlecode.com/svn/trunk/crazyguyonabike-offline/screenshots/0.1.2/uploadMultiplePages.gif dd]
+[http://crazyguyonabike-offline.googlecode.com/svn/trunk/crazyguyonabike-offline/screenshots/0.1.2/uploadMultiplePages.gif]
 
   * Extra file menu items (add photo, upload etc)
   * Many miscellaneous bug fixes
