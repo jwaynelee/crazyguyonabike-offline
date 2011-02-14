@@ -111,6 +111,7 @@ public class UITest {
 				application.setResizerServiceFactory(resizerFactory);
 				DefaultWebUploadClientFactory factory = new DefaultWebUploadClientFactory();
 				factory.setHost("localhost");
+				factory.setMaximumBackoffDelay(100);
 				factory.setPort(server.getHttpServer().getLocalPort());
 				factory.setCallbackExecutor(new UIExecutor(display));
 				/* don't use cookie store, complicates upload login wait */
@@ -152,6 +153,19 @@ public class UITest {
 			}
 			uiThread.join();
 		}
+	}
+
+	@Test
+	public void addPhotoWithIPTCCaption() throws Exception {
+		final Journal journal = new Journal(getTestJournalFilePath(), "test");
+		journal.createNewPage();
+		setCurrentJournal(journal);
+		final SWTBot bot = new SWTBot();
+		File photoWithCaption = TestPhotos.extractSmallPhotoWithIPTCCaption();
+		addPhotosToCurrentPage(bot, new File[] { photoWithCaption });
+		bot.activeShell().bot().button("Yes").click(); /* exif */
+		bot.activeShell().bot().button("Yes").click(); /* resize */
+		assertEquals("!Caption!", bot.styledTextWithLabel("Caption: ").getText());
 	}
 
 	/* Test for new feature */

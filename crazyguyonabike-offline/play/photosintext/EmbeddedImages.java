@@ -13,6 +13,9 @@ import org.eclipse.swt.custom.StyleRange;
 import org.eclipse.swt.custom.StyledText;
 import org.eclipse.swt.custom.StyledTextUtil;
 import org.eclipse.swt.dnd.DND;
+import org.eclipse.swt.dnd.DragSource;
+import org.eclipse.swt.dnd.DragSourceAdapter;
+import org.eclipse.swt.dnd.DragSourceEvent;
 import org.eclipse.swt.dnd.DropTarget;
 import org.eclipse.swt.dnd.DropTargetAdapter;
 import org.eclipse.swt.dnd.DropTargetEvent;
@@ -61,6 +64,8 @@ public class EmbeddedImages implements PaintObjectListener, VerifyListener, Disp
 
 	CachingThumbnailProvider provider;
 
+	static String OBJECT_CODE = "\uFFFC";
+
 	public EmbeddedImages(Composite parent) {
 		final ExecutorService executor = Executors.newSingleThreadExecutor();
 		provider = new CachingThumbnailProvider(executor, null, parent.getShell().getDisplay(),
@@ -82,24 +87,43 @@ public class EmbeddedImages implements PaintObjectListener, VerifyListener, Disp
 		styledText.addPaintObjectListener(this);
 		styledText.addDisposeListener(this);
 		DropTarget dt = new DropTarget(styledText, DND.DROP_MOVE | DND.DROP_LINK | DND.DROP_COPY);
-		dt.setTransfer(new Transfer[] { FileTransfer.getInstance(), LocalThumbnailTransfer.getInstance() });
+		dt.setTransfer(new Transfer[] { FileTransfer.getInstance(), MyTransfer.getInstance() });
 		dt.addDropListener(new DropTargetAdapter() {
 			@Override
 			public void drop(DropTargetEvent e) {
-				if (!FileTransfer.getInstance().isSupportedType(e.currentDataType)) {
-					return;
-				}
 				Point control = styledText.toControl(new Point(e.x, e.y));
 				int insetionOffest = StyledTextUtil.getOffsetAtPoint(styledText, control.x, control.y, new int[1],
 						false);
+				if (MyTransfer.getInstance().isSupportedType(e.currentDataType)) {
+					/* local transfer */
+					Data data = (Data) MyTransfer.getInstance().getSelectedPhoto();
+					if (data != null) {
+						try {
+							supressDispose = true;
+							styledText.replaceTextRange(data.offset, 1, ""); // TODO
+																				// eat
+																				// new-line
+							// Point point = styledText.toControl(new Point(e.x,
+							// e.y));
+							styledText.setSelectionRange(insetionOffest, 0);
+							styledText.insert(OBJECT_CODE + "\n");
+							addImage(data.image, insetionOffest, 1, data.caption);
+						} finally {
+							supressDispose = false;
+						}
+					}
+					return;
+				} else if (!FileTransfer.getInstance().isSupportedType(e.currentDataType)) {
+					return;
+				}
 				for (String str : (String[]) e.data) {
 					// images.put(next++, str);
 					// inserts.append("\uFFFC\n");
 					styledText.setSelectionRange(insetionOffest, 0);
-					styledText.insert("\uFFFC\n");
+					styledText.insert(OBJECT_CODE + "\n");
 					try {
 						addImage(new Image(composite.getDisplay(),
-								provider.get(new File(str), null, null).get().imageData), insetionOffest, 1);
+								provider.get(new File(str), null, null).get().imageData), insetionOffest, 1, null);
 					} catch (Exception ex) {
 						ex.printStackTrace();
 					}
@@ -107,6 +131,45 @@ public class EmbeddedImages implements PaintObjectListener, VerifyListener, Disp
 				System.out.println(insetionOffest);
 			}
 		});
+		DragSource source = new DragSource(styledText, DND.DROP_MOVE);
+		source.setTransfer(new Transfer[] { photosintext.MyTransfer.getInstance() });
+		source.addDragListener(new DragSourceAdapter() {
+			@Override
+			public void dragStart(DragSourceEvent event) {
+				if (styledText.getSelectionCount() == 1) {
+					int offset = styledText.getOffsetAtLocation(new Point(event.x, event.y));
+					if (OBJECT_CODE.equals(styledText.getTextRange(offset, 1))) {
+						StyleRange style = styledText.getStyleRangeAtOffset(offset);
+						if (style instanceof ImageStyleRange) {
+							ImageStyleRange range = (ImageStyleRange) style;
+							photosintext.MyTransfer.getInstance().setSelectedPhoto(
+									new Data(range.image, range.caption, offset));
+							event.doit = true;
+							System.out.println("dragStart()");
+							return;
+						}
+					}
+				}
+				event.doit = false;
+			}
+
+			@Override
+			public void dragFinished(DragSourceEvent event) {
+				photosintext.MyTransfer.getInstance().setSelectedPhoto(null);
+			}
+		});
+	}
+
+	static class Data {
+		Image image;
+		Text caption;
+		int offset;
+
+		public Data(Image image, Text caption, int offset) {
+			this.image = image;
+			this.caption = caption;
+			this.offset = offset;
+		}
 	}
 
 	public void widgetDisposed(DisposeEvent e) {
@@ -118,8 +181,9 @@ public class EmbeddedImages implements PaintObjectListener, VerifyListener, Disp
 		}
 	}
 
-	private void addImage(Image image, int offset, int length) {
-		ImageStyleRange style = new ImageStyleRange(styledText, image);
+	private void addImage(Image image, int offset, int length, Text caption) {
+		ImageStyleRange style = caption == null ? new ImageStyleRange(styledText, image) : new ImageStyleRange(
+				styledText, image, caption);
 		style.start = offset;
 		style.length = length;
 		Rectangle rect = image.getBounds();
@@ -147,10 +211,11 @@ public class EmbeddedImages implements PaintObjectListener, VerifyListener, Disp
 	public void verifyText(VerifyEvent e) {
 		StyleRange[] ranges = styledText.getStyleRanges(e.start, (e.end - e.start), true);
 		for (StyleRange styleRange : ranges) {
-			if (styleRange instanceof ImageStyleRange) {
+			if (styleRange instanceof ImageStyleRange && !supressDispose) {
 				ImageStyleRange imageStyleRange = (ImageStyleRange) styleRange;
 				imageStyleRange.image.dispose();
 				imageStyleRange.caption.dispose();
+				System.out.println("!-disposed-!");
 			}
 		}
 	}
@@ -183,18 +248,24 @@ public class EmbeddedImages implements PaintObjectListener, VerifyListener, Disp
 		display.dispose();
 	}
 
+	private static boolean supressDispose;
+
 	private static class ImageStyleRange extends StyleRange {
 		public Image image;
 		public Text caption;
 
 		public ImageStyleRange(StyledText parent, Image image) {
+			this(parent, image, new Text(parent, SWT.SINGLE | SWT.BORDER));
+		}
+
+		public ImageStyleRange(StyledText parent, Image image, Text caption) {
 			this.image = image;
-			caption = new Text(parent, SWT.SINGLE | SWT.BORDER);
+			this.caption = caption;
 			int width = image.getBounds().width;
-			//caption.setLayoutData(new GridData(width, SWT.DEFAULT));
+			// caption.setLayoutData(new GridData(width, SWT.DEFAULT));
 			caption.setSize(width, 20);
 			caption.setText("add caption");
-			//caption.pack();
+			// caption.pack();
 		}
 	}
 }

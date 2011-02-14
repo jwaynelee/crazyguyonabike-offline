@@ -54,7 +54,7 @@ public class DefaultWebUploadClientTest {
 	@Before
 	public void beforeTest() {
 		client = new DefaultWebUploadClient("localhost", server.getHttpServer().getLocalPort(), new BasicCookieStore(),
-				new CallingThreadExecutor());
+				new CallingThreadExecutor(), Integer.MAX_VALUE);
 	}
 
 	@After
