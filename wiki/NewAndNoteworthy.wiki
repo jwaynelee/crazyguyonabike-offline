@@ -21,6 +21,7 @@
   * Many miscellaneous bug fixes
     * Key bindings not created until menu opened (CTRL-Z etc) 
     * No prompt to save when exiting via `File > Exit`
+    * Photo panel turns white when active and photos can be dropped onto it, grey when inactive.
     * NPE when restoring default font in preferences
     * NPE when loading a photo with partial meta-data
     * "?:?" shown as version when spaces are in the install path
