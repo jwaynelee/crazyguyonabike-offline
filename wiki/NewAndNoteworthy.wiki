@@ -11,7 +11,12 @@
 
 [http://crazyguyonabike-offline.googlecode.com/svn/trunk/crazyguyonabike-offline/screenshots/0.1.2/copied-caption.gif]
 
-  * Uploads of one or more pages allowed
+  * Optionally upload one or more pages rather than the entire journal
+
+[http://crazyguyonabike-offline.googlecode.com/svn/trunk/crazyguyonabike-offline/screenshots/0.1.2/uploadMultiplePages.gif]
+
+[http://crazyguyonabike-offline.googlecode.com/svn/trunk/crazyguyonabike-offline/screenshots/0.1.2/uploadSinglePage.gif]
+
   * Extra file menu items (add photo, upload etc)
   * Many bug fixes
     * Key bindings not created until menu opened (CTRL-Z etc) 
