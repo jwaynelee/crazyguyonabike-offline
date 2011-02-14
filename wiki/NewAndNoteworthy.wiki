@@ -1,4 +1,4 @@
-#summary New & Noteworthy
+#summary New & Noteworthy lists features of new versions
 #labels Featured
 
 = New & Noteworthy =
