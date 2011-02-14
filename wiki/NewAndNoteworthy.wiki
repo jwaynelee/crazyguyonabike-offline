@@ -13,9 +13,9 @@
 
   * Optionally upload one or more pages rather than the entire journal
 
-[http://crazyguyonabike-offline.googlecode.com/svn/trunk/crazyguyonabike-offline/screenshots/0.1.2/uploadMultiplePages.gif]
-
 [http://crazyguyonabike-offline.googlecode.com/svn/trunk/crazyguyonabike-offline/screenshots/0.1.2/uploadSinglePage.gif]
+
+[http://crazyguyonabike-offline.googlecode.com/svn/trunk/crazyguyonabike-offline/screenshots/0.1.2/uploadMultiplePages.gif dd]
 
   * Extra file menu items (add photo, upload etc)
   * Many bug fixes
