@@ -9,7 +9,7 @@
 
 [http://crazyguyonabike-offline.googlecode.com/svn/trunk/crazyguyonabike-offline/screenshots/0.1.2/picasa.gif If you caption your photos in Picasa or some other photo editing software...]
 
-[http://crazyguyonabike-offline.googlecode.com/svn/trunk/crazyguyonabike-offline/screenshots/0.1.2/copied-caption.gif ... then the caption will be extracted when the photo is imported!]
+[http://crazyguyonabike-offline.googlecode.com/svn/trunk/crazyguyonabike-offline/screenshots/0.1.2/copied-caption.gif "then the caption will be extracted when the photo is imported!"]
 
   * Optionally upload one or more pages rather than the entire journal
 
