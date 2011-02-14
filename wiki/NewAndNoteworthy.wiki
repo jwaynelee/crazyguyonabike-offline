@@ -3,6 +3,8 @@
 
 = New & Noteworthy =
 
+<wiki:toc max_depth="1" />
+
 == 0.1.2 ==
 
   * If you caption your photos in Picasa (or with similar photo management software) then the caption will be automatically extracted when the photo is added.
