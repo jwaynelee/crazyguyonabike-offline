@@ -1,0 +1,15 @@
+#summary New & Noteworthy
+#labels Featured
+
+= New & Noteworthy =
+
+== 0.1.2 ==
+
+  * IPTC caption automatically extracted from JPEGs that have it set
+  * Uploads of one or more pages allowed
+  * Extra file menu items (add photo, upload etc)
+  * Many bug fixes
+    * Key bindings not created until menu opened (CTRL-Z etc) 
+    * NPE restore defaults in preferences
+    * NPE loading JPEG with partial meta-data
+    * "?:?" version when spaces in install path
