@@ -3,7 +3,7 @@
 
 <wiki:toc max_depth="2" />
 
-=0.1.2 (Photo captions, upload selection & bug fixes)=
+=0.1.2: Photo captions, upload selection & bug fixes=
 
   * If you caption your photos in Picasa (or with similar photo management software) then the caption will be automatically extracted when the photo is added.
 
