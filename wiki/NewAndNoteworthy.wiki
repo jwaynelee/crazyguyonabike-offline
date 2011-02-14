@@ -5,10 +5,9 @@
 
 == 0.1.2 ==
 
-  * If you caption your photos using Picasa or similar photo management software then (IPTC) these caption will be automatically extracted when photos are added.
+  * If you caption your photos in Picasa (or with similar photo management software) then the caption will be automatically extracted when the photo is added.
 
 [http://crazyguyonabike-offline.googlecode.com/svn/trunk/crazyguyonabike-offline/screenshots/0.1.2/picasa.gif]
-
 
 [http://crazyguyonabike-offline.googlecode.com/svn/trunk/crazyguyonabike-offline/screenshots/0.1.2/copied-caption.gif]
 
