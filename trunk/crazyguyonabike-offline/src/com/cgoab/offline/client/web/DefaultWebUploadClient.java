@@ -1,5 +1,7 @@
 package com.cgoab.offline.client.web;
 
+import static java.lang.Math.min;
+
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -259,6 +261,7 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 	private final int port;
 
 	boolean validatedAddPageForm;
+	private int maxBackoffDelay;
 
 	/**
 	 * Creates a new client
@@ -272,11 +275,13 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 	 * @param executor
 	 *            executor used to run completion callbacks, if null calls on
 	 *            the client thread
+	 * @param maxBackoffDelay
 	 */
-	public DefaultWebUploadClient(String url, int port, CookieStore cookies, Executor executor) {
+	public DefaultWebUploadClient(String url, int port, CookieStore cookies, Executor executor, int maxBackoffDelay) {
 		super(executor);
 		this.host = url;
 		this.port = port;
+		this.maxBackoffDelay = maxBackoffDelay;
 		this.cleaner = new HtmlCleaner();
 		this.client = new DefaultHttpClient();
 		client.setHttpRequestRetryHandler(new UnlimitedExponentialBackoffRetry());
@@ -937,7 +942,7 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 		public boolean retryRequest(IOException exception, int executionCount, HttpContext context) {
 			fireOnRetry(exception, executionCount);
 			try {
-				long sleep = computeSleep(executionCount);
+				long sleep = min(computeSleep(executionCount), maxBackoffDelay);
 				LOG.info("Sleeping for {}ms after failed execution", sleep);
 				Thread.sleep(sleep);
 			} catch (InterruptedException e) {

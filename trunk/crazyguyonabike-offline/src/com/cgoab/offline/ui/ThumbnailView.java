@@ -322,19 +322,21 @@ public class ThumbnailView {
 		if (journal.isUseExifThumbnail() == null) {
 			/* TODO this will trigger a refresh, supress if slow? */
 			journal.setUseExifThumbnail(MessageDialog.openQuestion(shell, "Use embedded thumnails?",
-					"Do you want to use embedded JPEG thumbnails if available?\n\n"
-							+ "Embedded thumnbails load quicker but may be of poor quality. If you"
-							+ " don't use them a new thumbnail will be created for each photo, "
-							+ "providing crisper thumbnails but taking longer to load."));
+					"Do you want to use the thumbnail embedded in JPEGs by your digital camera (if available)?\n\n"
+							+ "Embedded thumnbails load quicker but may be poor quality. If you"
+							+ " select no, a new thumbnail will be created for each photo, "
+							+ "providing a crisper result but taking longer to load."));
 
 		}
 
 		thumbViewer.setSelection(new StructuredSelection(photos), true);
 		Boolean resize = journal.isResizeImagesBeforeUpload();
 		if (resize == null) {
-			resize = MessageDialog
-					.openQuestion(shell, "Resize photos?",
-							"Do you want photos added to this journal to be resized before they are uploaded to reduce upload time?");
+			resize = MessageDialog.openQuestion(shell, "Resize photos?",
+					"Do you want photos added to this journal to be resized before they are uploaded?\n\n"
+							+ "If you select yes, uploads will be faster. The server resizes photos regardless "
+							+ "so resizing now will make no difference to the quality or size of your photos "
+							+ "when viewed in a browser.");
 			if (resize) {
 				/* if fail to start the resizer, disable and don't ask again */
 				resize = registerResizer(journal, false);
@@ -396,6 +398,10 @@ public class ThumbnailView {
 			thumbViewer.setInput(null);
 			thumbViewer.setEnabled(false);
 			thumbViewer.setEditable(false);
+			btnSortByName.setEnabled(false);
+			btnSortByName.setSelection(false);
+			btnSortManual.setEnabled(false);
+			btnSortManual.setSelection(false);
 		} else {
 			runOutsideCurrentPageBinding(new Runnable() {
 				@Override
@@ -404,6 +410,9 @@ public class ThumbnailView {
 					selectOrderByButton(orderByButtonMap.get(pageToShow.getPhotosOrder()));
 				}
 			});
+			boolean enableOrderBy = pageToShow.getState() == UploadState.NEW;
+			btnSortManual.setEnabled(enableOrderBy);
+			btnSortByName.setEnabled(enableOrderBy);
 			pageToShow.addPropertyChangeListener(photoOrderListener);
 			thumbViewer.setInput(pageToShow);
 			thumbViewer.setEnabled(true);

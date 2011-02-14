@@ -29,7 +29,7 @@ import com.cgoab.offline.model.Photo;
 public class DefaultWebUploadClientUsingCGOABServerTest {
 
 	DefaultWebUploadClient client = new DefaultWebUploadClient(Application.CRAZYGUYONABIKE_HOST,
-			Application.CRAZYGUYONABIKE_PORT, new BasicCookieStore(), new CallingThreadExecutor());
+			Application.CRAZYGUYONABIKE_PORT, new BasicCookieStore(), new CallingThreadExecutor(), Integer.MAX_VALUE);
 
 	private static String password = "secret", username = "testcgoaboffline";
 

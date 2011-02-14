@@ -9,6 +9,10 @@ import testutils.TestUtils;
 
 public class TestPhotos {
 
+	public static File extractSmallPhotoWithIPTCCaption() throws IOException {
+		return extractPhoto("P1050073_caption.jpg", TestPhotos.class);
+	}
+
 	public static File extractSmallPhoto() throws IOException {
 		return extractPhoto("P1050073.jpg", TestPhotos.class);
 	}
