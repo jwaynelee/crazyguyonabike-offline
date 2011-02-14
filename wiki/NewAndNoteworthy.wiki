@@ -5,25 +5,24 @@
 
 == 0.1.2 ==
 
-  * IPTC caption automatically extracted from JPEGs that have it set
+  * If you caption your photos using Picasa or similar photo management software then (IPTC) these caption will be automatically extracted when photos are added.
 
 [http://crazyguyonabike-offline.googlecode.com/svn/trunk/crazyguyonabike-offline/screenshots/0.1.2/picasa.gif]
 
-If you caption your photo in Picasa (or some other photo editing software)...
 
 [http://crazyguyonabike-offline.googlecode.com/svn/trunk/crazyguyonabike-offline/screenshots/0.1.2/copied-caption.gif]
 
-... then the caption will be extracted when the photo is imported!
-
-  * Optionally upload one or more pages rather than the entire journal
+  * You can now select one or more pages to upload rather than the entire journal. Your selection must include the _first non-uploaded_ page and be _contiguous_ (you can't skip a page).
 
 [http://crazyguyonabike-offline.googlecode.com/svn/trunk/crazyguyonabike-offline/screenshots/0.1.2/uploadSinglePage.gif]
 
 [http://crazyguyonabike-offline.googlecode.com/svn/trunk/crazyguyonabike-offline/screenshots/0.1.2/uploadMultiplePages.gif dd]
 
   * Extra file menu items (add photo, upload etc)
-  * Many bug fixes
+  * Many miscellaneous bug fixes
     * Key bindings not created until menu opened (CTRL-Z etc) 
-    * NPE restore defaults in preferences
-    * NPE loading JPEG with partial meta-data
-    * "?:?" version when spaces in install path
+    * No prompt to save when exiting via `File > Exit`
+    * NPE when restoring default font in preferences
+    * NPE when loading a photo with partial meta-data
+    * "?:?" shown as version when spaces are in the install path
+    * ... and many more.
