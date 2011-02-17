@@ -51,7 +51,10 @@ import com.cgoab.offline.ui.actions.UndoAction;
 import com.cgoab.offline.ui.actions.UploadAction;
 import com.cgoab.offline.ui.actions.ViewResizedPhotosAction;
 import com.cgoab.offline.ui.thumbnailviewer.CachingThumbnailProviderFactory;
+import com.cgoab.offline.ui.util.CocoaUIEnhancer;
+import com.cgoab.offline.util.OS;
 import com.cgoab.offline.util.StringUtils;
+import com.cgoab.offline.util.Utils;
 import com.cgoab.offline.util.resizer.ImageMagickResizerServiceFactory;
 
 public class MainWindow extends ApplicationWindow {
@@ -199,23 +202,43 @@ public class MainWindow extends ApplicationWindow {
 		fileMenuMgr.add(new Separator());
 		fileMenuMgr.add(addPhotosAction);
 		fileMenuMgr.add(openPageInBrowserAction);
-		fileMenuMgr.add(new Separator());
-		fileMenuMgr.add(openPreferencesAction);
-		fileMenuMgr.add(new Separator());
-		fileMenuMgr.add(new Action("Exit") {
-			@Override
-			public void run() {
-				handleShellCloseEvent();
-			}
-		});
+		if (!OS.isMac()) {
+			fileMenuMgr.add(new Separator());
+			fileMenuMgr.add(openPreferencesAction);
+		}
+		if (!OS.isMac()) {
+			fileMenuMgr.add(new Separator());
+			fileMenuMgr.add(new Action("Exit") {
+				@Override
+				public void run() {
+					handleShellCloseEvent();
+				}
+			});
+		}
 
 		editMenuMgr.add(new UndoAction(this));
 		editMenuMgr.add(new RedoAction(this));
 
-		aboutMenuMgr.add(new AboutAction(shell));
+		AboutAction aboutAction = new AboutAction(shell);
+		if (!OS.isMac()) {
+			aboutMenuMgr.add(aboutAction);
+		}
 		aboutMenuMgr.add(new CheckForNewVersionAction());
 		aboutMenuMgr.add(new Separator());
 		aboutMenuMgr.add(new OpenLogFileAction(shell));
+
+		if (OS.isMac()) {
+			/* preferences & about bind to native */
+			String name = Utils.getImplementationTitleString(MainWindow.class);
+			new CocoaUIEnhancer(name).hookApplicationMenu(shell.getDisplay(), new Listener() {
+				@Override
+				public void handleEvent(Event event) {
+					if (!promptForSaveOnExit()) {
+						event.doit = false; /* cancel */
+					}
+				}
+			}, aboutAction, openPreferencesAction);
+		}
 
 		/* rebuilt menu(s), causes action key bindings to be installed */
 		MenuManager root = (MenuManager) fileMenuMgr.getParent();
@@ -282,18 +305,24 @@ public class MainWindow extends ApplicationWindow {
 		return super.getStatusLineManager();
 	}
 
-	@Override
-	protected void handleShellCloseEvent() {
+	private boolean promptForSaveOnExit() {
 		Journal journal = JournalSelectionService.getInstance().getCurrentJournal();
 		if (journal != null) {
 			if (!JournalUtils.closeJournal(journal, getShell())) {
-				return; /* abort close */
+				return false; /* abort close */
 			}
 		}
 		/* save current journal */
 		PreferenceUtils.getStore().setValue(PreferenceUtils.LAST_JOURNAL,
 				journal == null ? "" : journal.getFile().getAbsolutePath());
-		super.handleShellCloseEvent();
+		return true;
+	}
+
+	@Override
+	protected void handleShellCloseEvent() {
+		if (promptForSaveOnExit()) { /* supress if cancelled */
+			super.handleShellCloseEvent();
+		}
 	}
 
 	public void setCurrentUndoContext(IUndoContext newContext) {

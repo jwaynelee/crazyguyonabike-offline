@@ -42,5 +42,6 @@
 	<classpathentry kind="lib" path="testlibs/commons-io-2.0.1.jar"/>
 	<classpathentry kind="lib" path="testlibs/servlet-api-2.5-20081211.jar"/>
 	<classpathentry kind="lib" path="testlibs/junit-4.9b1.jar"/>
+	<classpathentry kind="lib" path="libsswt/swt-3.6.1-osx_64.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
