@@ -1,11 +1,11 @@
-<project name="cgoab-offline" basedir="." default="main">
+<project name="cgoab-offline" basedir="." default="build_and_test">
 
 	<property name="launch4j.dir" value="C:/libs/launch4j" />
 	<taskdef name="launch4j" classname="net.sf.launch4j.ant.Launch4jTask" classpath="${launch4j.dir}/launch4j.jar
 	        :${launch4j.dir}/lib/xstream.jar" />
 
 	<!-- versions & build number (date) -->
-	<property name="version" value="0.1.2" />
+	<property name="version" value="0.1.3" />
 	<tstamp>
 		<format pattern="yyyy-MM-dd" property="TODAY" />
 	</tstamp>
@@ -68,7 +68,7 @@
 				<attribute name="Implementation-Title" value="${ant.project.name}" />
 				<attribute name="Implementation-Version" value="${version} (build ${build.date})" />
 			</manifest>
-			<fileset dir="${src.dir}" excludes="*.java" />
+			<fileset dir="${src.dir}" excludes="**/*.java" />
 			<!-- .log, .properties etc -->
 		</jar>
 	</target>
@@ -86,26 +86,11 @@
 		</jar>
 	</target>
 
-	<target name="run-tests" depends="jar-tests">
-		<mkdir dir="${temp.dir}/testoutput" />
-		<junit printsummary="yes">
-			<classpath refid="classpath.test" />
-			<classpath path="${jar.dir}/${test.jar.name}" />
-			<formatter type="xml" />
-			<batchtest fork="yes" todir="${temp.dir}/testoutput">
-				<fileset dir="${tests.dir}">
-					<exclude name="testutils/**" />
-					<include name="**/*Test*.java" />
-				</fileset>
-			</batchtest>
-		</junit>
-	</target>
-
 	<property name="release.zip.name.win" value="${ant.project.name}.${version}-win.zip" />
 	<property name="release.zip.name.linux" value="${ant.project.name}.${version}-linux.zip" />
 	<property name="release.zip.name.osx" value="${ant.project.name}.${version}-osx.zip" />
 
-	<target name="package-windows" depends="run-tests">
+	<target name="package-windows" depends="jar-main">
 		<launch4j>
 			<config headerType="gui" outfile="${jar.dir}/${ant.project.name}.exe" dontWrapJar="true" jarPath="${main.jar.name}" downloadurl="http://www.java.com/download" customprocname="true">
 				<classPath mainClass="${main.class}">
@@ -140,7 +125,7 @@
 	</target>
 
 
-	<target name="package-linux" depends="run-tests">
+	<target name="package-linux" depends="jar-main">
 		<mkdir dir="${release.dir}" />
 		<copy file="${scripts.dir}/cgoab-offline" tofile="${temp.dir}/cgoab-offline">
 			<filterchain>
@@ -164,7 +149,7 @@
 
 	<taskdef name="jarbundler" classname="net.sourceforge.jarbundler.JarBundler" classpath="C:\libs\jarbundler\jarbundler-2.2.0.jar" />
 
-	<target name="package-osx" depends="run-tests">
+	<target name="package-osx" depends="jar-main">
 		<property name="osx.app.name" value="${ant.project.name}-${version}" />
 		<jarbundler dir="${temp.dir}" jvmversion="1.6+" shortname="${ant.project.name}" build="${version} (${build.date})" version="${version}" infostring="${ant.project.name} ${version}" name="${osx.app.name}" mainclass="${main.class}" stubfile="JavaApplicationStub" startonmainthread="true">
 			<jarfileset dir="${jar.dir}">
@@ -187,9 +172,26 @@
 
 	<target name="package-all" depends="package-windows,package-linux,package-osx" />
 
-	<target name="main" depends="clean, package-all" />
+	<target name="run-tests" depends="package-all,jar-tests">
+		<mkdir dir="${temp.dir}/testoutput" />
+		<junit printsummary="yes">
+			<classpath refid="classpath.test" />
+			<classpath path="${jar.dir}/${test.jar.name}" />
+			<formatter type="xml" />
+			<batchtest fork="yes" todir="${temp.dir}/testoutput">
+				<fileset dir="${tests.dir}">
+					<exclude name="testutils/**" />
+					<include name="**/*Test*.java" />
+				</fileset>
+			</batchtest>
+		</junit>
+	</target>
 
-	<target name="upload" depends="clean,package-all">
+	<target name="build" depends="clean, package-all" />
+
+	<target name="build_and_test" depends="build, run-tests" />
+
+	<target name="upload">
 		<gcupload username="${googlecode.user}" password="${googlecode.password}" projectname="crazyguyonabike-offline" filename="${release.dir}/${release.zip.name.linux}" targetfilename="${release.zip.name.linux}" summary="Version ${version} of ${ant.project.name}" labels="Featured, Type-Package, OpSys-Linux" />
 		<gcupload username="${googlecode.user}" password="${googlecode.password}" projectname="crazyguyonabike-offline" filename="${release.dir}/${release.zip.name.win}" targetfilename="${release.zip.name.win}" summary="Version ${version} of ${ant.project.name}" labels="Featured, Type-Package, OpSys-Windows" />
 		<gcupload username="${googlecode.user}" password="${googlecode.password}" projectname="crazyguyonabike-offline" filename="${release.dir}/${release.zip.name.osx}" targetfilename="${release.zip.name.osx}" summary="Version ${version} of ${ant.project.name}" labels="Featured, Type-Package, OpSys-OSX" />

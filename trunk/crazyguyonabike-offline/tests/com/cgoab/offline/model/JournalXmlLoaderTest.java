@@ -9,7 +9,24 @@ import java.util.List;
 import org.joda.time.LocalDate;
 import org.junit.Test;
 
+import testutils.TestUtils;
+
 public class JournalXmlLoaderTest {
+
+	@Test
+	public void umlautInText() throws Exception {
+		/* create, add non-ascii characters and save */
+		String tmpPath = TestUtils.getTestTempDirectory().getAbsolutePath() + "journal.xml";
+		Journal journal = new Journal(new File(tmpPath), "test");
+		Page page = journal.createNewPage();
+		page.setTitle("test");
+		page.setText("An umlaut looks like ä, a grave looks like à");
+		JournalXmlLoader.save(journal);
+		
+		/* reopen */
+		Journal journal2 = JournalXmlLoader.open(journal.getFile());
+		assertEquals(page.getText(), journal2.getPages().get(0).getText());
+	}
 
 	@Test
 	public void saveAndLoad() throws Exception {

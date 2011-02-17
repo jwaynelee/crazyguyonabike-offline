@@ -1,7 +1,8 @@
 package com.cgoab.offline.model;
 
 import java.io.File;
-import java.io.FileWriter;
+import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -21,6 +22,8 @@ import nu.xom.ParsingException;
 import nu.xom.ValidityException;
 
 import org.joda.time.LocalDate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.cgoab.offline.model.Page.EditFormat;
 import com.cgoab.offline.model.Page.HeadingStyle;
@@ -33,6 +36,8 @@ import com.cgoab.offline.util.Utils;
  * Loads (and saves) journals in an XML format.
  */
 public class JournalXmlLoader {
+
+	private static final Logger LOG = LoggerFactory.getLogger(JournalXmlLoader.class);
 
 	private static final String BOLD_ATTR = "bold";;
 
@@ -73,7 +78,20 @@ public class JournalXmlLoader {
 
 	public static Journal open(File file) throws ValidityException, ParsingException, IOException,
 			DuplicatePhotoException {
-		Document xml = new Builder(false).build(file);
+		Document xml;
+		boolean needsSaving = false;
+		try {
+			xml = new Builder(false).build(file);
+		} catch (ParsingException e) {
+			LOG.debug(
+					"Failed to load, retrying with platform default reader (for files created with version <= 0.1.2)",
+					e);
+			// BUG in 0.1.2: files get platform encoding used, not UTF-8
+			// retry with default reader (using platform character set)
+			xml = new Builder(false).build(new FileReader(file));
+			needsSaving = true; // save so we don't do this again
+		}
+
 		String version = xml.getRootElement().getAttributeValue(VERSION_ATTR);
 		Assert.isTrue(FileVersion.parse(version) == CURRENT_VERSION);
 		String name = xml.getRootElement().getAttributeValue(NAME_ATTR);
@@ -147,7 +165,7 @@ public class JournalXmlLoader {
 		}
 
 		// journal may become dirty as we add pages to it, mark "clean"
-		journal.setDirty(false);
+		journal.setDirty(needsSaving);
 		return journal;
 	}
 
@@ -168,9 +186,9 @@ public class JournalXmlLoader {
 				parent.mkdirs();
 			}
 			tempFile = new File(parent + File.separator + "." + targetFile.getName());
-			FileWriter tempWriter = new FileWriter(tempFile);
-			XMLStreamWriter xml = xof.createXMLStreamWriter(tempWriter);
-			xml.writeStartDocument();
+			FileOutputStream tfos = new FileOutputStream(tempFile);
+			XMLStreamWriter xml = xof.createXMLStreamWriter(tfos, "UTF-8");
+			xml.writeStartDocument("UTF-8", "1.0");
 			xml.writeStartElement(JOURNAL_EL);
 			xml.writeAttribute(VERSION_ATTR, CURRENT_VERSION.toString());
 			xml.writeAttribute(NAME_ATTR, journal.getName());
@@ -226,7 +244,7 @@ public class JournalXmlLoader {
 			xml.writeEndElement(); // </journal>
 			xml.writeEndDocument();
 			xml.close();
-			tempWriter.close();
+			tfos.close();
 			if (!tempFile.renameTo(targetFile.getAbsoluteFile())) {
 				// already exists, copy manually
 				Utils.copyFile(tempFile, targetFile);

@@ -31,7 +31,6 @@ public class OpenJournalAction extends Action {
 				if (!JournalUtils.closeJournal(current, shell)) {
 					return;
 				}
-				JournalSelectionService.getInstance().setJournal(null);
 			}
 			JournalUtils.openJournal(path, false, shell);
 		}
