@@ -9,7 +9,7 @@
 
 [http://crazyguyonabike-offline.googlecode.com/svn/trunk/crazyguyonabike-offline/screenshots/0.1.3/failedToLoadXml.png]
 
-  * When run on OSX the quit, about & preference menu items are bound to the application specific menu.
+  * On OSX the Quit, About & Preference actions are now accessed from the specific application menu as shown below.
 
 [http://crazyguyonabike-offline.googlecode.com/svn/trunk/crazyguyonabike-offline/screenshots/0.1.3/OSXAppMenu.gif]
 
