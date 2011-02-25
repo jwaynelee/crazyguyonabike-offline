@@ -88,9 +88,9 @@ And upon error;
 Closely associated with the response is how are errors indicated. For consistency with unix/c APIs error codes are expected to be negative values. For example:
 
 || *Error Code* || *Value* || *Description* ||
-|| DISABLED_METHOD || -200 || error, the method is currently disabled, allows temporary suspension of the service (if abuse detected etc) ||
-|| INVALID_ARGUMENTS || -100 || error, arguments list is not valid (ie, missing or extra argument) ||
-|| NOT_LOGGED_IN || -10 || error, attempt to use method before logging in ||
+|| DISABLED_METHOD || -300 || error, the method is currently disabled, allows temporary suspension of the service (if abuse detected etc) ||
+|| INVALID_ARGUMENTS || -200 || error, arguments list is not valid (ie, missing or extra argument) ||
+|| NOT_LOGGED_IN || -100 || error, attempt to use method before logging in ||
 
 As shown in the XML error response snippet, both the code and a descriptive message are returned. This allows the client to take specific error handling steps for errors it can handle (detect NOT_LOGGED_IN and present a login dialogue) and for errors it can't handle then pop up a message box that gives the user a useful message).
 
