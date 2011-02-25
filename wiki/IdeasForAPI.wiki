@@ -152,7 +152,14 @@ Upon success a side-affect of setting the session cookie, which will be returned
 
 === example ===
 {{{
+<!-- success -->
 <result error="false"/>
+
+<!-- failure -->
+<result error="true">
+  <error>-100</error>
+  <description>Not logged in</description>
+</result>
 }}}
 ----
 == !LogOut ==
@@ -161,7 +168,7 @@ Logs out from the server. It is expected that the server instructs the client to
 
 === parameters ===
  
-/* empty */
+_empty_
  
 === returns ===
 
@@ -186,6 +193,7 @@ _empty_
 
 A list containing an entry for each document owned by the current user, each document has:
 
+|| *property* || *description* || *example* ||
 || id || ID of the document || 12345 ||
 || name || Name of the document || "My Journal" ||
 || status || Status of the document || "Completed Aug 2010" or "10 out of 100 days" ||
@@ -222,6 +230,7 @@ Creates a new page in a document.
 
 === parameters ===
 
+|| * parameter* || *description* ||
 || doc_id || id of document ||
 || title || `string` ||
 || headline || `string` ||
@@ -232,7 +241,7 @@ Creates a new page in a document.
 || is_bold || `true|false` ||
 || is_italic || `true|false` ||
 || style || `large|medium|small` ||
-|| sequence || integer describing insertion point of page in the document. Special value "-1" used to append to end of document. ||
+|| sequence || integer describing insertion point of page in the document. Magic value "-1" will append page to end of the document. ||
 
 === returns ===
 
