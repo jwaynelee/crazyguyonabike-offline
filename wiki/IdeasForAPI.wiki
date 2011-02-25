@@ -47,7 +47,7 @@ The result of an API call is either a structured list of data or a simple result
 
 HTTP requests will contain any cookies set by the server. These cookies/header attributes are not listed in the API, however they will be present like any normal connection.
 
-==GetUserInfo==
+== GetUserInfo ==
 
 A simple query API to find the user-name and real-name of the current user. Can be used before explicitly logging in to check if an old session is still valid and thus avoid prompting the user for a password.
 
@@ -66,16 +66,16 @@ or error code,
 
 || NOT_LOGGED_IN ||
 
-==LogIn==
+== LogIn ==
 
 Logs into the server and establishes session. If no pre-existing session is found this must be done before any of the following methods (CreatePage etc) are used.
 
-===parameters ===
+=== parameters ===
 
 || username || 
 || password ||
 
-===returns===
+=== returns ===
 
 Integer result:
 
@@ -89,25 +89,25 @@ Upon success there is a side-affect of creating the session cookie
 
 Logs out from the server, expected that the server will instruct client to clear it's cookie. May be used by server to clean up server side session object.
 
-===parameters===
-
+=== parameters ===
+ 
 /* empty */
-
-===returns===
+ 
+=== returns ===
 
 || SUCCESS || Always returned. An attempt to logout without first logging in is silently ignored. ||
 
 Note, this has the side-affect of clearing the session cookie.
 
-==GetDocuments==
+== GetDocuments ==
 
 Returns the list of documents authored by the currently logged in user.
 
-===parameters===
+=== parameters ===
 
 /* no parameters */
 
-===returns===
+=== returns ===
 
 A list containing an entry for each document owned by the current user, each document has:
 
@@ -116,11 +116,11 @@ A list containing an entry for each document owned by the current user, each doc
 || status || Status of the document || "Completed Aug 2010" or "10 out of 100 days" ||
 || type || Type of document || JOURNAL or ARTICLE ||
 
-==CreatePage==
+== CreatePage ==
 
 Creates a new page in a document.
 
-===parameters===
+=== parameters ===
 
 || doc_id ||
 || title ||
@@ -134,7 +134,7 @@ Creates a new page in a document.
 || style ||
 || sequence || insertion point of page in the document. If "-1" then page is appended to the end ||
 
-===returns===
+=== returns ===
 
 || page_id || 
 || NOT_LOGGED_IN ||
@@ -142,16 +142,16 @@ Creates a new page in a document.
 || INVALID_PHOTO_TAG || if the text contains "###" tags that reference 
 || ... ||
 
-==AddPhoto==
+== AddPhoto ==
 
-===paramaters===
+=== paramaters ===
 
 || page_id ||
 || comment ||
 || file || 
 || name || name of the photo, defaults top filename if empty ||
 
-===returns===
+=== returns ===
 
 || SUCCESS || if photo was added ||
 || NOT_LOGGED_IN || 
@@ -159,6 +159,6 @@ Creates a new page in a document.
 || ... ||
 
 
-==ISSUES==
+== ISSUES ==
 
 At present a combination of CreatePage and then several calls to AddPhoto are used to upload a page. The result of this approach is that we are limited to only adding photos at the end of a page. It is not possible to call CreatePage with text containing "###" photo tags (as the photos won't exist!). An alternative approach would be to call CreatePage with empty text. Then call AddPhoto for each photo. Then call UpdatePage() with the actual text (containing embedded "###" tags). 
