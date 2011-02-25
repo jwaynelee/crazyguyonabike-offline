@@ -47,7 +47,7 @@ The result of an API call is either a structured list of data or a simple result
 
 HTTP requests will contain any cookies set by the server. These cookies/header attributes are not listed in the API, however they will be present like any normal connection.
 
-== GetUserInfo ==
+== !GetUserInfo ==
 
 A simple query API to find the user-name and real-name of the current user. Can be used before explicitly logging in to check if an old session is still valid and thus avoid prompting the user for a password.
 
@@ -55,7 +55,7 @@ A simple query API to find the user-name and real-name of the current user. Can 
 
 /* no parameters */
 
-===return===
+=== return ===
 
 Structure containing:
 
@@ -85,7 +85,7 @@ Integer result:
 
 Upon success there is a side-affect of creating the session cookie
 
-==LogOut==
+== !LogOut ==
 
 Logs out from the server, expected that the server will instruct client to clear it's cookie. May be used by server to clean up server side session object.
 
