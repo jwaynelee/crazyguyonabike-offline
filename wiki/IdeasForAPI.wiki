@@ -66,7 +66,7 @@ or error code,
 
 || NOT_LOGGED_IN ||
 
-== LogIn ==
+== !LogIn ==
 
 Logs into the server and establishes session. If no pre-existing session is found this must be done before any of the following methods (CreatePage etc) are used.
 
@@ -99,7 +99,7 @@ Logs out from the server, expected that the server will instruct client to clear
 
 Note, this has the side-affect of clearing the session cookie.
 
-== GetDocuments ==
+== !GetDocuments ==
 
 Returns the list of documents authored by the currently logged in user.
 
@@ -116,7 +116,7 @@ A list containing an entry for each document owned by the current user, each doc
 || status || Status of the document || "Completed Aug 2010" or "10 out of 100 days" ||
 || type || Type of document || JOURNAL or ARTICLE ||
 
-== CreatePage ==
+== !CreatePage ==
 
 Creates a new page in a document.
 
@@ -142,7 +142,7 @@ Creates a new page in a document.
 || INVALID_PHOTO_TAG || if the text contains "###" tags that reference 
 || ... ||
 
-== AddPhoto ==
+== !AddPhoto ==
 
 === paramaters ===
 
