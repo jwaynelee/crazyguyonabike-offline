@@ -1,0 +1,111 @@
+Ideas for a possible app specific API on cgoab.
+
+=Style=
+
+Options for invoking queries, either distinct URL per method, or one "API" URL and pass method as parameter. Whatever is easiest to implement.
+
+=Versioning=
+
+For simplicity might want to just have one single version. For upgrade perhaps having version in URL (or as query parameter) is desirable? For example:
+
+/api/v1/AddPage
+
+If new (mandatory) parameters are introduced this might break the API, so we could instead leave v1 alone and offer:
+
+/api/v2/AddPage
+
+Weblogs would show if anyone still using v1, which could over time be removed.
+
+Introduces extra complexity on server side. Probably unnecessary.
+
+=Data format=
+
+Data can be returned from the server using some custom formatted string, CSV separated data, JSON or even XML.
+
+|| custom string || Simple, but requires custom parsing. Not obvious how to treat structured data ||
+|| CSV || Simple, need to make sure embedded "," handled in parser. Poor structured data support ||
+|| JSON || Simple(ish). Useful if every want to use API from javascript. ||
+|| XML || Complex. But good parser support, XPath to query structure. Very good with structured data ||
+
+Tempting to use one format for simple calls (ie, GetUser), but better to be consistent at expense of making simple calls that extra bit harder to parse.
+
+=Errors=
+
+The API spec below lists constant error codes. It is expected these map to an integer value for which a table is used to map to a descriptive message. For consistency with unix/c APIs error codes are negative intergers. For example:
+
+|| NOT_LOGGED_IN || -10 ||
+
+==Session handling==
+
+HTTP requests will contain any cookies set by the server. These cookies/header attributes are not listed in the API, however they will be present like any normal connection.
+
+==GetUser==
+
+/* no parameters */
+
+===return===
+
+|| username ||
+|| realname ||
+
+or,
+
+* NOT_LOGGED_IN if not logged in
+
+==LogIn==
+
+===parameters ===
+
+|| username || 
+|| password ||
+
+===returns===
+
+Integer code
+
+|| SUCESS || if credentials valid ||
+|| NOT_LOGGED_IN || if credentials invalid, no distinction is made if username or password was invalid ||
+|| ACCOUNT_LOCKED || if repeated attempts to log in with incorrect password ||
+
+==GetDocuments==
+
+===parameters===
+
+/* no parameters */
+
+===returns===
+
+An entry for each document owned by the current user, each document has:
+
+|| doc_id || id of the document || 12345 ||
+|| name || name of the document || "My Journal" ||
+|| status || status of the document || "Completed Aug 2010" or "10 out of 100 days" ||
+
+==CreatePage==
+
+===parameters===
+
+|| doc_id ||
+|| title ||
+|| headline ||
+|| text ||
+|| date ||
+|| distance ||
+|| indent ||
+|| is_bold ||
+|| is_italic ||
+|| style ||
+|| sequence || insertion point of page in the document. If "-1" then page is appended to the end.
+
+===returns===
+
+|| page_id || 
+|| NOT_LOGGED_IN ||
+|| PAGE_OLDER_THAN_PREVIOUS ||
+|| ... ||
+
+==AddPhoto==
+
+==paramaters===
+
+|| page_id ||
