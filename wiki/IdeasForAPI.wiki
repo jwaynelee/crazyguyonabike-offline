@@ -10,14 +10,15 @@ The methods to upload content behave much like the existing HTML form interface.
 
 == Style ==
 
-There are several options for invoking queries, 
+Methods could be invoked in one of the following ways:
 
   * Distinct URL per method, for example `/api/GetUserInfo`
   * Single "API" URL, passing action as a parameter, `/api/?action=GetUserInfo`
 
-Whatever is easiest to implement.
+Whatever is easiest to implement would work.
 
-Expect query like methods to be HTTP GET requests (ie, `GetUserInfo and GetDocuments`) whilst methods that change state to be HTTP PUT requests (`Login, Logout, CreatePage & AddPhoto`).
+Query style methods map to `HTTP GET` requests (`GetUserInfo and GetDocuments`) 
+State change methods map to `HTTP PUT` requests (`Login, Logout, CreatePage & AddPhoto`).
 
 == Versions ==
 
