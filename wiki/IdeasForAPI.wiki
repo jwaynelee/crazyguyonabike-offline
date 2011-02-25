@@ -116,6 +116,10 @@ A list containing an entry for each document owned by the current user, each doc
 || status || Status of the document || "Completed Aug 2010" or "10 out of 100 days" ||
 || type || Type of document || JOURNAL or ARTICLE ||
 
+or error code,
+
+|| NOT_LOGGED_IN ||
+
 == !CreatePage ==
 
 Creates a new page in a document.
@@ -137,18 +141,23 @@ Creates a new page in a document.
 === returns ===
 
 || page_id || 
+
+or error code,
+
 || NOT_LOGGED_IN ||
 || PAGE_OLDER_THAN_PREVIOUS ||
-|| INVALID_PHOTO_TAG || if the text contains "###" tags that reference 
+|| INVALID_PHOTO_TAG || if the text contains "###" tags that reference an invalid photo ||
 || ... ||
 
 == !AddPhoto ==
 
+Attaches a photo to a page. The "###" tag is appended to the end of the text.
+
 === paramaters ===
 
-|| page_id ||
-|| comment ||
-|| file || 
+|| page_id || page id to append photo to ||
+|| comment || comment, may be empty ||
+|| file || file stream ||
 || name || name of the photo, defaults top filename if empty ||
 
 === returns ===
