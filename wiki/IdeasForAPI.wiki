@@ -40,16 +40,16 @@ For this reason versioning is considered unnecessary. This is unlikely to be a p
 
 Data may be returned from the server in a variety of ways:
 
-|| Custom string || Simple, but requires custom parsing. Not obvious how to treat structured data ||
-|| CSV || Simple, need to make sure commas in quotes are escaped in the parser. Poor structured data support. Could adopt "key=value" style to associate key directly with value. ||
+|| Custom string || Very simple (for the server), requires custom parsing on the client. Not obvious how to treat structured data without re-implementing one the other techniques. ||
+|| CSV || Simple for the server. Need to make sure commas in quotes are escaped in the parser. Poor structured data support. Could adopt "key=value" style to associate key directly with value. ||
 || JSON || Simple(ish). Useful if every want to use API from javascript. ||
-|| XML || Complex. But good parser support, XPath to query structure. Very good with structured data ||
+|| XML || Less simple. But there is good parser support in every language. And XPath allows for structural queries. Represents structured data well. ||
 
-It's tempting to choose one format for simple single return value calls (ie, GetUser) but it feels cleaner to be consistent across all calls at the expense of making simple calls that extra bit harder to parse.
+It's tempting to choose one format for simple single return value calls (ie, `GetUserInfo`) and another for complex structured return types (`GetDocuments`). For consistency one format would be preferred for all calls even if it requires a bit more effort to handle the simple results.
 
-Comes down to personal preference, but XML is often easiest to parse.  
+Ultimately it comes down to personal preference (at least between CSV, JSON, XML), but XML is (IMHO) the easiest to parse.  
 
-Examples, inspired by flickr XML API:
+Some examples, inspired by the flickr API:
 
 {{{
 <!-- result from GetUserInfo -->
@@ -75,7 +75,7 @@ Examples, inspired by flickr XML API:
 </result>
 }}}
 
-And upon error;
+An error result would be,
 
 {{{
 <result error="true">
@@ -86,7 +86,7 @@ And upon error;
 
 == Errors ==
 
-Closely associated with the response is how are errors indicated. For consistency with unix/c APIs error codes are expected to be negative values. For example:
+Closely associated with the response format is how error conditions are indicated. For consistency with unix/c APIs error codes are expected to be negative values. For example:
 
 || *Error Code* || *Value* || *Description* ||
 || DISABLED_METHOD || -300 || error, the method is currently disabled, allows temporary suspension of the service (if abuse detected etc) ||
@@ -360,6 +360,6 @@ Rollback {
 
 Notes,
 
-* Need periodic "garbage collecter" to remove transactions that were created but never committed (for example, because of client crash). This might be a simple cron job that deletes transaction that have not been touched in 1hr (and also delete transaction temp folder)
+  * Need periodic "garbage collecter" to remove transactions that were created but never committed (for example, because of client crash). This might be a simple cron job that deletes transaction that have not been touched in 1hr (and also delete transaction temp folder)
 
 It may seem simpler to just upload a page and all it's photos in one single operation. But the chance of this failing is high, especially on a slow connection. This approach allows us to slower build up the data on the server, retrying individual operations as necessary before finally committing.
