@@ -1,61 +1,116 @@
-Suggestions for an API on crazyguyonabike. The goal is to allow application like cgoab-offline to operate without binding to the fragile html side of the site.
+This page suggests an API for crazyguyonabike. 
+
+The goal is that applications like cgoab-offline can interact with the site without binding to the fragile html face of the site.
+
+The methods to upload content behave much like the existing HTML form interface. This should hopefully ease implementation as the underlying methods called by the forms only need be exposed to this new API, with behaviour remaining consistent.
 
 <wiki:toc max_depth="3" />
 
-=Style=
+= General choices =
 
-Options for invoking queries, either distinct URL per method, or one "API" URL and pass method as parameter. Whatever is easiest to implement.
+== Style ==
 
-Query like APIs would map to HTTP GET (ie, GetUserInfo and GetDocuments), whilst APIs that change state map to HTTP PUT (Login, Logout, CreatePage, AddPhoto).
+There are several options for invoking queries, 
 
-=Versioning=
+* Distinct URL per method, for example `/api/GetUserInfo`
+* Single "API" URL, passing action as a parameter, `/api/?action=GetUserInfo`
 
-For simplicity might want to just have one single version. For upgrade perhaps having version in URL (or as query parameter) is desirable? For example:
+Whatever is easiest to implement.
+
+Expect query like methods to be HTTP GET requests (ie, `GetUserInfo and GetDocuments`) whilst methods that change state to be HTTP PUT requests (`Login, Logout, CreatePage & AddPhoto`).
+
+== Versions ==
+
+Anticipating future (breaking) changes to the API we might explicitly force clients to select a specific version of the API. For example, embedding the version in the URL (or a query parameter):
 
 `/api/v1/AddPage`
 
-If new (mandatory) parameters are introduced this might break the API, so we could instead leave v1 alone and offer:
+If (when?) new mandatory parameters are introduced to this method we would introduce a new version, but leave v1 available for old clients:
 
 `/api/v2/AddPage`
 
-Weblogs would show if anyone still using v1, which could over time be removed.
+The logs will show if anyone is still using v1. Over time v1 can be removed.
 
-Introduces extra complexity on server side. Probably unnecessary.
+This introduces extra complexity on server side. Ultimately it will limit server side changes. For example if the db schema is changed, requiring a new parameter then extra complexity is added by supporting the version that doesn't supply this parameter. 
 
-=Data format=
+For this reason versioning is considered unnecessary. This is unlikely to be a problem as it's not anticipated that changes to the API will be frequent. Theoretically these APIs are so simple that dramatic server side restructuring can be performed and these APIs can still be supported.
 
-Data can be returned from the server using some custom formatted string, CSV separated data, JSON or even XML.
+== Response formats ==
 
-|| custom string || Simple, but requires custom parsing. Not obvious how to treat structured data ||
-|| CSV || Simple, need to make sure embedded "," handled in parser. Poor structured data support ||
+Data may be returned from the server in a variety of ways:
+
+|| Custom string || Simple, but requires custom parsing. Not obvious how to treat structured data ||
+|| CSV || Simple, need to make sure commas in quotes are escaped in the parser. Poor structured data support. Could adopt "key=value" style to associate key directly with value. ||
 || JSON || Simple(ish). Useful if every want to use API from javascript. ||
 || XML || Complex. But good parser support, XPath to query structure. Very good with structured data ||
 
-Tempting to use one format for simple calls (ie, GetUser), but better to be consistent at expense of making simple calls that extra bit harder to parse.
+It's tempting to choose one format for simple single return value calls (ie, GetUser) but it feels cleaner to be consistent across all calls at the expense of making simple calls that extra bit harder to parse.
 
-=Return codes=
+Comes down to personal preference, but XML is often easiest to parse.  
 
-The result of an API call is either a structured list of data or a simple result/return code. For consistency with unix/c APIs error codes would be expected to be negative. 0 indicates general success, whilst positive integers represent some meaningful data. For example:
+Examples, inspired by flickr XML API:
 
+{{{
+<!-- result from GetUserInfo -->
+<result error="false">
+  <username>johndoe</username>
+  <realname>John Doe</realname>
+</result>
+
+<!-- result from GetDocuments -->
+<result error="false">
+  <document>
+    <id>12345</id>
+    <name>My Journal</name>
+    <type>JOURNAL</type>
+    <status>Day 10 out of 100</status>
+  </document>
+  <document>
+    <id>12346</id>
+    <name>Another Journal</name>
+    <type>JOURNAL</type>
+    <status>Completed Aug 2010</status>
+  </document>
+</result>
+}}}
+
+And upon error;
+
+{{{
+<result error="true">
+  <code>-100</code>
+  <description>You are not logged in</description>
+</result>
+}}}
+
+== Errors ==
+
+Closely associated with the response is how are errors indicated. For consistency with unix/c APIs error codes are expected to be negative values. For example:
+
+|| *Error Code* || *Value* || *Description* ||
 || DISABLED_METHOD || -200 || error, the method is currently disabled, allows temporary suspension of the service (if abuse detected etc) ||
 || INVALID_ARGUMENTS || -100 || error, arguments list is not valid (ie, missing or extra argument) ||
 || NOT_LOGGED_IN || -10 || error, attempt to use method before logging in ||
-|| SUCCESS || 0 || ok ||
-||  || 123456 || page_id returned from CreatePage method ||
 
-==Session handling==
+As shown in the XML error response snippet, both the code and a descriptive message are returned. This allows the client to take specific error handling steps for errors it can handle (detect NOT_LOGGED_IN and present a login dialogue) and for errors it can't handle then pop up a message box that gives the user a useful message).
 
-HTTP requests will contain any cookies set by the server. These cookies/header attributes are not listed in the API, however they will be present like any normal connection.
+== Session handling ==
+
+HTTP requests to the API contain whatever cookies may have been set by the server (connections behave just like a browser).
+
+An alternative approach would be to present the session id/token as a query parameter. This will simplify clients as they no longer need to worry about managing the HTTP cookies, which in some HTTP tool-kits can be cumbersome.
+
+= Methods =
 
 == !GetUserInfo ==
 
-A simple query API to find the user-name and real-name of the current user. Can be used before explicitly logging in to check if an old session is still valid and thus avoid prompting the user for a password.
+A simple query to find the user-name and real-name of the current user. This can also be used as a check to see if an old session is still valid and thus avoid prompting the user for a password every time:
 
 === parameters ===
 
-/* no parameters */
+_empty_
 
-=== return ===
+=== returns ===
 
 Structure containing:
 
@@ -66,9 +121,18 @@ or error code,
 
 || NOT_LOGGED_IN ||
 
+`GET /api/GetUserInfo`
+
+{{{
+<result error="false">
+  <username>testuser</username>
+  <realname>John Doe</realname>
+</result>
+}}}
+
 == !LogIn ==
 
-Logs into the server and establishes session. If no pre-existing session is found this must be done before any of the following methods (CreatePage etc) are used.
+Log in and establishe a session on the server. This must be called before the session APIs (GetDocuments, CreatePage etc) are called.
 
 === parameters ===
 
@@ -77,17 +141,22 @@ Logs into the server and establishes session. If no pre-existing session is foun
 
 === returns ===
 
-Integer result:
+Empty response if success, 
 
-|| SUCCESS || if credentials valid and log in succeeded ||
+{{{
+<result error="false"/>
+}}}
+
+Or error code if not.
+
 || NOT_LOGGED_IN || if credentials invalid, no distinction is made if username or password was invalid ||
 || ACCOUNT_LOCKED || if repeated attempts are made to log in with incorrect password ||
 
-Upon success there is a side-affect of creating the session cookie
+Upon success a side-affect of setting the session cookie, which will be returned to the server for subsequent requests.
 
 == !LogOut ==
 
-Logs out from the server, expected that the server will instruct client to clear it's cookie. May be used by server to clean up server side session object.
+Logs out from the server. It is expected that the server instructs the client to clear any session cookie. May be used by server to clean up server side session object.
 
 === parameters ===
  
@@ -95,30 +164,54 @@ Logs out from the server, expected that the server will instruct client to clear
  
 === returns ===
 
-|| SUCCESS || Always returned. An attempt to logout without first logging in is silently ignored. ||
+Always succeeds. An attempt to logout without first logging in is silently ignored.
+
+{{{
+<result error="false"/>
+}}}
 
 Note, this has the side-affect of clearing the session cookie.
 
 == !GetDocuments ==
 
-Returns the list of documents authored by the currently logged in user.
+Returns list of documents authored by the user.
 
 === parameters ===
 
-/* no parameters */
+_empty_
 
 === returns ===
 
 A list containing an entry for each document owned by the current user, each document has:
 
-|| doc_id || ID of the document || 12345 ||
+|| id || ID of the document || 12345 ||
 || name || Name of the document || "My Journal" ||
 || status || Status of the document || "Completed Aug 2010" or "10 out of 100 days" ||
 || type || Type of document || JOURNAL or ARTICLE ||
 
+`GET /api/GetDocuments`
+
+{{{
+<result error="false">
+  <document>
+    <id>12345</id>
+    <name>My Journal</name>
+    <type>JOURNAL</type>
+    <status>Day 10 out of 100</status>
+  </document>
+  <document>
+    <id>12346</id>
+    <name>Another Journal</name>
+    <type>JOURNAL</type>
+    <status>Completed Aug 2010</status>
+  </document>
+</result>
+}}}
+
 or error code,
 
 || NOT_LOGGED_IN ||
+|| ... ||
 
 == !CreatePage ==
 
@@ -126,28 +219,36 @@ Creates a new page in a document.
 
 === parameters ===
 
-|| doc_id ||
-|| title ||
-|| headline ||
-|| text ||
-|| date ||
-|| distance ||
-|| indent ||
-|| is_bold ||
-|| is_italic ||
-|| style ||
-|| sequence || insertion point of page in the document. If "-1" then page is appended to the end ||
+|| doc_id || id of document ||
+|| title || `string` ||
+|| headline || `string` ||
+|| text || `string` ||
+|| date || `yyyy-mm-dd`, may be empty ||
+|| distance || numeric value, may be empty ||
+|| indent || `1..10` ||
+|| is_bold || `true|false` ||
+|| is_italic || `true|false` ||
+|| style || `large|medium|small` ||
+|| sequence || integer describing insertion point of page in the document. Special value "-1" used to append to end of document. ||
 
 === returns ===
 
 || page_id || 
 
+`POST /api/CreatePage`
+
+{{{
+<result error="false">
+  <pageid>12345</pageid>
+</result>
+}}}
+
 or error code,
 
 || NOT_LOGGED_IN ||
-|| PAGE_OLDER_THAN_PREVIOUS ||
+|| PAGE_OLDER_THAN_PREVIOUS || if previous page in document is *newer* than page attempting to add ||
 || INVALID_PHOTO_TAG || if the text contains "###" tags that reference an invalid photo ||
-|| ... ||
+|| ...(expect more errors can occur here)... ||
 
 == !AddPhoto ==
 
@@ -155,19 +256,105 @@ Attaches a photo to a page. The "###" tag is appended to the end of the text.
 
 === paramaters ===
 
-|| page_id || page id to append photo to ||
+|| page_id || id of page to add photo to ||
 || comment || comment, may be empty ||
 || file || file stream ||
 || name || name of the photo, defaults top filename if empty ||
 
 === returns ===
 
-|| SUCCESS || if photo was added ||
+On success returns empty result.
+
+`POST /api/AddPhoto`
+
+{{{
+<result error="false"/>
+}}}
+
+Or error,
+
 || NOT_LOGGED_IN || 
 || PHOTO_ALREADY_EXISTS || if a photo with the same name already exists in the journal ||
-|| ... ||
+|| ...(expect more errors can occur here)... ||
 
+= Limitations =
 
-== ISSUES ==
+== Embedding photos in the text ==
 
-At present a combination of CreatePage and then several calls to AddPhoto are used to upload a page. The result of this approach is that we are limited to only adding photos at the end of a page. It is not possible to call CreatePage with text containing "###" photo tags (as the photos won't exist!). An alternative approach would be to call CreatePage with empty text. Then call AddPhoto for each photo. Then call UpdatePage() with the actual text (containing embedded "###" tags). 
+With the above API a combination of `CreatePage` and several calls to `AddPhoto` are required to fully upload a page. A limitation of this approach is that photos can only be added at the _end_ of a page. For example, it is not possible to call `CreatePage` with text that embeds "###" photo tags (since the photos don't yet exist!). 
+
+One solution is to allow _unbound_ "###" tags when a page is created. When these photos do finally exist then they are bound up.
+
+An alternative approach would be to call `CreatePage` providing empty text, call `AddPhoto` for each photo and then finally call some new method `UpdatePage` and set the actual text (which would contain embedded "###" tags).
+
+It's preferable to avoid introducing a new API, but, the first solution has complicated error handling. For example, if the text contains references to Photo#1 & Photo#2 and we fail to upload Photo#2 (it may already exist) then we are stuck since we cannot change the text. If `UpdatePage` exists we could just set the text (after removing the references to the photos that failed to upload).
+
+Right now the app doesn't require these APIs are photos cannot be embedded in the text (a limitation of the UI that may change in future).
+
+== Transactions ==
+
+Clients that upload require sophisticated error handling as there is no transaction support. For example, to upload 2 pages, each containing 3 photos results in the following sequence of operations that must be performed by the client:
+
+{{{
+1. CreatePage
+2. AddPhoto
+3. AddPhoto
+4. AddPhoto
+5. CreatePage
+6. AddPhoto
+7. AddPhoto
+8. AddPhoto
+}}}
+
+Applications need to handle failures in any of these steps. Note, some operations can be retried. For example, if the connection drops during AddPhoto, nothing is done on the server so we just wait until the connection reconnects and retry the operation. This is a common case so catches most problems. But if the client crashes, or perhaps one of these operations fail with a _logical_ error (e.g, PHOTO_ALREADY_EXISTS) then the journal is left in an inconsistent state as only part of the work is done.
+
+In an ideal world we would have server side transactions and wrap each page upload in a transaction allowing the client to either fully commit (or discard) an upload.
+
+A rough implementation might be for the upload APIs (CreatePage and AddPhoto) to simply store data in a temporary directory or table on the server (performing as much error handling as is possible to catch errors early). Once all the data is on the server then the client calls `Commit` which moves the files and inserts the actual data into the database. Note, it's not really necessary to provide rigorous atomicity on the server. We'd just accept that if the server crashes during transaction commit then we may need to manually fix up a page. But this shouldn't be that common.
+
+Example client:
+
+{{{
+1. CreateTransaction
+2. CreatePage
+3. AddPhoto
+4. AddPhoto
+5. AddPhoto
+6. Commit
+7. /* repeat for next page */
+}}}
+
+Sketch of API
+
+{{{
+CreateTransaction {
+  /* creates a folder on the server for photos to be added to */
+  /* creates an entry in the pending-transactions table */
+  /* returns a transaction id */
+}
+
+CreatePage {
+  /* stores data into pending-transaction table */
+}
+
+AddPhoto {
+  /* stores photo into transaction temp folder */
+}
+
+Commit {
+  /* copies data from pending transaction table to main table */
+  /* copies photos from transaction temp folder to main folder */
+  /* clean up */
+}
+
+Rollback {
+  /* called when client decides to abort upload */
+  /* removes transaction temp folder and pending transaction table */
+}
+}}}
+
+Notes,
+
+* Need periodic "garbage collecter" to remove transactions that were created but never committed (for example, because of client crash). This might be a simple cron job that deletes transaction that have not been touched in 1hr (and also delete transaction temp folder)
+
+It may seem simpler to just upload a page and all it's photos in one single operation. But the chance of this failing is high, especially on a slow connection. This approach allows us to slower build up the data on the server, retrying individual operations as necessary before finally committing.
