@@ -8,11 +8,11 @@ Options for invoking queries, either distinct URL per method, or one "API" URL a
 
 For simplicity might want to just have one single version. For upgrade perhaps having version in URL (or as query parameter) is desirable? For example:
 
-/api/v1/AddPage
+`/api/v1/AddPage`
 
 If new (mandatory) parameters are introduced this might break the API, so we could instead leave v1 alone and offer:
 
-/api/v2/AddPage
+`/api/v2/AddPage`
 
 Weblogs would show if anyone still using v1, which could over time be removed.
 
@@ -61,11 +61,25 @@ or,
 
 ===returns===
 
-Integer code
+Integer result:
 
-|| SUCESS || if credentials valid ||
+|| SUCCESS || if credentials valid ||
 || NOT_LOGGED_IN || if credentials invalid, no distinction is made if username or password was invalid ||
 || ACCOUNT_LOCKED || if repeated attempts to log in with incorrect password ||
+
+Note, this has the side-affect of creating the session cookie
+
+==LogOut==
+
+=== parameters ===
+
+/* no parameters */
+
+===returns===
+
+|| SUCCESS || Always returned. An attempt to logout without first logging in is silently ignore. ||
+
+Note, this has the side-affect of clearing the session cookie.
 
 ==GetDocuments==
 
@@ -95,7 +109,7 @@ An entry for each document owned by the current user, each document has:
 || is_bold ||
 || is_italic ||
 || style ||
-|| sequence || insertion point of page in the document. If "-1" then page is appended to the end.
+|| sequence || insertion point of page in the document. If "-1" then page is appended to the end ||
 
 ===returns===
 
@@ -106,6 +120,16 @@ An entry for each document owned by the current user, each document has:
 
 ==AddPhoto==
 
-==paramaters===
+===paramaters===
 
 || page_id ||
+|| comment ||
+|| file || 
+|| name || name of the photo, defaults top filename if empty ||
+
+===returns===
+
+|| SUCCESS || if photo was added ||
+|| NOT_LOGGED_IN || 
+|| PHOTO_ALREADY_EXISTS || if a photo with the same name already exists in the journal ||
+|| ... ||
