@@ -121,6 +121,8 @@ or error code,
 
 || NOT_LOGGED_IN ||
 
+=== example ===
+
 `GET /api/GetUserInfo`
 
 {{{
@@ -141,18 +143,17 @@ Log in and establishe a session on the server. This must be called before the se
 
 === returns ===
 
-Empty response if success, 
-
-{{{
-<result error="false"/>
-}}}
-
-Or error code if not.
+Empty response if success, or error code.
 
 || NOT_LOGGED_IN || if credentials invalid, no distinction is made if username or password was invalid ||
 || ACCOUNT_LOCKED || if repeated attempts are made to log in with incorrect password ||
 
 Upon success a side-affect of setting the session cookie, which will be returned to the server for subsequent requests.
+
+=== example ===
+{{{
+<result error="false"/>
+}}}
 ----
 == !LogOut ==
 
@@ -166,11 +167,12 @@ Logs out from the server. It is expected that the server instructs the client to
 
 Always succeeds. An attempt to logout without first logging in is silently ignored.
 
+Note, this has the side-affect of clearing the session cookie.
+
+=== example ===
 {{{
 <result error="false"/>
 }}}
-
-Note, this has the side-affect of clearing the session cookie.
 ----
 == !GetDocuments ==
 
@@ -189,6 +191,12 @@ A list containing an entry for each document owned by the current user, each doc
 || status || Status of the document || "Completed Aug 2010" or "10 out of 100 days" ||
 || type || Type of document || JOURNAL or ARTICLE ||
 
+or error code,
+
+|| NOT_LOGGED_IN ||
+|| ... ||
+
+=== example ===
 `GET /api/GetDocuments`
 
 {{{
@@ -207,11 +215,6 @@ A list containing an entry for each document owned by the current user, each doc
   </document>
 </result>
 }}}
-
-or error code,
-
-|| NOT_LOGGED_IN ||
-|| ... ||
 ----
 == !CreatePage ==
 
@@ -235,6 +238,14 @@ Creates a new page in a document.
 
 || page_id || 
 
+or error code,
+
+|| NOT_LOGGED_IN ||
+|| PAGE_OLDER_THAN_PREVIOUS || if previous page in document is *newer* than page attempting to add ||
+|| INVALID_PHOTO_TAG || if the text contains "###" tags that reference an invalid photo ||
+|| ...(expect more errors can occur here)... ||
+
+=== example ===
 `POST /api/CreatePage`
 
 {{{
@@ -242,13 +253,6 @@ Creates a new page in a document.
   <pageid>12345</pageid>
 </result>
 }}}
-
-or error code,
-
-|| NOT_LOGGED_IN ||
-|| PAGE_OLDER_THAN_PREVIOUS || if previous page in document is *newer* than page attempting to add ||
-|| INVALID_PHOTO_TAG || if the text contains "###" tags that reference an invalid photo ||
-|| ...(expect more errors can occur here)... ||
 ----
 == !AddPhoto ==
 
@@ -265,17 +269,18 @@ Attaches a photo to a page. The "###" tag is appended to the end of the text.
 
 On success returns empty result.
 
-`POST /api/AddPhoto`
-
-{{{
-<result error="false"/>
-}}}
-
 Or error,
 
 || NOT_LOGGED_IN || 
 || PHOTO_ALREADY_EXISTS || if a photo with the same name already exists in the journal ||
 || ...(expect more errors can occur here)... ||
+
+=== example ===
+`POST /api/AddPhoto`
+
+{{{
+<result error="false"/>
+}}}
 
 = Limitations =
 
