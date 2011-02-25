@@ -1,8 +1,12 @@
-Ideas for a possible app specific API on cgoab.
+Suggestions for an API on crazyguyonabike. The goal is to allow application like cgoab-offline to operate without binding to the fragile html side of the site.
+
+<wiki:toc max_depth="3" />
 
 =Style=
 
 Options for invoking queries, either distinct URL per method, or one "API" URL and pass method as parameter. Whatever is easiest to implement.
+
+Query like APIs would map to HTTP GET (ie, GetUserInfo and GetDocuments), whilst APIs that change state map to HTTP PUT (Login, Logout, CreatePage, AddPhoto).
 
 =Versioning=
 
@@ -29,30 +33,42 @@ Data can be returned from the server using some custom formatted string, CSV sep
 
 Tempting to use one format for simple calls (ie, GetUser), but better to be consistent at expense of making simple calls that extra bit harder to parse.
 
-=Errors=
+=Return codes=
 
-The API spec below lists constant error codes. It is expected these map to an integer value for which a table is used to map to a descriptive message. For consistency with unix/c APIs error codes are negative intergers. For example:
+The result of an API call is either a structured list of data or a simple result/return code. For consistency with unix/c APIs error codes would be expected to be negative. 0 indicates general success, whilst positive integers represent some meaningful data. For example:
 
-|| NOT_LOGGED_IN || -10 ||
+|| DISABLED_METHOD || -200 || error, the method is currently disabled, allows temporary suspension of the service (if abuse detected etc) ||
+|| INVALID_ARGUMENTS || -100 || error, arguments list is not valid (ie, missing or extra argument) ||
+|| NOT_LOGGED_IN || -10 || error, attempt to use method before logging in ||
+|| SUCCESS || 0 || ok ||
+||  || 123456 || page_id returned from CreatePage method ||
 
 ==Session handling==
 
 HTTP requests will contain any cookies set by the server. These cookies/header attributes are not listed in the API, however they will be present like any normal connection.
 
-==GetUser==
+==GetUserInfo==
+
+A simple query API to find the user-name and real-name of the current user. Can be used before explicitly logging in to check if an old session is still valid and thus avoid prompting the user for a password.
+
+=== parameters ===
 
 /* no parameters */
 
 ===return===
 
-|| username ||
-|| realname ||
+Structure containing:
 
-or,
+|| username || "testuser" ||
+|| realname || "John Doe" ||
 
-* NOT_LOGGED_IN if not logged in
+or error code,
+
+|| NOT_LOGGED_IN ||
 
 ==LogIn==
+
+Logs into the server and establishes session. If no pre-existing session is found this must be done before any of the following methods (CreatePage etc) are used.
 
 ===parameters ===
 
@@ -63,25 +79,29 @@ or,
 
 Integer result:
 
-|| SUCCESS || if credentials valid ||
+|| SUCCESS || if credentials valid and log in succeeded ||
 || NOT_LOGGED_IN || if credentials invalid, no distinction is made if username or password was invalid ||
-|| ACCOUNT_LOCKED || if repeated attempts to log in with incorrect password ||
+|| ACCOUNT_LOCKED || if repeated attempts are made to log in with incorrect password ||
 
-Note, this has the side-affect of creating the session cookie
+Upon success there is a side-affect of creating the session cookie
 
 ==LogOut==
 
-=== parameters ===
+Logs out from the server, expected that the server will instruct client to clear it's cookie. May be used by server to clean up server side session object.
 
-/* no parameters */
+===parameters===
+
+/* empty */
 
 ===returns===
 
-|| SUCCESS || Always returned. An attempt to logout without first logging in is silently ignore. ||
+|| SUCCESS || Always returned. An attempt to logout without first logging in is silently ignored. ||
 
 Note, this has the side-affect of clearing the session cookie.
 
 ==GetDocuments==
+
+Returns the list of documents authored by the currently logged in user.
 
 ===parameters===
 
@@ -89,13 +109,16 @@ Note, this has the side-affect of clearing the session cookie.
 
 ===returns===
 
-An entry for each document owned by the current user, each document has:
+A list containing an entry for each document owned by the current user, each document has:
 
-|| doc_id || id of the document || 12345 ||
-|| name || name of the document || "My Journal" ||
-|| status || status of the document || "Completed Aug 2010" or "10 out of 100 days" ||
+|| doc_id || ID of the document || 12345 ||
+|| name || Name of the document || "My Journal" ||
+|| status || Status of the document || "Completed Aug 2010" or "10 out of 100 days" ||
+|| type || Type of document || JOURNAL or ARTICLE ||
 
 ==CreatePage==
+
+Creates a new page in a document.
 
 ===parameters===
 
@@ -116,6 +139,7 @@ An entry for each document owned by the current user, each document has:
 || page_id || 
 || NOT_LOGGED_IN ||
 || PAGE_OLDER_THAN_PREVIOUS ||
+|| INVALID_PHOTO_TAG || if the text contains "###" tags that reference 
 || ... ||
 
 ==AddPhoto==
@@ -133,3 +157,8 @@ An entry for each document owned by the current user, each document has:
 || NOT_LOGGED_IN || 
 || PHOTO_ALREADY_EXISTS || if a photo with the same name already exists in the journal ||
 || ... ||
+
+
+==ISSUES==
+
+At present a combination of CreatePage and then several calls to AddPhoto are used to upload a page. The result of this approach is that we are limited to only adding photos at the end of a page. It is not possible to call CreatePage with text containing "###" photo tags (as the photos won't exist!). An alternative approach would be to call CreatePage with empty text. Then call AddPhoto for each photo. Then call UpdatePage() with the actual text (containing embedded "###" tags). 
