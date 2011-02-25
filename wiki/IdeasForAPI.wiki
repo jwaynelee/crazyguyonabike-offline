@@ -1,6 +1,6 @@
 This page suggests an API for crazyguyonabike. 
 
-The goal is that applications like cgoab-offline can interact with the site without binding to the fragile html face of the site.
+The goal is that applications like cgoab-offline can interact with the site without introducing tight coupling to the sites html face.
 
 The methods to upload content behave much like the existing HTML form interface. This should hopefully ease implementation as the underlying methods called by the forms only need be exposed to this new API, with behaviour remaining consistent.
 
@@ -101,7 +101,7 @@ HTTP requests to the API contain whatever cookies may have been set by the serve
 An alternative approach would be to present the session id/token as a query parameter. This will simplify clients as they no longer need to worry about managing the HTTP cookies, which in some HTTP tool-kits can be cumbersome.
 
 = Methods =
-
+----
 == !GetUserInfo ==
 
 A simple query to find the user-name and real-name of the current user. This can also be used as a check to see if an old session is still valid and thus avoid prompting the user for a password every time:
@@ -129,7 +129,7 @@ or error code,
   <realname>John Doe</realname>
 </result>
 }}}
-
+----
 == !LogIn ==
 
 Log in and establishe a session on the server. This must be called before the session APIs (GetDocuments, CreatePage etc) are called.
@@ -153,7 +153,7 @@ Or error code if not.
 || ACCOUNT_LOCKED || if repeated attempts are made to log in with incorrect password ||
 
 Upon success a side-affect of setting the session cookie, which will be returned to the server for subsequent requests.
-
+----
 == !LogOut ==
 
 Logs out from the server. It is expected that the server instructs the client to clear any session cookie. May be used by server to clean up server side session object.
@@ -171,7 +171,7 @@ Always succeeds. An attempt to logout without first logging in is silently ignor
 }}}
 
 Note, this has the side-affect of clearing the session cookie.
-
+----
 == !GetDocuments ==
 
 Returns list of documents authored by the user.
@@ -212,7 +212,7 @@ or error code,
 
 || NOT_LOGGED_IN ||
 || ... ||
-
+----
 == !CreatePage ==
 
 Creates a new page in a document.
@@ -249,7 +249,7 @@ or error code,
 || PAGE_OLDER_THAN_PREVIOUS || if previous page in document is *newer* than page attempting to add ||
 || INVALID_PHOTO_TAG || if the text contains "###" tags that reference an invalid photo ||
 || ...(expect more errors can occur here)... ||
-
+----
 == !AddPhoto ==
 
 Attaches a photo to a page. The "###" tag is appended to the end of the text.
