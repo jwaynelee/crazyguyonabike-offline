@@ -89,9 +89,9 @@ An error result would be,
 Closely associated with the response format is how error conditions are indicated. For consistency with unix/c APIs error codes are expected to be negative values. For example:
 
 || *Error Code* || *Value* || *Description* ||
-|| DISABLED_METHOD || -300 || error, the method is currently disabled, allows temporary suspension of the service (if abuse detected etc) ||
-|| INVALID_ARGUMENTS || -200 || error, arguments list is not valid (ie, missing or extra argument) ||
-|| NOT_LOGGED_IN || -100 || error, attempt to use method before logging in ||
+|| DISABLED_METHOD || -300 || Method is currently disabled. This allows temporary suspension of certain services (for example, if abuse is detected). May be returned from any method. ||
+|| INVALID_ARGUMENTS || -200 || Arguments list is not valid (ie, missing or extra argument). May be returned from any method. ||
+|| NOT_LOGGED_IN || -100 || Need to login (or login failed). May be returned from any method. ||
 
 As shown in the XML error response snippet, both the code and a descriptive message are returned. This allows the client to take specific error handling steps for errors it can handle (detect NOT_LOGGED_IN and present a login dialogue) and for errors it can't handle then pop up a message box that gives the user a useful message).
 
@@ -291,17 +291,23 @@ Or error,
 <result error="false"/>
 }}}
 
-= Limitations =
+= Limitations (Extra APIs?) =
 
 == Embedding photos in the text ==
 
-With the above API a combination of `CreatePage` and several calls to `AddPhoto` are required to fully upload a page. A limitation of this approach is that photos can only be added at the _end_ of a page. For example, it is not possible to call `CreatePage` with text that embeds "###" photo tags (since the photos don't yet exist!). 
+With the above API a combination of `CreatePage` and several calls to `AddPhoto` are required to fully upload a page. A limitation of this approach is that photos can only be added at the _end_ of a page. For example, it is not possible to call `CreatePage` with text that embeds "###" photo tags (as the photos don't yet exist and so we'll get an error!). 
 
-One solution is to allow _unbound_ "###" tags when a page is created. When these photos do finally exist then they are bound up.
+One solution is to allow _unbound_ "###" tags. And if (when) the photos  finally exist on the server then the tags are bound.
 
-An alternative approach would be to call `CreatePage` providing empty text, call `AddPhoto` for each photo and then finally call some new method `UpdatePage` and set the actual text (which would contain embedded "###" tags).
+An alternative approach would be to call `CreatePage` with empty text, call `AddPhoto` for each photo and then call a method `UpdatePage` that would set the actual text (which would contain embedded "###" tags). For example;
 
-It's preferable to avoid introducing a new API, but, the first solution has complicated error handling. For example, if the text contains references to Photo#1 & Photo#2 and we fail to upload Photo#2 (it may already exist) then we are stuck since we cannot change the text. If `UpdatePage` exists we could just set the text (after removing the references to the photos that failed to upload).
+{{{
+UpdatePage( page_id, text ) {
+  /* sets the text of the selected page */
+}
+}}}
+
+It's preferable to avoid introducing extra APIs but the first solution can run into difficulties handling errors. For example, suppose we create a page with text containing ###1 & ###2 (where 1 and 2 are photos we'll later add). If we fail to upload photo#2 (perhaps it another photos with that name already exists) then we get stuck since we can no longer change the text. If `UpdatePage` exists we could just set the text (after removing the references to the photos that failed to upload).
 
 Right now the app doesn't require these APIs are photos cannot be embedded in the text (a limitation of the UI that may change in future).
 
