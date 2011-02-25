@@ -313,7 +313,7 @@ Right now the app doesn't require these APIs are photos cannot be embedded in th
 
 == Transactions ==
 
-Clients that upload require sophisticated error handling as there is no transaction support. For example, to upload 2 pages, each containing 3 photos results in the following sequence of operations that must be performed by the client:
+Robust clients require sophisticated error handling as the server offers no transactional features. For example, to upload 2 pages, each containing 3 photos will result in the following sequence of method calls:
 
 {{{
 1. CreatePage
@@ -326,11 +326,11 @@ Clients that upload require sophisticated error handling as there is no transact
 8. AddPhoto
 }}}
 
-Applications need to handle failures in any of these steps. Note, some operations can be retried. For example, if the connection drops during AddPhoto, nothing is done on the server so we just wait until the connection reconnects and retry the operation. This is a common case so catches most problems. But if the client crashes, or perhaps one of these operations fail with a _logical_ error (e.g, PHOTO_ALREADY_EXISTS) then the journal is left in an inconsistent state as only part of the work is done.
+Clients need to be able aware of and able to handle failures in any of these steps. Note, some operations _can_ be retried. For example, if the connection drops during AddPhoto then it is OK to just wait until the connection reconnects and retry the AddPhoto operation. This is a common case so catches most problems. But if the client crashes, or perhaps one of these operations fail with a _logical_ error (e.g, PHOTO_ALREADY_EXISTS) then the journal is left in an inconsistent state as only part of the work is done.
 
 In an ideal world we would have server side transactions and wrap each page upload in a transaction allowing the client to either fully commit (or discard) an upload.
 
-A rough implementation might be for the upload APIs (CreatePage and AddPhoto) to simply store data in a temporary directory or table on the server (performing as much error handling as is possible to catch errors early). Once all the data is on the server then the client calls `Commit` which moves the files and inserts the actual data into the database. Note, it's not really necessary to provide rigorous atomicity on the server. We'd just accept that if the server crashes during transaction commit then we may need to manually fix up a page. But this shouldn't be that common.
+A rough implementation would change the upload methods (CreatePage and AddPhoto) to store data in a temporary directory & table on the server (performing as much error handling as is possible to catch errors early). Once all the data is transferred to the server the client can call `Commit` and these files & data will be inserted into the "real" database. Note, we're not talking about a need for rigorous atomicity on the server. It's OK if some manual intervention is required if the server crashes during transaction commit. But then this sort of event is much less common than a client side failure.
 
 Example client:
 
@@ -341,10 +341,10 @@ Example client:
 4. AddPhoto
 5. AddPhoto
 6. Commit
-7. /* repeat for next page */
+7. /* repeat for next page and so on */
 }}}
 
-Sketch of API
+Sketch of API extensions
 
 {{{
 CreateTransaction {
@@ -368,8 +368,9 @@ Commit {
 }
 
 Rollback {
-  /* called when client decides to abort upload */
-  /* removes transaction temp folder and pending transaction table */
+  /* called when client decides to abort upload 
+  /* (could be because user cancelled the upload as it's taking to long) */
+  /* remove transaction temp folder and pending transaction table */
 }
 }}}
 
@@ -377,4 +378,4 @@ Notes,
 
   * Need periodic "garbage collecter" to remove transactions that were created but never committed (for example, because of client crash). This might be a simple cron job that deletes transaction that have not been touched in 1hr (and also delete transaction temp folder)
 
-It may seem simpler to just upload a page and all it's photos in one single operation. But the chance of this failing is high, especially on a slow connection. This approach allows us to slower build up the data on the server, retrying individual operations as necessary before finally committing.
+It might seem simpler to have the client upload a page and all it's photos in one single operation (ie, `UploadPageAndPhotos`). But the chance of this failing is much higher, especially on a slow connection. The transactional approach allows clients to slowly build up the data on the server in small pieces, retrying individual operations as necessary before finally committing the whole lot.
