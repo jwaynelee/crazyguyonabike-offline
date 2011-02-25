@@ -98,10 +98,9 @@ As shown in the XML error response snippet, both the code and a descriptive mess
 
 HTTP requests to the API contain whatever cookies may have been set by the server (connections behave just like a browser).
 
-An alternative approach would be to present the session id/token as a query parameter. This will simplify clients as they no longer need to worry about managing the HTTP cookies, which in some HTTP tool-kits can be cumbersome.
+Alternatively clients might be required to present a session id/token for each method as a query parameter. This simplifies clients as they no longer need to worry about managing the HTTP cookies which in some HTTP toolkits is a cumbersome task.
 
 = Methods =
-----
 == !GetUserInfo ==
 
 A simple query to find the user-name and real-name of the current user. This can also be used as a check to see if an old session is still valid and thus avoid prompting the user for a password every time:
