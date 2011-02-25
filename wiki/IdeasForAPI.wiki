@@ -12,8 +12,8 @@ The methods to upload content behave much like the existing HTML form interface.
 
 There are several options for invoking queries, 
 
-* Distinct URL per method, for example `/api/GetUserInfo`
-* Single "API" URL, passing action as a parameter, `/api/?action=GetUserInfo`
+  * Distinct URL per method, for example `/api/GetUserInfo`
+  * Single "API" URL, passing action as a parameter, `/api/?action=GetUserInfo`
 
 Whatever is easiest to implement.
 
