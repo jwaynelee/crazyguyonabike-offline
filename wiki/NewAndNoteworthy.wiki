@@ -3,6 +3,10 @@
 
 <wiki:toc max_depth="2" />
 
+=0.1.4: Bug fix due to site changes=
+
+  * Fixes bug where font style (bold/italic) and hidden settings are ignored (always bold, italic & visible). Caused by change to site to use different value to indicate "true" (now "1" not "on").
+
 =0.1.3: Charset encoding bug, OSX Application menu & bug fixes=
 
   * If you used non-ASCII characters in the text (for example, ä or à) then previous versions failed to re-open the file. You'd get something similar to the error box below. This version explicitly saves all files in "UTF-8". Older files are converted automatically so will work seamlessly with this new version.
