@@ -3,6 +3,10 @@
 
 <wiki:toc max_depth="2" />
 
+=0.1.5: Bug fix due to site changes=
+
+  * Fixes bug where uploads fail with "Error during initialization" message; caused by renaming of "format" field to "auto_format".
+
 =0.1.4: Bug fix due to site changes=
 
   * Fixes bug where font style (bold/italic) and hidden settings are ignored (always bold, italic & visible). Caused by change to site to use different value to indicate "true" (now "1" not "on").
