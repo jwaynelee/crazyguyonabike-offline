@@ -672,7 +672,7 @@ public class DefaultWebUploadClient extends AbstractUploadClient {
 			overrides.put("visible", "false");
 			overrides.put("title", "__VALIDATE_CGOAB_OFFLINE__");
 			overrides.put("headline", "__DELETE_THIS_PAGE__");
-			overrides.put("format", "auto");
+			overrides.put("auto_format", "auto");
 			overrides.put("text", "");
 			overrides.put("date", ""); /* don't fail because date is wrong! */
 			overrides.put("submit", "Upload Pic or File");

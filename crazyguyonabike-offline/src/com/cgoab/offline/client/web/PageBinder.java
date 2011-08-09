@@ -24,7 +24,7 @@ public class PageBinder extends AbstractFormBinder {
 		registerUsedProperty("headline");
 		registerUsedProperty("text");
 		registerUsedProperty("edit_comment");
-		registerUsedProperty("format");
+		registerUsedProperty("auto_format");
 		registerUsedPropertyOption("submit", SUBMIT_VALUE);
 		registerUsedProperty("doc_id");
 		registerUsedProperty("update_timestamp");
@@ -52,7 +52,7 @@ public class PageBinder extends AbstractFormBinder {
 		builder.put("headline", page.getHeadline());
 		builder.put("text", page.getText());
 		builder.put("edit_comment", page.getEditComment());
-		builder.put("format", page.getFormat().toString().toLowerCase());
+		builder.put("auto_format", page.getFormat().toString().toLowerCase());
 		builder.put("submit", SUBMIT_VALUE);
 		builder.put("doc_id", Integer.toString(documentId));
 		builder.put("update_timestamp", "off");

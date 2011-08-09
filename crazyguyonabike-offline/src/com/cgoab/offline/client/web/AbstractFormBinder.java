@@ -11,7 +11,7 @@ import com.cgoab.offline.util.FormFinder.HtmlForm;
 public abstract class AbstractFormBinder {
 
 	public static String toOnOff(boolean value) {
-		return value ? "on" : "off";
+		return value ? "1" : "0";
 	}
 
 	private final Map<String, Expected> expected = new HashMap<String, Expected>();
